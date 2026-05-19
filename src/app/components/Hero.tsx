@@ -1,5 +1,6 @@
 import { motion, useScroll, useTransform } from 'motion/react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
+import logoImg from '../../imports/Logo.jpeg';
 
 export function Hero() {
   const { scrollY } = useScroll();
@@ -26,14 +27,15 @@ export function Hero() {
         transition={{ duration: 1, delay: 0.2 }}
         className="relative z-10 text-center px-4 mt-32"
       >
-        <motion.h1
+        <motion.img
+          src={logoImg}
+          alt="Studios Tatto"
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.8, delay: 0.5 }}
-          className="text-6xl md:text-8xl font-bold text-neutral-100 mb-6 tracking-wider"
-        >
-          STUDIOS TATTO
-        </motion.h1>
+          className="mx-auto mb-6 h-32 w-auto md:h-48"
+          style={{ mixBlendMode: 'lighten' }}
+        />
         <motion.p
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -44,46 +46,58 @@ export function Hero() {
         </motion.p>
 
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, delay: 1 }}
-          className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4"
+          transition={{ duration: 0.6, delay: 1.15 }}
+          className="mt-6 flex flex-wrap items-center justify-center gap-3"
         >
           <motion.a
-            href="https://instagram.com"
-            target="_blank"
-            rel="noopener noreferrer"
+            href="#avaliacoes"
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.98 }}
-            className="px-6 py-3 rounded-full border border-neutral-700 text-neutral-100 text-sm tracking-wide uppercase hover:border-neutral-400 transition-colors"
+            className="px-5 py-2 rounded-full border border-neutral-800 text-neutral-200 text-xs tracking-wide uppercase hover:border-neutral-500 transition-colors"
+          >
+            Avaliacoes
+          </motion.a>
+          <motion.a
+            href="#curso"
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.98 }}
+            className="px-5 py-2 rounded-full border border-neutral-800 text-neutral-200 text-xs tracking-wide uppercase hover:border-neutral-500 transition-colors"
+          >
+            Curso
+          </motion.a>
+          <motion.a
+            href="#especialistas"
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.98 }}
+            className="px-5 py-2 rounded-full border border-neutral-800 text-neutral-200 text-xs tracking-wide uppercase hover:border-neutral-500 transition-colors"
+          >
+            Especialistas
+          </motion.a>
+          <motion.a
+            href="#instagram"
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.98 }}
+            className="px-5 py-2 rounded-full border border-neutral-800 text-neutral-200 text-xs tracking-wide uppercase hover:border-neutral-500 transition-colors"
           >
             Instagram
-          </motion.a>
-          <motion.a
-            href="https://wa.me/"
-            target="_blank"
-            rel="noopener noreferrer"
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.98 }}
-            className="px-6 py-3 rounded-full border border-neutral-700 text-neutral-100 text-sm tracking-wide uppercase hover:border-neutral-400 transition-colors"
-          >
-            WhatsApp
-          </motion.a>
-          <motion.a
-            href="#catalogo"
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.98 }}
-            className="px-6 py-3 rounded-full bg-neutral-100 text-neutral-900 text-sm tracking-wide uppercase hover:bg-white transition-colors"
-          >
-            Catalogo
           </motion.a>
           <motion.a
             href="#localizacao"
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.98 }}
-            className="px-6 py-3 rounded-full border border-neutral-700 text-neutral-100 text-sm tracking-wide uppercase hover:border-neutral-400 transition-colors"
+            className="px-5 py-2 rounded-full border border-neutral-800 text-neutral-200 text-xs tracking-wide uppercase hover:border-neutral-500 transition-colors"
           >
             Localizacao
+          </motion.a>
+          <motion.a
+            href="#portfolio"
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.98 }}
+            className="px-5 py-2 rounded-full border border-neutral-800 text-neutral-200 text-xs tracking-wide uppercase hover:border-neutral-500 transition-colors"
+          >
+            Portofolio
           </motion.a>
         </motion.div>
       </motion.div>

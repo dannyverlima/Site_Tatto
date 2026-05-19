@@ -1,7 +1,6 @@
 import { Navigation } from './components/Navigation';
 import { Hero } from './components/Hero';
 import { Contact } from './components/Contact';
-import { Catalog } from './components/Catalog';
 import { Portfolio } from './components/Portfolio';
 import { Specialists } from './components/Specialists';
 import { InstagramSection } from './components/InstagramSection';
@@ -16,7 +15,6 @@ export default function App() {
       <Navigation />
       <Hero />
       <Contact />
-      <Catalog />
       <Portfolio />
       <Specialists />
       <InstagramSection />
