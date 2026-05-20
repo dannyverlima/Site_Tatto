@@ -1,6 +1,6 @@
 import { motion, useScroll, useTransform } from 'motion/react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
-import logoImg from '../../imports/Logo.jpeg';
+import logoImg from '../../imports/Logo.png';
 
 export function Hero() {
   const { scrollY } = useScroll();

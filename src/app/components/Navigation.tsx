@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import logoImg from '../../imports/Logo.jpeg';
+import logoImg from '../../imports/Logo.png';
 
 export function Navigation() {
   const [isScrolled, setIsScrolled] = useState(false);
