@@ -1,8 +1,10 @@
 import { motion, useScroll, useTransform } from 'motion/react';
-import { ImageWithFallback } from './figma/ImageWithFallback';
 import logoImg from '../../imports/Logo.png';
+import { HeroBackground } from './HeroBackground';
+import { useSiteConfig } from '../hooks/useSiteConfig';
 
 export function Hero() {
+  const { config } = useSiteConfig();
   const { scrollY } = useScroll();
   const opacity = useTransform(scrollY, [0, 300], [1, 0]);
   const scale = useTransform(scrollY, [0, 300], [1, 0.8]);
@@ -11,10 +13,9 @@ export function Hero() {
     <section id="home" className="relative h-screen w-full overflow-hidden flex items-center justify-center bg-neutral-950">
       {/* Background Image com Opacidade Baixa */}
       <div className="absolute inset-0 z-0">
-        <ImageWithFallback
-          src="https://images.unsplash.com/photo-1568515045052-f9a854d70bfd?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx0YXR0b28lMjBhcnRpc3QlMjBzdHVkaW8lMjBkYXJrfGVufDF8fHx8MTc3OTE3OTM3MXww&ixlib=rb-4.1.0&q=80&w=1080"
-          alt="Tattoo Studio Background"
-          className="w-full h-full object-cover opacity-15"
+        <HeroBackground
+          type={config.hero.backgroundType}
+          url={config.hero.backgroundUrl}
         />
         <div className="absolute inset-0 bg-black opacity-50"></div>
       </div>
@@ -33,7 +34,7 @@ export function Hero() {
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.8, delay: 0.5 }}
-          className="mx-auto mb-6 h-32 w-auto md:h-48"
+          className="mx-auto mb-6 h-60 w-auto md:h-100"
           style={{ mixBlendMode: 'lighten' }}
         />
         <motion.p
@@ -52,22 +53,6 @@ export function Hero() {
           className="mt-6 flex flex-wrap items-center justify-center gap-3"
         >
           <motion.a
-            href="#avaliacoes"
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.98 }}
-            className="px-5 py-2 rounded-full border border-neutral-800 text-neutral-200 text-xs tracking-wide uppercase hover:border-neutral-500 transition-colors"
-          >
-            Avaliacoes
-          </motion.a>
-          <motion.a
-            href="#curso"
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.98 }}
-            className="px-5 py-2 rounded-full border border-neutral-800 text-neutral-200 text-xs tracking-wide uppercase hover:border-neutral-500 transition-colors"
-          >
-            Curso
-          </motion.a>
-          <motion.a
             href="#especialistas"
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.98 }}
@@ -76,12 +61,28 @@ export function Hero() {
             Especialistas
           </motion.a>
           <motion.a
-            href="#instagram"
+            href="#portfolio"
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.98 }}
             className="px-5 py-2 rounded-full border border-neutral-800 text-neutral-200 text-xs tracking-wide uppercase hover:border-neutral-500 transition-colors"
           >
-            Instagram
+            Portofolio
+          </motion.a>
+          <motion.a
+            href="/curso.html"
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.98 }}
+            className="px-5 py-2 rounded-full border border-neutral-800 text-neutral-200 text-xs tracking-wide uppercase hover:border-neutral-500 transition-colors"
+          >
+            Curso
+          </motion.a>
+          <motion.a
+            href="#avaliacoes"
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.98 }}
+            className="px-5 py-2 rounded-full border border-neutral-800 text-neutral-200 text-xs tracking-wide uppercase hover:border-neutral-500 transition-colors"
+          >
+            Avaliacoes
           </motion.a>
           <motion.a
             href="#localizacao"
@@ -90,14 +91,6 @@ export function Hero() {
             className="px-5 py-2 rounded-full border border-neutral-800 text-neutral-200 text-xs tracking-wide uppercase hover:border-neutral-500 transition-colors"
           >
             Localizacao
-          </motion.a>
-          <motion.a
-            href="#portfolio"
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.98 }}
-            className="px-5 py-2 rounded-full border border-neutral-800 text-neutral-200 text-xs tracking-wide uppercase hover:border-neutral-500 transition-colors"
-          >
-            Portofolio
           </motion.a>
         </motion.div>
       </motion.div>

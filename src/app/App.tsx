@@ -1,9 +1,8 @@
 import { Navigation } from './components/Navigation';
 import { Hero } from './components/Hero';
-import { Contact } from './components/Contact';
+import { Contact } from './components/contatos';
 import { Portfolio } from './components/Portfolio';
 import { Specialists } from './components/Specialists';
-import { InstagramSection } from './components/InstagramSection';
 import { Course } from './components/Course';
 import { Reviews } from './components/Reviews';
 import { MapSection } from './components/MapSection';
@@ -14,13 +13,12 @@ export default function App() {
     <div className="min-h-screen bg-neutral-950">
       <Navigation />
       <Hero />
-      <Contact />
-      <Portfolio />
       <Specialists />
-      <InstagramSection />
+      <Portfolio />
       <Course />
       <Reviews />
       <MapSection />
+      <Contact />
       <Footer />
     </div>
   );

@@ -65,6 +65,7 @@
     "vaul": "1.1.2"
   },
   "devDependencies": {
+    "@types/node": "22.10.2",
     "@types/react": "18.3.6",
     "@types/react-dom": "18.3.1",
     "@tailwindcss/vite": "4.1.12",
