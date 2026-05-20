@@ -3,10 +3,10 @@ import { Hero } from './components/Hero';
 import { Contact } from './components/contatos';
 import { Portfolio } from './components/Portfolio';
 import { Specialists } from './components/Specialists';
-import { Course } from './components/Course';
+import { Course } from './components/curso';
 import { Reviews } from './components/Reviews';
-import { MapSection } from './components/MapSection';
-import { Footer } from './components/Footer';
+import { MapSection } from './components/localização';
+import { Footer } from './components/rodapé';
 
 export default function App() {
   return (
