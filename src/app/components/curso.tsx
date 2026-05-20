@@ -113,10 +113,10 @@ export function Course() {
             </div>
             <div className="bg-neutral-700 rounded-xl p-8 text-center">
               <div className="text-5xl font-bold text-neutral-100 mb-2">
-                R$ 3.500
+                € 3.500
               </div>
               <p className="text-neutral-400 mb-6">
-                ou 12x de R$ 350 sem juros
+                ou 12x de € 350 sem juros
               </p>
               <div className="space-y-2 text-neutral-300 text-sm">
                 <p>Investimento único</p>

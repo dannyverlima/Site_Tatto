@@ -79,7 +79,7 @@ export function Footer() {
         <div className="border-t border-neutral-800 pt-8 text-center text-sm">
           <p>© {currentYear} Studios Tatto. Todos os direitos reservados.</p>
           <p className="mt-2 text-xs">
-            Desenvolvido com ❤️ para a arte da tatuagem
+            A qualidade e elegancia que seu corpo merece.
           </p>
         </div>
       </div>

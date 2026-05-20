@@ -26,7 +26,7 @@ export function InstagramSection() {
           <div className="flex items-center justify-center gap-3 mb-4">
             <Instagram size={48} className="text-neutral-100" />
             <h2 className="text-4xl md:text-6xl font-bold text-neutral-100 tracking-wide">
-              INSTAGRAM
+              Instragram
             </h2>
           </div>
           <p className="text-neutral-400 text-lg mb-6">
