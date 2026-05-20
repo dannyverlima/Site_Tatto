@@ -10,7 +10,7 @@
             "request": "launch",
             "name": "Chrome",
             "url": "http://localhost:5173/",
-            "webRoot": "${workspaceFolder}"
+            "webRoot": "${workspaceFolder}",
             "runtimeExecutable": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
         }
     ]

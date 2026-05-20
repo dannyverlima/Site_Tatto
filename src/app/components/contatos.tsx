@@ -29,8 +29,8 @@ export function Contact() {
     {
       icon: Phone,
       title: 'Telefone',
-      content: '+351 21 123 4567',
-      link: 'tel:+351211234567',
+      content: '+55 27 98806-3942',
+      link: 'tel:+5527988063942',
     },
     {
       icon: Mail,
@@ -185,7 +185,7 @@ export function Contact() {
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                     className="w-full px-4 py-3 bg-neutral-700 text-neutral-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-500"
-                    placeholder="+351 21 123 4567"
+                    placeholder="+55 27 98806-3942"
                   />
                 </div>
 
