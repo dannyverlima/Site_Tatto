@@ -5,14 +5,26 @@ export const useSiteConfig = () => {
   const [config, setConfig] = useState<SiteConfig>(defaultSiteConfig);
 
   useEffect(() => {
-    setConfig(loadSiteConfig());
+    let isMounted = true;
+
+    const refreshConfig = async () => {
+      const nextConfig = await loadSiteConfig();
+      if (isMounted) {
+        setConfig(nextConfig);
+      }
+    };
+
+    refreshConfig();
 
     const handleUpdate = () => {
-      setConfig(loadSiteConfig());
+      refreshConfig();
     };
 
     window.addEventListener('site-config-updated', handleUpdate);
-    return () => window.removeEventListener('site-config-updated', handleUpdate);
+    return () => {
+      isMounted = false;
+      window.removeEventListener('site-config-updated', handleUpdate);
+    };
   }, []);
 
   return { config, setConfig };

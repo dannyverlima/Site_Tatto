@@ -1,7 +1,52 @@
 import { motion } from 'motion/react';
 import { useInView } from 'motion/react';
-import { useRef, useState } from 'react';
-import { Mail, Phone, MapPin, Clock, Send } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Mail, Phone, MapPin, Clock, Send, Instagram, Facebook, MessageCircle } from 'lucide-react';
+import { toWhatsappLink } from '../utils/formatters';
+
+type ContactInfoItem = {
+  id: string;
+  kind: string;
+  label?: string | null;
+  value: string;
+  linkUrl?: string | null;
+};
+
+const labelByKind: Record<string, string> = {
+  phone: 'Telefone',
+  email: 'Email',
+  address: 'Endereco',
+  hours: 'Horario',
+  whatsapp: 'WhatsApp',
+  instagram: 'Instagram',
+  facebook: 'Facebook',
+};
+
+const iconByKind: Record<string, React.ComponentType<{ className?: string }>> = {
+  phone: Phone,
+  email: Mail,
+  address: MapPin,
+  hours: Clock,
+  whatsapp: MessageCircle,
+  instagram: Instagram,
+  facebook: Facebook,
+};
+
+const buildLink = (info: ContactInfoItem) => {
+  if (info.linkUrl) {
+    return info.linkUrl;
+  }
+  if (info.kind === 'phone') {
+    return `tel:${info.value}`;
+  }
+  if (info.kind === 'email') {
+    return `mailto:${info.value}`;
+  }
+  if (info.kind === 'whatsapp') {
+    return toWhatsappLink(info.value);
+  }
+  return null;
+};
 
 export function Contact() {
   const ref = useRef(null);
@@ -13,44 +58,71 @@ export function Contact() {
     message: '',
   });
   const [submitted, setSubmitted] = useState(false);
+  const [contactInfo, setContactInfo] = useState<ContactInfoItem[]>([]);
+  const [infoError, setInfoError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadContactInfo = async () => {
+      try {
+        const response = await fetch('/api/contact-info');
+        if (!response.ok) {
+          throw new Error('Falha ao carregar contatos');
+        }
+        const data = (await response.json()) as ContactInfoItem[];
+        if (isMounted) {
+          setContactInfo(data);
+        }
+      } catch (error) {
+        console.error('Erro ao carregar contatos', error);
+        if (isMounted) {
+          setInfoError('Nao foi possivel carregar os contatos.');
+        }
+      }
+    };
+
+    loadContactInfo();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Aqui seria enviado para um backend
-    console.log('Contact form submitted:', formData);
-    setSubmitted(true);
-    setTimeout(() => {
-      setSubmitted(false);
-      setFormData({ name: '', email: '', phone: '', message: '' });
-    }, 3000);
+    setIsSubmitting(true);
+    setSubmitError('');
+
+    try {
+      const response = await fetch('/api/contact-submissions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (!response.ok) {
+        throw new Error('Falha ao enviar contato');
+      }
+
+      setSubmitted(true);
+      setTimeout(() => {
+        setSubmitted(false);
+        setFormData({ name: '', email: '', phone: '', message: '' });
+      }, 3000);
+    } catch (error) {
+      console.error('Erro ao enviar contato', error);
+      setSubmitError('Nao foi possivel enviar sua mensagem.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const contactInfo = [
-    {
-      icon: Phone,
-      title: 'Telefone',
-      content: '+55 27 98806-3942',
-      link: 'tel:+5527988063942',
-    },
-    {
-      icon: Mail,
-      title: 'Email',
-      content: 'contato@studiostatto.com',
-      link: 'mailto:contato@studiostatto.com',
-    },
-    {
-      icon: MapPin,
-      title: 'Endereço',
-      content: 'Rua das Artes, 123 - Lisboa',
-      link: '#localizacao',
-    },
-    {
-      icon: Clock,
-      title: 'Horário',
-      content: 'Seg-Sáb: 10h-20h',
-      link: null,
-    },
-  ];
+  const infoItems = contactInfo.filter((info) => info.kind !== 'other');
+  const infoExtras = contactInfo.filter((info) => info.kind === 'other');
 
   return (
     <section id="contato" ref={ref} className="py-20 px-4 bg-neutral-900">
@@ -65,12 +137,11 @@ export function Contact() {
             CONTATE-NOS
           </h2>
           <p className="text-neutral-400 text-lg">
-            Entre em contato conosco e agende sua sessão
+            Entre em contato conosco e agende sua sessao
           </p>
         </motion.div>
 
         <div className="grid md:grid-cols-2 gap-12">
-          {/* Contact Info */}
           <div>
             <motion.div
               initial={{ opacity: 0, x: -50 }}
@@ -78,53 +149,61 @@ export function Contact() {
               transition={{ duration: 0.6, delay: 0.2 }}
               className="space-y-6 mb-8"
             >
-              {contactInfo.map((info, index) => (
-                <motion.div
-                  key={info.title}
-                  initial={{ opacity: 0, x: -30 }}
-                  animate={isInView ? { opacity: 1, x: 0 } : { opacity: 0, x: -30 }}
-                  transition={{ duration: 0.5, delay: 0.3 + index * 0.1 }}
-                  className="flex items-start gap-4"
-                >
-                  <div className="bg-neutral-700 p-3 rounded-lg">
-                    <info.icon className="w-6 h-6 text-neutral-100" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-neutral-100 mb-1">
-                      {info.title}
-                    </h3>
-                    {info.link ? (
-                      <a
-                        href={info.link}
-                        className="text-neutral-400 hover:text-neutral-100 transition-colors"
-                      >
-                        {info.content}
-                      </a>
-                    ) : (
-                      <p className="text-neutral-400">{info.content}</p>
-                    )}
-                  </div>
-                </motion.div>
-              ))}
+              {infoError ? (
+                <p className="text-sm text-red-400">{infoError}</p>
+              ) : null}
+              {infoItems.map((info, index) => {
+                const Icon = iconByKind[info.kind] || MapPin;
+                const link = buildLink(info);
+                const title = info.label || labelByKind[info.kind] || 'Contato';
+                return (
+                  <motion.div
+                    key={info.id}
+                    initial={{ opacity: 0, x: -30 }}
+                    animate={isInView ? { opacity: 1, x: 0 } : { opacity: 0, x: -30 }}
+                    transition={{ duration: 0.5, delay: 0.3 + index * 0.1 }}
+                    className="flex items-start gap-4"
+                  >
+                    <div className="bg-neutral-700 p-3 rounded-lg">
+                      <Icon className="w-6 h-6 text-neutral-100" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-neutral-100 mb-1">
+                        {title}
+                      </h3>
+                      {link ? (
+                        <a
+                          href={link}
+                          className="text-neutral-400 hover:text-neutral-100 transition-colors"
+                        >
+                          {info.value}
+                        </a>
+                      ) : (
+                        <p className="text-neutral-400">{info.value}</p>
+                      )}
+                    </div>
+                  </motion.div>
+                );
+              })}
             </motion.div>
 
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
-              transition={{ duration: 0.6, delay: 0.7 }}
-              className="bg-neutral-800/50 border border-neutral-700 p-6 rounded-lg text-neutral-100"
-            >
-              <h3 className="text-xl font-bold mb-3">Informações Importantes</h3>
-              <ul className="space-y-2 text-neutral-300 text-sm">
-                <li>• Atendemos apenas com hora marcada</li>
-                <li>• Consulta inicial gratuita</li>
-                <li>• Orçamento sem compromisso</li>
-                <li>• Aceitamos cartão, dinheiro e PIX</li>
-              </ul>
-            </motion.div>
+            {infoExtras.length > 0 ? (
+              <motion.div
+                initial={{ opacity: 0, y: 30 }}
+                animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
+                transition={{ duration: 0.6, delay: 0.7 }}
+                className="bg-neutral-800/50 border border-neutral-700 p-6 rounded-lg text-neutral-100"
+              >
+                <h3 className="text-xl font-bold mb-3">Informacoes Importantes</h3>
+                <ul className="space-y-2 text-neutral-300 text-sm">
+                  {infoExtras.map((item) => (
+                    <li key={item.id}>• {item.value}</li>
+                  ))}
+                </ul>
+              </motion.div>
+            ) : null}
           </div>
 
-          {/* Contact Form */}
           <motion.div
             initial={{ opacity: 0, x: 50 }}
             animate={isInView ? { opacity: 1, x: 0 } : { opacity: 0, x: 50 }}
@@ -185,7 +264,7 @@ export function Contact() {
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                     className="w-full px-4 py-3 bg-neutral-700 text-neutral-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-500"
-                    placeholder="+55 27 98806-3942"
+                    placeholder="(27) 00000-0000"
                   />
                 </div>
 
@@ -199,17 +278,22 @@ export function Contact() {
                     onChange={(e) => setFormData({ ...formData, message: e.target.value })}
                     rows={4}
                     className="w-full px-4 py-3 bg-neutral-700 text-neutral-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-500 resize-none"
-                    placeholder="Conte-nos sobre a tatuagem que você deseja..."
+                    placeholder="Conte-nos sobre a tatuagem que voce deseja..."
                   />
                 </div>
+
+                {submitError ? (
+                  <p className="text-sm text-red-400">{submitError}</p>
+                ) : null}
 
                 <motion.button
                   type="submit"
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
-                  className="w-full px-6 py-4 bg-neutral-100 text-neutral-900 rounded-lg font-semibold hover:bg-white transition-colors duration-300 flex items-center justify-center gap-2"
+                  disabled={isSubmitting}
+                  className="w-full px-6 py-4 bg-neutral-100 text-neutral-900 rounded-lg font-semibold hover:bg-white transition-colors duration-300 flex items-center justify-center gap-2 disabled:opacity-60"
                 >
-                  <span>Enviar Mensagem</span>
+                  <span>{isSubmitting ? 'Enviando...' : 'Enviar Mensagem'}</span>
                   <Send size={20} />
                 </motion.button>
               </form>

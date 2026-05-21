@@ -7,6 +7,10 @@ type HeroBackgroundProps = {
 };
 
 export function HeroBackground({ type, url }: HeroBackgroundProps) {
+  if (!url) {
+    return <div className="w-full h-full bg-neutral-950" />;
+  }
+
   if (type === 'video') {
     return (
       <video

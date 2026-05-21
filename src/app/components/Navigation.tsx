@@ -4,6 +4,7 @@ import logoImg from '../../imports/Logo.png';
 
 export function Navigation() {
   const [isScrolled, setIsScrolled] = useState(false);
+  const [ctaLink, setCtaLink] = useState<{ label: string; href: string } | null>(null);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -13,10 +14,45 @@ export function Navigation() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadCta = async () => {
+      try {
+        const response = await fetch('/api/site-links?placement=cta');
+        if (!response.ok) {
+          throw new Error('Falha ao carregar CTA');
+        }
+        const data = (await response.json()) as Array<{ label: string; href: string }>;
+        if (isMounted) {
+          setCtaLink(data[0] || null);
+        }
+      } catch (error) {
+        console.error('Erro ao carregar CTA', error);
+      }
+    };
+
+    loadCta();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const scrollToSection = (href: string) => {
     const element = document.querySelector(href);
     if (element) {
       element.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
+  const handleCtaClick = () => {
+    if (!ctaLink) {
+      return;
+    }
+    if (ctaLink.href.startsWith('#')) {
+      scrollToSection(ctaLink.href);
+    } else {
+      window.open(ctaLink.href, '_blank');
     }
   };
 
@@ -45,14 +81,16 @@ export function Navigation() {
               />
             </motion.button>
 
-            <motion.button
-              onClick={() => scrollToSection('#contato')}
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.98 }}
-              className="px-5 py-2 rounded-full border border-neutral-700 text-neutral-100 text-xs tracking-wide uppercase hover:border-neutral-400 transition-colors"
-            >
-              Contate-nos
-            </motion.button>
+            {ctaLink ? (
+              <motion.button
+                onClick={handleCtaClick}
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.98 }}
+                className="px-5 py-2 rounded-full border border-neutral-700 text-neutral-100 text-xs tracking-wide uppercase hover:border-neutral-400 transition-colors"
+              >
+                {ctaLink.label}
+              </motion.button>
+            ) : null}
           </div>
         </div>
       </motion.nav>
