@@ -5,16 +5,19 @@ import { AdminSpecialists } from './AdminSpecialists';
 import { AdminPortfolio } from './AdminPortfolio';
 import { AdminCourse } from './AdminCourse';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../app/components/ui/tabs';
+import { Button } from '../app/components/ui/button';
+import { Input } from '../app/components/ui/input';
+import { Card, CardContent, CardHeader, CardTitle } from '../app/components/ui/card';
+import { Camera, ChevronRight, LayoutDashboard, MoonStar, Sparkles, Upload, Wand2 } from 'lucide-react';
+import { uploadImageFile } from './uploadImage';
 
 const ADMIN_USER = 'admin';
 const ADMIN_PASS = 'Admin@tatto';
 const AUTH_KEY = 'admin-auth';
 
-const normalizeLines = (value: string) =>
-  value
-    .split('\n')
-    .map((item) => item.trim())
-    .filter((item) => item.length > 0);
+const shellClassName = 'relative min-h-screen overflow-hidden bg-[#050505] text-white';
+const panelClassName = 'border-white/10 bg-white/[0.04] text-white shadow-2xl shadow-black/30 backdrop-blur-xl';
+const fieldClassName = 'border-white/10 bg-white/5 text-white placeholder:text-white/35';
 
 const AdminLogin = ({ onSuccess }: { onSuccess: () => void }) => {
   const [username, setUsername] = useState('');
@@ -32,39 +35,53 @@ const AdminLogin = ({ onSuccess }: { onSuccess: () => void }) => {
   };
 
   return (
-    <div className="min-h-screen bg-neutral-950 text-neutral-100 flex items-center justify-center px-4">
+    <div className={`${shellClassName} flex items-center justify-center px-4`}>
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute left-[-10%] top-[-8%] h-72 w-72 rounded-full bg-white/10 blur-3xl animate-pulse" />
+        <div className="absolute right-[-8%] bottom-[-12%] h-96 w-96 rounded-full bg-white/6 blur-3xl animate-pulse" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.06),_transparent_40%),linear-gradient(180deg,_rgba(255,255,255,0.03),_transparent_30%)]" />
+      </div>
       <form
         onSubmit={handleSubmit}
-        className="w-full max-w-md bg-neutral-900 border border-neutral-800 rounded-2xl p-8"
+        className="relative w-full max-w-md overflow-hidden rounded-[28px] border border-white/10 bg-white/[0.05] p-8 shadow-2xl shadow-black/40 backdrop-blur-2xl"
       >
-        <h1 className="text-2xl font-bold mb-6">Area Admin</h1>
+        <div className="mb-8 flex items-center gap-3 text-white/90">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/10">
+            <MoonStar className="h-5 w-5" />
+          </div>
+          <div>
+            <p className="text-xs uppercase tracking-[0.3em] text-white/45">Admin</p>
+            <h1 className="text-2xl font-semibold">Área de controle</h1>
+          </div>
+        </div>
         <div className="space-y-4">
           <div>
-            <label className="block text-sm text-neutral-300 mb-2">Nome</label>
+            <label className="mb-2 block text-sm text-white/65">Nome</label>
             <input
               value={username}
               onChange={(event) => setUsername(event.target.value)}
-              className="w-full px-4 py-3 bg-neutral-800 text-neutral-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-500"
+              className={`w-full rounded-2xl px-4 py-3 outline-none ring-1 ring-inset ring-white/10 transition focus:ring-2 focus:ring-white/30 ${fieldClassName}`}
               placeholder="admin"
               required
             />
           </div>
           <div>
-            <label className="block text-sm text-neutral-300 mb-2">Senha</label>
+            <label className="mb-2 block text-sm text-white/65">Senha</label>
             <input
               type="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              className="w-full px-4 py-3 bg-neutral-800 text-neutral-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-500"
+              className={`w-full rounded-2xl px-4 py-3 outline-none ring-1 ring-inset ring-white/10 transition focus:ring-2 focus:ring-white/30 ${fieldClassName}`}
               placeholder="Admin@tatto"
               required
             />
           </div>
-          {error ? <p className="text-sm text-red-400">{error}</p> : null}
+          {error ? <p className="text-sm text-red-300">{error}</p> : null}
           <button
             type="submit"
-            className="w-full px-6 py-3 bg-neutral-100 text-neutral-900 rounded-lg font-semibold hover:bg-neutral-200 transition-colors"
+            className="flex w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white px-6 py-3 font-semibold text-black transition hover:bg-white/90"
           >
+            <Wand2 className="h-4 w-4" />
             Entrar
           </button>
         </div>
@@ -79,12 +96,38 @@ const AdminPanel = () => {
   const [status, setStatus] = useState('');
   const [error, setError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploadingHeroImage, setIsUploadingHeroImage] = useState(false);
 
   useEffect(() => {
     setDraft(config);
   }, [config]);
 
   const hasChanges = useMemo(() => JSON.stringify(draft) !== JSON.stringify(config), [draft, config]);
+
+  const handleHeroImageFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    setIsUploadingHeroImage(true);
+    try {
+      const backgroundUrl = await uploadImageFile(file);
+      setDraft((current) => ({
+        ...current,
+        hero: {
+          ...current.hero,
+          backgroundUrl,
+        },
+      }));
+    } catch (uploadError) {
+      console.error('Falha ao enviar imagem do hero', uploadError);
+      setError('Não foi possível enviar a imagem do hero.');
+    } finally {
+      setIsUploadingHeroImage(false);
+      event.target.value = '';
+    }
+  };
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -103,96 +146,205 @@ const AdminPanel = () => {
   };
 
   return (
-    <div className="min-h-screen bg-neutral-950 text-neutral-100">
-      <header className="border-b border-neutral-800">
-        <div className="max-w-6xl mx-auto px-4 py-6 flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <p className="text-xs uppercase tracking-[0.3em] text-neutral-500">Admin</p>
-            <h1 className="text-3xl font-bold">Controle do site</h1>
-          </div>
+    <div className={shellClassName}>
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute left-[-12%] top-[-10%] h-[26rem] w-[26rem] rounded-full bg-white/8 blur-3xl animate-pulse" />
+        <div className="absolute right-[-8%] top-[18%] h-[32rem] w-[32rem] rounded-full bg-white/5 blur-3xl animate-pulse" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.08),_transparent_34%),linear-gradient(180deg,_rgba(255,255,255,0.03),_transparent_28%)]" />
+      </div>
+
+      <header className="relative border-b border-white/10 bg-black/40 backdrop-blur-2xl">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-4 py-6 lg:px-8">
           <div className="flex items-center gap-4">
-            {status ? <span className="text-sm text-green-400">{status}</span> : null}
-            {error ? <span className="text-sm text-red-400">{error}</span> : null}
-            <button
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-white/10 text-white/85 shadow-lg shadow-black/30">
+              <LayoutDashboard className="h-6 w-6" />
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-[0.3em] text-white/45">Admin</p>
+              <h1 className="text-2xl font-semibold md:text-3xl">Controle do site</h1>
+              <p className="mt-1 text-sm text-white/55">Interface escura, fotos por arquivo e ajustes finos em um único painel.</p>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/70">
+              {status || (hasChanges ? 'Há alterações pendentes' : 'Tudo sincronizado')}
+            </div>
+            {error ? <span className="rounded-full border border-red-500/20 bg-red-500/10 px-4 py-2 text-sm text-red-200">{error}</span> : null}
+            <Button
               onClick={handleSave}
               disabled={!hasChanges || isSaving}
-              className="px-6 py-3 bg-neutral-100 text-neutral-900 rounded-lg font-semibold disabled:opacity-50"
+              className="rounded-full border border-white/10 bg-white px-5 text-black hover:bg-white/90 disabled:opacity-50"
             >
-              {isSaving ? 'Salvando...' : 'Salvar informacoes'}
-            </button>
+              {isSaving ? 'Salvando...' : 'Salvar informações'}
+              <ChevronRight className="h-4 w-4" />
+            </Button>
           </div>
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto px-4 py-10">
+      <main className="relative mx-auto max-w-7xl px-4 py-8 lg:px-8">
+        <div className="mb-8 grid gap-4 md:grid-cols-3">
+          <Card className={panelClassName}>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-sm uppercase tracking-[0.24em] text-white/50">
+                <Sparkles className="h-4 w-4" />
+                Experiência
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm text-white/70">
+              O painel foi ajustado para priorizar contraste, leitura rápida e foco nas imagens.
+            </CardContent>
+          </Card>
+          <Card className={panelClassName}>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-sm uppercase tracking-[0.24em] text-white/50">
+                <Camera className="h-4 w-4" />
+                Fotos
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm text-white/70">
+              Upload por arquivo no portfólio, especialistas e no fundo do hero.
+            </CardContent>
+          </Card>
+          <Card className={panelClassName}>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-sm uppercase tracking-[0.24em] text-white/50">
+                <MoonStar className="h-4 w-4" />
+                Tema
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm text-white/70">
+              Alto contraste, fundo escuro total e poucos detalhes claros para destacar o conteúdo.
+            </CardContent>
+          </Card>
+        </div>
+
         <Tabs defaultValue="hero" className="w-full">
-          <TabsList className="grid w-full grid-cols-5 mb-6">
-            <TabsTrigger value="hero">Início</TabsTrigger>
-            <TabsTrigger value="course">Curso</TabsTrigger>
-            <TabsTrigger value="portfolio">Portfólio</TabsTrigger>
-            <TabsTrigger value="specialists">Especialistas</TabsTrigger>
-            <TabsTrigger value="config">Config</TabsTrigger>
+          <TabsList className="mb-6 grid w-full grid-cols-1 gap-2 rounded-[24px] border border-white/10 bg-white/[0.04] p-2 backdrop-blur-xl md:grid-cols-5">
+            <TabsTrigger value="hero" className="rounded-2xl text-white/60 data-[state=active]:border-white/10 data-[state=active]:bg-white data-[state=active]:text-black">Início</TabsTrigger>
+            <TabsTrigger value="course" className="rounded-2xl text-white/60 data-[state=active]:border-white/10 data-[state=active]:bg-white data-[state=active]:text-black">Curso</TabsTrigger>
+            <TabsTrigger value="portfolio" className="rounded-2xl text-white/60 data-[state=active]:border-white/10 data-[state=active]:bg-white data-[state=active]:text-black">Portfólio</TabsTrigger>
+            <TabsTrigger value="specialists" className="rounded-2xl text-white/60 data-[state=active]:border-white/10 data-[state=active]:bg-white data-[state=active]:text-black">Especialistas</TabsTrigger>
+            <TabsTrigger value="config" className="rounded-2xl text-white/60 data-[state=active]:border-white/10 data-[state=active]:bg-white data-[state=active]:text-black">Config</TabsTrigger>
           </TabsList>
 
           <TabsContent value="hero" className="space-y-10">
-            <section className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 space-y-4">
-              <h2 className="text-2xl font-semibold">Início (fundo)</h2>
-              <div className="grid gap-4 md:grid-cols-2">
-                <div>
-                  <label className="block text-sm text-neutral-300 mb-2">Tipo</label>
-                  <select
-                    value={draft.hero.backgroundType}
-                    onChange={(event) =>
-                      setDraft({
-                        ...draft,
-                        hero: { ...draft.hero, backgroundType: event.target.value as SiteConfig['hero']['backgroundType'] },
-                      })
-                    }
-                    className="w-full px-4 py-3 bg-neutral-800 text-neutral-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-500"
-                  >
-                    <option value="image">Imagem</option>
-                    <option value="video">Video</option>
-                  </select>
+            <section className={`rounded-[28px] border border-white/10 p-6 shadow-2xl shadow-black/30 backdrop-blur-xl ${panelClassName}`}>
+              <div className="mb-6 flex items-center gap-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 text-white/80">
+                  <Wand2 className="h-5 w-5" />
                 </div>
                 <div>
-                  <label className="block text-sm text-neutral-300 mb-2">URL</label>
-                  <input
-                    value={draft.hero.backgroundUrl}
-                    onChange={(event) =>
-                      setDraft({
-                        ...draft,
-                        hero: { ...draft.hero, backgroundUrl: event.target.value },
-                      })
-                    }
-                    className="w-full px-4 py-3 bg-neutral-800 text-neutral-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-500"
-                    placeholder="https://..."
-                  />
+                  <h2 className="text-2xl font-semibold">Início</h2>
+                  <p className="text-sm text-white/55">Ajuste o fundo principal do site sem sair do fluxo visual escuro.</p>
+                </div>
+              </div>
+
+              <div className="grid gap-4 lg:grid-cols-[1fr_1.2fr]">
+                <div className="space-y-4">
+                  <div>
+                    <label className="mb-2 block text-sm text-white/65">Tipo</label>
+                    <select
+                      value={draft.hero.backgroundType}
+                      onChange={(event) =>
+                        setDraft({
+                          ...draft,
+                          hero: { ...draft.hero, backgroundType: event.target.value as SiteConfig['hero']['backgroundType'] },
+                        })
+                      }
+                      className={`w-full rounded-2xl px-4 py-3 outline-none ring-1 ring-inset ring-white/10 transition focus:ring-2 focus:ring-white/30 ${fieldClassName}`}
+                    >
+                      <option value="image">Imagem</option>
+                      <option value="video">Video</option>
+                    </select>
+                  </div>
+
+                  {draft.hero.backgroundType === 'image' ? (
+                    <label className="flex cursor-pointer flex-col gap-3 rounded-2xl border border-dashed border-white/15 bg-black/20 p-4 transition hover:border-white/30 hover:bg-black/30">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white/80">
+                          <Upload size={18} />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-white">Enviar fundo por arquivo</p>
+                          <p className="text-xs text-white/45">Arquivo local, sem URL externa.</p>
+                        </div>
+                      </div>
+                      <Input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleHeroImageFile}
+                        className="border-white/10 bg-white/5 text-white file:border-0 file:bg-white/10 file:text-white file:rounded-full file:px-3 file:py-1.5 file:text-xs"
+                      />
+                    </label>
+                  ) : (
+                    <div>
+                      <label className="mb-2 block text-sm text-white/65">URL do vídeo</label>
+                      <Input
+                        value={draft.hero.backgroundUrl}
+                        onChange={(event) =>
+                          setDraft({
+                            ...draft,
+                            hero: { ...draft.hero, backgroundUrl: event.target.value },
+                          })
+                        }
+                        className={fieldClassName}
+                        placeholder="https://..."
+                      />
+                    </div>
+                  )}
+
+                  <div className="rounded-2xl border border-white/10 bg-black/30 p-4 text-sm text-white/65">
+                    {isUploadingHeroImage ? 'Enviando imagem do hero...' : 'A imagem enviada é salva no servidor e reaproveitada no site.'}
+                  </div>
+                </div>
+
+                <div className="overflow-hidden rounded-[24px] border border-white/10 bg-black/40">
+                  <div className="border-b border-white/10 px-5 py-4 text-xs uppercase tracking-[0.28em] text-white/45">
+                    Prévia do hero
+                  </div>
+                  <div className="aspect-[16/10] bg-black">
+                    {draft.hero.backgroundType === 'image' && draft.hero.backgroundUrl ? (
+                      <img src={draft.hero.backgroundUrl} alt="Prévia do fundo" className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex h-full items-center justify-center px-8 text-center text-white/50">
+                        URL do vídeo configurada. Envie uma imagem para ver a prévia aqui.
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </section>
           </TabsContent>
 
           <TabsContent value="course" className="space-y-10">
-            <AdminCourse />
+            <div className="rounded-[28px] border border-white/10 bg-white/[0.03] p-4 backdrop-blur-xl">
+              <AdminCourse />
+            </div>
           </TabsContent>
 
           <TabsContent value="portfolio" className="space-y-10">
-            <AdminPortfolio />
+            <div className="rounded-[28px] border border-white/10 bg-white/[0.03] p-4 backdrop-blur-xl">
+              <AdminPortfolio />
+            </div>
           </TabsContent>
 
           <TabsContent value="specialists" className="space-y-10">
-            <AdminSpecialists />
+            <div className="rounded-[28px] border border-white/10 bg-white/[0.03] p-4 backdrop-blur-xl">
+              <AdminSpecialists />
+            </div>
           </TabsContent>
 
           <TabsContent value="config" className="space-y-10">
-            <section className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 space-y-4">
+            <section className={`rounded-[28px] border border-white/10 p-6 ${panelClassName}`}>
               <h2 className="text-2xl font-semibold">Reset</h2>
-              <button
+              <p className="mt-2 text-sm text-white/55">Restaura a configuração base do painel.</p>
+              <Button
                 onClick={() => setDraft(defaultSiteConfig)}
-                className="px-6 py-3 border border-neutral-700 rounded-lg text-sm hover:border-neutral-400"
+                className="mt-4 rounded-full border border-white/10 bg-white text-black hover:bg-white/90"
               >
                 Restaurar padrão
-              </button>
+              </Button>
             </section>
           </TabsContent>
         </Tabs>
