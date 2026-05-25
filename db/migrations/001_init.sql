@@ -92,25 +92,13 @@ CREATE TABLE app.course_extra_info (
   CONSTRAINT course_extra_text_not_empty CHECK (length(trim(text)) > 0)
 );
 
-CREATE TABLE app.portfolio_item (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  site_id uuid NOT NULL REFERENCES app.site(id) ON DELETE CASCADE,
-  title text NOT NULL,
-  style text NOT NULL,
-  image_url text NOT NULL,
-  specialist_id uuid REFERENCES app.specialist(id),
-  sort_order integer NOT NULL DEFAULT 0,
-  is_published boolean NOT NULL DEFAULT true,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT portfolio_title_not_empty CHECK (length(trim(title)) > 0)
-);
-
+-- specialist MUST be created BEFORE portfolio_item (FK dependency)
 CREATE TABLE app.specialist (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   site_id uuid NOT NULL REFERENCES app.site(id) ON DELETE CASCADE,
   name text NOT NULL,
   specialty text NOT NULL,
+  description text NOT NULL DEFAULT '',
   image_url text NOT NULL,
   experience text,
   instagram text,
@@ -120,6 +108,20 @@ CREATE TABLE app.specialist (
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT specialist_name_not_empty CHECK (length(trim(name)) > 0)
+);
+
+CREATE TABLE app.portfolio_item (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  site_id uuid NOT NULL REFERENCES app.site(id) ON DELETE CASCADE,
+  title text NOT NULL,
+  style text NOT NULL DEFAULT '',
+  image_url text NOT NULL,
+  specialist_id uuid REFERENCES app.specialist(id) ON DELETE SET NULL,
+  sort_order integer NOT NULL DEFAULT 0,
+  is_published boolean NOT NULL DEFAULT true,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT portfolio_title_not_empty CHECK (length(trim(title)) > 0)
 );
 
 CREATE TABLE app.review (
@@ -240,6 +242,17 @@ CREATE TABLE app.site_link (
   CONSTRAINT link_href_not_empty CHECK (length(trim(href)) > 0)
 );
 
+-- Media assets table (for uploaded images/videos)
+CREATE TABLE app.media_asset (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  site_id uuid NOT NULL REFERENCES app.site(id) ON DELETE CASCADE,
+  filename text NOT NULL,
+  mimetype text NOT NULL,
+  data bytea NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- Triggers for updated_at
 CREATE OR REPLACE FUNCTION app.set_updated_at()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -302,6 +315,7 @@ CREATE TRIGGER set_updated_at_site_link
 BEFORE UPDATE ON app.site_link
 FOR EACH ROW EXECUTE FUNCTION app.set_updated_at();
 
+-- Indexes
 CREATE INDEX site_page_site_idx ON app.page (site_id);
 CREATE INDEX hero_site_idx ON app.hero (site_id);
 CREATE INDEX course_site_idx ON app.course (site_id);
@@ -318,5 +332,6 @@ CREATE INDEX opening_hours_location_idx ON app.opening_hours (location_id, day_o
 CREATE INDEX contact_info_site_kind_idx ON app.contact_info (site_id, kind, sort_order);
 CREATE INDEX social_link_site_platform_idx ON app.social_link (site_id, platform, sort_order);
 CREATE INDEX site_link_site_placement_idx ON app.site_link (site_id, placement, sort_order);
+CREATE INDEX media_asset_site_idx ON app.media_asset (site_id, created_at DESC);
 
 COMMIT;
