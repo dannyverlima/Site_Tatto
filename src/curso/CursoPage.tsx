@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { motion } from 'motion/react';
 import { useSiteConfig } from '../app/hooks/useSiteConfig';
+import { HeroBackground } from '../app/components/HeroBackground';
+import { courseBackground } from './cursoBackground';
 
 export default function CursoPage() {
   const { config } = useSiteConfig();
@@ -50,13 +52,19 @@ export default function CursoPage() {
 
   return (
     <motion.div
-      className="min-h-screen bg-neutral-950 text-neutral-100"
+      className="relative min-h-screen overflow-hidden bg-neutral-950 text-neutral-100"
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, ease: 'easeOut' }}
     >
+      <div className="absolute inset-0">
+        <HeroBackground type={courseBackground.type} url={courseBackground.url} />
+        <div className="absolute inset-0 bg-black/88" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.05),_transparent_30%),linear-gradient(180deg,rgba(0,0,0,0.15),rgba(0,0,0,0.55))]" />
+      </div>
+
       <header className="border-b border-neutral-800">
-        <div className="max-w-5xl mx-auto px-4 py-6 flex items-center justify-between">
+        <div className="relative z-10 max-w-5xl mx-auto px-4 py-6 flex items-center justify-between">
           <div>
             <p className="text-xs uppercase tracking-[0.3em] text-neutral-500">Curso</p>
             <h1 className="text-3xl md:text-4xl font-bold">Inscricao e Informacoes</h1>
@@ -70,10 +78,10 @@ export default function CursoPage() {
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-4 py-10 grid gap-10 lg:grid-cols-5">
+      <main className="relative z-10 max-w-5xl mx-auto px-4 py-10 grid gap-10 lg:grid-cols-5">
         <section className="lg:col-span-3 space-y-6">
           {(course.description || hasFeatures) ? (
-            <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6">
+            <div className="rounded-2xl border border-white/10 bg-neutral-950/80 p-6 shadow-2xl shadow-black/30 backdrop-blur-md">
               <h2 className="text-2xl font-semibold mb-3">Sobre o curso</h2>
               {course.description ? (
                 <p className="text-neutral-300">{course.description}</p>
@@ -89,7 +97,7 @@ export default function CursoPage() {
           ) : null}
 
           {hasHighlights ? (
-            <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6">
+            <div className="rounded-2xl border border-white/10 bg-neutral-950/80 p-6 shadow-2xl shadow-black/30 backdrop-blur-md">
               <h2 className="text-2xl font-semibold mb-3">Destaques do curso</h2>
               <div className="grid gap-3 sm:grid-cols-2 text-sm text-neutral-400">
                 {course.highlights.map((item) => (
@@ -102,7 +110,7 @@ export default function CursoPage() {
           ) : null}
 
           {hasExtraInfo ? (
-            <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6">
+            <div className="rounded-2xl border border-white/10 bg-neutral-950/80 p-6 shadow-2xl shadow-black/30 backdrop-blur-md">
               <h2 className="text-2xl font-semibold mb-3">Conteudo e metodologia</h2>
               <ul className="mt-5 space-y-2 text-neutral-400 text-sm">
                 {course.extraInfo.map((item) => (
@@ -113,7 +121,7 @@ export default function CursoPage() {
           ) : null}
 
           {hasNextClass ? (
-            <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6">
+            <div className="rounded-2xl border border-white/10 bg-neutral-950/80 p-6 shadow-2xl shadow-black/30 backdrop-blur-md">
               <h2 className="text-2xl font-semibold mb-3">Proxima turma</h2>
               {course.nextClass ? (
                 <p className="text-neutral-300">{course.nextClass}</p>
@@ -131,7 +139,7 @@ export default function CursoPage() {
         </section>
 
         <aside className="lg:col-span-2">
-          <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6">
+          <div className="rounded-2xl border border-white/10 bg-neutral-950/80 p-6 shadow-2xl shadow-black/30 backdrop-blur-md">
             <h2 className="text-2xl font-semibold mb-4">Inscricao</h2>
             {submitted ? (
               <p className="text-neutral-300 text-sm">

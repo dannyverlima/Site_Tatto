@@ -37,6 +37,22 @@ const getOrCreateSite = async (client) => {
   return inserted.rows[0];
 };
 
+const hasTableColumn = async (client, tableName, columnName) => {
+  const result = await client.query(
+    `
+      SELECT 1
+      FROM information_schema.columns
+      WHERE table_schema = 'app'
+        AND table_name = $1
+        AND column_name = $2
+      LIMIT 1
+    `,
+    [tableName, columnName]
+  );
+
+  return result.rowCount > 0;
+};
+
 export const getSiteSummary = async () => {
   const client = await pool.connect();
   try {
@@ -302,12 +318,15 @@ export const getSiteConfig = async () => {
       extraInfo.push(...extraInfoResult.rows.map((row) => row.text));
     }
 
+    const hasPortfolioSpecialistId = await hasTableColumn(client, 'portfolio_item', 'specialist_id');
     const portfolioResult = await client.query(
-      'SELECT title, style, image_url, specialist_id FROM app.portfolio_item WHERE site_id = $1 AND is_published = true ORDER BY sort_order, created_at',
+      hasPortfolioSpecialistId
+        ? 'SELECT title, style, image_url, specialist_id FROM app.portfolio_item WHERE site_id = $1 AND is_published = true ORDER BY sort_order, created_at'
+        : 'SELECT title, style, image_url, NULL::uuid AS specialist_id FROM app.portfolio_item WHERE site_id = $1 AND is_published = true ORDER BY sort_order, created_at',
       [site.id]
     );
     const specialistResult = await client.query(
-      'SELECT name, specialty, description, image_url, experience, instagram, whatsapp FROM app.specialist WHERE site_id = $1 AND is_active = true ORDER BY sort_order, created_at',
+      'SELECT id, name, specialty, description, image_url, experience, instagram, whatsapp FROM app.specialist WHERE site_id = $1 AND is_active = true ORDER BY sort_order, created_at',
       [site.id]
     );
 

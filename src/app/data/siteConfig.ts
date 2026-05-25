@@ -1,5 +1,7 @@
 export type HeroBackgroundType = 'image' | 'video';
 
+const SITE_CONFIG_UPDATED_KEY = 'site-config-updated-at';
+
 export type CourseFeature = {
   title: string;
   description: string;
@@ -45,7 +47,7 @@ export type SiteConfig = {
 export const defaultSiteConfig: SiteConfig = {
   hero: {
     backgroundType: 'image',
-    backgroundUrl: 'https://images.unsplash.com/photo-1611501275979-18d19db9541a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixlib=rb-4.1.0&q=80&w=1920',
+    backgroundUrl: '',
   },
   course: {
     title: 'Curso de Tatuagem',
@@ -127,5 +129,12 @@ export const saveSiteConfig = async (config: SiteConfig): Promise<void> => {
     throw new Error(`Falha ao salvar config (${response.status})`);
   }
 
+  const updateStamp = String(Date.now());
+  window.localStorage.setItem(SITE_CONFIG_UPDATED_KEY, updateStamp);
+  if ('BroadcastChannel' in window) {
+    const broadcastChannel = new BroadcastChannel('site-config');
+    broadcastChannel.postMessage(updateStamp);
+    broadcastChannel.close();
+  }
   window.dispatchEvent(new Event('site-config-updated'));
 };

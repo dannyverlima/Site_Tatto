@@ -6,7 +6,8 @@
   "scripts": {
     "build": "vite build",
     "dev": "vite",
-    "dev:server": "node server/index.mjs"
+    "dev:server": "node server/index.mjs",
+    "dev:all": "node scripts/dev-all.mjs"
   },
   "dependencies": {
     "@emotion/react": "11.14.0",
@@ -90,11 +91,6 @@
     },
     "react-dom": {
       "optional": true
-    }
-  },
-  "pnpm": {
-    "overrides": {
-      "vite": "6.3.5"
     }
   }
 }

@@ -173,12 +173,16 @@ app.post('/api/uploads', (req, res) => {
         return badRequest(res, 'Arquivo não enviado');
       }
 
-      const mediaFile = req.file.mimetype.startsWith('video/')
+      const isMp4Video =
+        req.file.mimetype === 'video/mp4' ||
+        path.extname(req.file.originalname || '').toLowerCase() === '.mp4';
+
+      const mediaFile = req.file.mimetype.startsWith('video/') && !isMp4Video
         ? await transcodeVideoBuffer(req.file)
         : {
             buffer: req.file.buffer,
-            filename: req.file.originalname || 'arquivo',
-            mimetype: req.file.mimetype,
+            filename: req.file.originalname || (isMp4Video ? 'video.mp4' : 'arquivo'),
+            mimetype: req.file.mimetype || (isMp4Video ? 'video/mp4' : 'application/octet-stream'),
           };
 
       const siteQuery = await pool.query('SELECT id FROM app.site ORDER BY created_at LIMIT 1');

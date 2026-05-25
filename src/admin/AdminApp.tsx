@@ -37,61 +37,24 @@ const AdminLogin = ({ onSuccess }: { onSuccess: () => void }) => {
 
   return (
     <div className={`${shellClassName} flex items-center justify-center px-4`}>
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute left-[-10%] top-[-8%] h-72 w-72 rounded-full bg-white/10 blur-3xl animate-pulse" />
-        <div className="absolute right-[-8%] bottom-[-12%] h-96 w-96 rounded-full bg-white/6 blur-3xl animate-pulse" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.06),_transparent_40%),linear-gradient(180deg,_rgba(255,255,255,0.03),_transparent_30%)]" />
-      </div>
-      <form
-        onSubmit={handleSubmit}
-        className="relative w-full max-w-md overflow-hidden rounded-[28px] border border-white/10 bg-white/[0.05] p-8 shadow-2xl shadow-black/40 backdrop-blur-2xl"
-      >
-        <div className="mb-8 flex items-center gap-3 text-white/90">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/10">
-            <MoonStar className="h-5 w-5" />
-          </div>
-          <div>
-            <p className="text-xs uppercase tracking-[0.3em] text-white/45">Admin</p>
-            <h1 className="text-2xl font-semibold">Área de controle</h1>
-          </div>
+      <form onSubmit={handleSubmit} className="w-full max-w-md p-6">
+        <h2 className="mb-4 text-xl font-semibold">Admin</h2>
+        <div className="mb-3">
+          <label className="block mb-1 text-sm">Nome</label>
+          <input value={username} onChange={(e) => setUsername(e.target.value)} className={`${fieldClassName} w-full rounded px-3 py-2`} />
         </div>
-        <div className="space-y-4">
-          <div>
-            <label className="mb-2 block text-sm text-white/65">Nome</label>
-            <input
-              value={username}
-              onChange={(event) => setUsername(event.target.value)}
-              className={`w-full rounded-2xl px-4 py-3 outline-none ring-1 ring-inset ring-white/10 transition focus:ring-2 focus:ring-white/30 ${fieldClassName}`}
-              placeholder="admin"
-              required
-            />
-          </div>
-          <div>
-            <label className="mb-2 block text-sm text-white/65">Senha</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              className={`w-full rounded-2xl px-4 py-3 outline-none ring-1 ring-inset ring-white/10 transition focus:ring-2 focus:ring-white/30 ${fieldClassName}`}
-              placeholder="Admin@tatto"
-              required
-            />
-          </div>
-          {error ? <p className="text-sm text-red-300">{error}</p> : null}
-          <button
-            type="submit"
-            className="flex w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white px-6 py-3 font-semibold text-black transition hover:bg-white/90"
-          >
-            <Wand2 className="h-4 w-4" />
-            Entrar
-          </button>
+        <div className="mb-3">
+          <label className="block mb-1 text-sm">Senha</label>
+          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className={`${fieldClassName} w-full rounded px-3 py-2`} />
         </div>
+        {error ? <p className="text-sm text-red-300 mb-2">{error}</p> : null}
+        <button type="submit" className="rounded-full bg-white px-4 py-2 text-black">Entrar</button>
       </form>
     </div>
   );
 };
 
-const AdminPanel = () => {
+  const AdminPanel = () => {
   const { config } = useSiteConfig();
   const [draft, setDraft] = useState<SiteConfig>(config);
   const [status, setStatus] = useState('');
@@ -111,26 +74,59 @@ const AdminPanel = () => {
       return;
     }
 
+    const localPreviewUrl = URL.createObjectURL(file);
+    const backgroundType = file.type.startsWith('video/') ? 'video' : 'image';
+    const previousBackgroundUrl = draft.hero.backgroundUrl;
+    const previousBackgroundType = draft.hero.backgroundType;
+
+    setDraft({
+      ...draft,
+      hero: {
+        ...draft.hero,
+        backgroundType,
+        backgroundUrl: localPreviewUrl,
+      },
+    });
+    setStatus('Prévia aplicada. Enviando mídia para o servidor...');
+    setError('');
     setIsUploadingHeroImage(true);
     try {
       const backgroundUrl = await uploadImageFile(file);
-      const nextDraft = {
+      const updatedDraft = {
         ...draft,
         hero: {
           ...draft.hero,
-          backgroundType: file.type.startsWith('video/') ? 'video' : 'image',
+          backgroundType,
           backgroundUrl,
         },
-      };
-
-      setDraft(nextDraft);
-      setError('');
-      setStatus('Mídia enviada. Clique em Salvar informações para gravar no site.');
-      setTimeout(() => setStatus(''), 3000);
+      } as SiteConfig;
+      setDraft(updatedDraft);
+      setStatus('Mídia enviada. Salvando automaticamente...');
+      try {
+        setIsSaving(true);
+        await saveSiteConfig(updatedDraft);
+        setStatus('Atualizado com sucesso.');
+        setTimeout(() => setStatus(''), 3000);
+      } catch (saveErr) {
+        console.error('Falha ao salvar automaticamente', saveErr);
+        setStatus('Mídia enviada. Clique em Salvar informações para gravar no site.');
+        setTimeout(() => setStatus(''), 3000);
+      } finally {
+        setIsSaving(false);
+      }
     } catch (uploadError) {
-      console.error('Falha ao enviar imagem do hero', uploadError);
-      setError(uploadError?.message ? String(uploadError.message) : 'Não foi possível enviar a imagem do hero.');
+      console.error('Falha ao enviar mídia do hero', uploadError);
+      setDraft((currentDraft) => ({
+        ...currentDraft,
+        hero: {
+          ...currentDraft.hero,
+          backgroundType: previousBackgroundType,
+          backgroundUrl: previousBackgroundUrl,
+        },
+      }));
+      setError(uploadError?.message ? String(uploadError.message) : 'Não foi possível enviar a mídia do hero.');
     } finally {
+      URL.revokeObjectURL(localPreviewUrl);
       setIsUploadingHeroImage(false);
       event.target.value = '';
     }
@@ -140,6 +136,17 @@ const AdminPanel = () => {
     setIsSaving(true);
     setError('');
 
+    if (isUploadingHeroImage) {
+      setError('Aguarde o upload da mídia antes de salvar.');
+      setIsSaving(false);
+      return;
+    }
+
+    if (draft.hero.backgroundUrl && draft.hero.backgroundUrl.startsWith('blob:')) {
+      setError('A mídia ainda está em pré-visualização. Aguarde o envio completo antes de salvar.');
+      setIsSaving(false);
+      return;
+    }
     try {
       await saveSiteConfig(draft);
       setStatus('Atualizado com sucesso.');

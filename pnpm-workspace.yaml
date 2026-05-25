@@ -4,3 +4,5 @@ allowBuilds:
   '@tailwindcss/oxide': false
   esbuild: false
   ffmpeg-static: false
+overrides:
+  vite: 6.3.5
