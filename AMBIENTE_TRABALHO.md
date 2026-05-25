@@ -45,25 +45,19 @@ No PgAdmin4:
 
 ## 5. Restaurar os dados atuais
 
-Depois das migrações, restaure o arquivo [db/exports/studio_tatto_current.sql](db/exports/studio_tatto_current.sql).
+Depois das migrações, use o PgAdmin4 para importar um backup do banco que contenha os dados atuais do site.
 
 No PgAdmin4, você pode:
 
 1. Abrir o Query Tool no banco `studio_tatto`.
-2. Carregar o arquivo SQL exportado.
-3. Executar o script completo.
+2. Executar o backup SQL gerado pelo seu computador de origem.
+3. Reimportar as mídias se elas forem enviadas separadas do SQL.
 
-Esse arquivo traz os dados atuais do site, com exceção dos arquivos grandes de mídia.
+Esse backup precisa conter os dados do hero, curso, especialistas, portfólio e mídia.
 
 ## 6. Restaurar as mídias
 
-Depois do SQL, rode o importador de mídia:
-
-```bash
-node scripts/import-media-assets.mjs
-```
-
-Esse passo recria os vídeos, imagens e demais arquivos salvos em `app.media_asset`.
+Se as mídias vierem separadas do SQL, importe os arquivos de mídia junto com o backup do banco para recriar `app.media_asset`.
 
 ## 7. Instalar dependências
 
@@ -111,4 +105,4 @@ pnpm dev:server
 
 ## 12. Observação importante
 
-O arquivo de exportação do banco é o que deixa o site igual ao seu ambiente atual. Se ele for atualizado depois, gere um novo dump para manter tudo sincronizado.
+O backup usado para restaurar o banco precisa ser gerado fora do projeto local e trazido apenas para a máquina de destino.
