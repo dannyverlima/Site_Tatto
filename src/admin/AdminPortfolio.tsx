@@ -44,6 +44,8 @@ export function AdminPortfolio() {
     loadPortfolio();
   }, []);
 
+  const MAX_PORTFOLIO = 5;
+
   const loadPortfolio = async () => {
     try {
       const response = await fetch('/api/portfolio');
@@ -63,6 +65,11 @@ export function AdminPortfolio() {
       return;
     }
 
+    if ((portfolioItems || []).length >= MAX_PORTFOLIO) {
+      alert(`Limite de ${MAX_PORTFOLIO} trabalhos atingido. Remova um item antes de adicionar outro.`);
+      return;
+    }
+
     try {
       const payload = { ...newItem };
       const response = await fetch('/api/portfolio', {
@@ -72,11 +79,28 @@ export function AdminPortfolio() {
       });
 
       if (response.ok) {
-          setNewItem(emptyDraft());
+        setNewItem(emptyDraft());
         loadPortfolio();
+        notifySiteConfigUpdated();
       }
     } catch (error) {
       console.error('Erro ao adicionar:', error);
+    }
+  };
+
+  const notifySiteConfigUpdated = () => {
+    try {
+      const key = 'site-config-updated-at';
+      const stamp = String(Date.now());
+      window.localStorage.setItem(key, stamp);
+      if ('BroadcastChannel' in window) {
+        const bc = new BroadcastChannel('site-config');
+        bc.postMessage(stamp);
+        bc.close();
+      }
+      window.dispatchEvent(new Event('site-config-updated'));
+    } catch (e) {
+      // ignore
     }
   };
 
@@ -131,6 +155,7 @@ export function AdminPortfolio() {
       if (response.ok) {
         setEditingId(null);
         loadPortfolio();
+        notifySiteConfigUpdated();
       }
     } catch (error) {
       console.error('Erro ao atualizar:', error);
@@ -143,6 +168,7 @@ export function AdminPortfolio() {
     try {
       await fetch(`/api/portfolio/${id}`, { method: 'DELETE' });
       loadPortfolio();
+      notifySiteConfigUpdated();
     } catch (error) {
       console.error('Erro ao deletar:', error);
     }
