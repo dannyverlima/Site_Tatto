@@ -37,8 +37,11 @@ export default defineConfig({
   },
 
   server: {
+    port: 5173,
+    strictPort: true,
     proxy: {
       '/api': 'http://localhost:5175',
+      '/uploads': 'http://localhost:5175',
     },
   },
 

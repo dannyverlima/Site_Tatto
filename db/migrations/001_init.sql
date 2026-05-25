@@ -98,6 +98,7 @@ CREATE TABLE app.portfolio_item (
   title text NOT NULL,
   style text NOT NULL,
   image_url text NOT NULL,
+  specialist_id uuid REFERENCES app.specialist(id),
   sort_order integer NOT NULL DEFAULT 0,
   is_published boolean NOT NULL DEFAULT true,
   created_at timestamptz NOT NULL DEFAULT now(),

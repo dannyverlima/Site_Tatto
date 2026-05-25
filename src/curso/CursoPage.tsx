@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { motion } from 'motion/react';
 import { useSiteConfig } from '../app/hooks/useSiteConfig';
 
 export default function CursoPage() {
@@ -48,7 +49,12 @@ export default function CursoPage() {
   };
 
   return (
-    <div className="min-h-screen bg-neutral-950 text-neutral-100">
+    <motion.div
+      className="min-h-screen bg-neutral-950 text-neutral-100"
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35, ease: 'easeOut' }}
+    >
       <header className="border-b border-neutral-800">
         <div className="max-w-5xl mx-auto px-4 py-6 flex items-center justify-between">
           <div>
@@ -191,6 +197,6 @@ export default function CursoPage() {
           </div>
         </aside>
       </main>
-    </div>
+    </motion.div>
   );
 }

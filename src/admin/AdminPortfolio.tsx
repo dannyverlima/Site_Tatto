@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
+import { useSpecialists } from '../app/hooks/useSpecialists';
 import { Button } from '../app/components/ui/button';
 import { Input } from '../app/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '../app/components/ui/card';
 import { Check, Edit2, ImagePlus, Plus, Sparkles, Trash2, Upload, X } from 'lucide-react';
 import { uploadImageFile } from './uploadImage';
+import { ImageWithFallback } from '../app/components/figma/ImageWithFallback';
 
 type PortfolioItem = {
   id: number;
@@ -17,6 +19,7 @@ type PortfolioDraft = {
   title: string;
   style: string;
   imageUrl: string;
+  specialistId?: string | null;
 };
 
 const cardClassName = 'border-white/10 bg-white/[0.04] text-white shadow-2xl shadow-black/30 backdrop-blur-xl';
@@ -25,6 +28,7 @@ const emptyDraft = (): PortfolioDraft => ({
   title: '',
   style: '',
   imageUrl: '',
+  specialistId: '',
 });
 
 export function AdminPortfolio() {
@@ -34,6 +38,7 @@ export function AdminPortfolio() {
   const [newItem, setNewItem] = useState<PortfolioDraft>(emptyDraft());
   const [isUploadingNewImage, setIsUploadingNewImage] = useState(false);
   const [uploadingItemId, setUploadingItemId] = useState<number | null>(null);
+  const { specialists } = useSpecialists();
 
   useEffect(() => {
     loadPortfolio();
@@ -59,10 +64,11 @@ export function AdminPortfolio() {
     }
 
     try {
+      const payload = { ...newItem };
       const response = await fetch('/api/portfolio', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newItem),
+        body: JSON.stringify(payload),
       });
 
       if (response.ok) {
@@ -167,6 +173,20 @@ export function AdminPortfolio() {
             className="border-white/10 bg-white/5 text-white placeholder:text-white/35"
           />
 
+          <div>
+            <label className="text-sm text-white/70">Especialista (opcional)</label>
+            <select
+              value={newItem.specialistId ?? ''}
+              onChange={(e) => setNewItem({ ...newItem, specialistId: e.target.value })}
+              className="mt-2 w-full rounded-md border border-white/10 bg-white/5 p-2 text-white"
+            >
+              <option value="">-- Nenhum --</option>
+              {specialists.map((s) => (
+                <option key={s.id} value={s.id as any}>{s.name}</option>
+              ))}
+            </select>
+          </div>
+
           <label className="flex cursor-pointer flex-col gap-3 rounded-2xl border border-dashed border-white/15 bg-black/20 p-4 transition hover:border-white/30 hover:bg-black/30">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white/80">
@@ -187,7 +207,7 @@ export function AdminPortfolio() {
 
           {newItem.imageUrl ? (
             <div className="overflow-hidden rounded-2xl border border-white/10 bg-black/30">
-              <img src={newItem.imageUrl} alt="Prévia do trabalho" className="h-56 w-full object-cover" />
+              <ImageWithFallback src={newItem.imageUrl} alt="Prévia do trabalho" className="h-56 w-full object-cover" />
             </div>
           ) : null}
 
@@ -231,6 +251,25 @@ export function AdminPortfolio() {
                     }
                     className="border-white/10 bg-white/5 text-white placeholder:text-white/35"
                   />
+                  <div>
+                    <label className="text-sm text-white/70">Especialista (opcional)</label>
+                    <select
+                      value={(portfolioItems.find((i) => i.id === item.id)?.specialistId as any) ?? ''}
+                      onChange={(e) =>
+                        setPortfolioItems(
+                          portfolioItems.map((i) =>
+                            i.id === item.id ? { ...i, specialistId: e.target.value } : i
+                          )
+                        )
+                      }
+                      className="mt-2 w-full rounded-md border border-white/10 bg-white/5 p-2 text-white"
+                    >
+                      <option value="">-- Nenhum --</option>
+                      {specialists.map((s) => (
+                        <option key={s.id} value={s.id as any}>{s.name}</option>
+                      ))}
+                    </select>
+                  </div>
                   <label className="flex cursor-pointer flex-col gap-3 rounded-2xl border border-dashed border-white/15 bg-black/20 p-4 transition hover:border-white/30 hover:bg-black/30">
                     <div className="flex items-center gap-3">
                       <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white/80">
@@ -251,7 +290,7 @@ export function AdminPortfolio() {
 
                   {item.imageUrl ? (
                     <div className="overflow-hidden rounded-2xl border border-white/10 bg-black/30">
-                      <img src={item.imageUrl} alt={item.title} className="h-48 w-full object-cover" />
+                      <ImageWithFallback src={item.imageUrl} alt={item.title} className="h-48 w-full object-cover" />
                     </div>
                   ) : null}
 
@@ -283,7 +322,7 @@ export function AdminPortfolio() {
                   <div className="flex items-center gap-4">
                     <div className="h-20 w-20 overflow-hidden rounded-2xl border border-white/10 bg-black/40">
                       {item.imageUrl ? (
-                        <img src={item.imageUrl} alt={item.title} className="h-full w-full object-cover" />
+                        <ImageWithFallback src={item.imageUrl} alt={item.title} className="h-full w-full object-cover" />
                       ) : null}
                     </div>
                     <div>

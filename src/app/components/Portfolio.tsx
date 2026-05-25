@@ -4,11 +4,12 @@ import { useRef } from 'react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { useSiteConfig } from '../hooks/useSiteConfig';
 
-export function Portfolio() {
+export function Portfolio({ specialistId }: { specialistId?: string | null } = {}) {
   const { config } = useSiteConfig();
   const ref = useRef(null);
   const isInView = useInView(ref, { once: true, amount: 0.2 });
-  const portfolioItems = config.portfolio.items;
+  const allItems = config.portfolio.items;
+  const portfolioItems = specialistId ? allItems.filter((it) => it.specialistId === specialistId) : allItems;
 
   return (
     <section id="portfolio" ref={ref} className="py-20 px-4 bg-neutral-950">
