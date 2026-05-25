@@ -25,12 +25,15 @@ export type SiteConfig = {
       title: string;
       style: string;
       image: string;
+      specialistId?: string | null;
     }>;
   };
   specialists: {
     items: Array<{
+      id?: string;
       name: string;
       specialty: string;
+      description: string;
       image: string;
       experience: string;
       instagram: string;

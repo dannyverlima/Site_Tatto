@@ -303,11 +303,11 @@ export const getSiteConfig = async () => {
     }
 
     const portfolioResult = await client.query(
-      'SELECT title, style, image_url FROM app.portfolio_item WHERE site_id = $1 AND is_published = true ORDER BY sort_order, created_at',
+      'SELECT title, style, image_url, specialist_id FROM app.portfolio_item WHERE site_id = $1 AND is_published = true ORDER BY sort_order, created_at',
       [site.id]
     );
     const specialistResult = await client.query(
-      'SELECT name, specialty, image_url, experience, instagram, whatsapp FROM app.specialist WHERE site_id = $1 AND is_active = true ORDER BY sort_order, created_at',
+      'SELECT name, specialty, description, image_url, experience, instagram, whatsapp FROM app.specialist WHERE site_id = $1 AND is_active = true ORDER BY sort_order, created_at',
       [site.id]
     );
 
@@ -331,12 +331,15 @@ export const getSiteConfig = async () => {
           title: row.title,
           style: row.style,
           image: row.image_url,
+          specialistId: row.specialist_id,
         })),
       },
       specialists: {
         items: specialistResult.rows.map((row) => ({
+          id: row.id,
           name: row.name,
           specialty: row.specialty,
+          description: row.description,
           image: row.image_url,
           experience: row.experience,
           instagram: row.instagram,
@@ -442,11 +445,12 @@ export const saveSiteConfig = async (config) => {
     await client.query('DELETE FROM app.specialist WHERE site_id = $1', [site.id]);
     for (const [index, item] of safeConfig.specialists.items.entries()) {
       await client.query(
-        'INSERT INTO app.specialist (site_id, name, specialty, image_url, experience, instagram, whatsapp, sort_order) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
+        'INSERT INTO app.specialist (site_id, name, specialty, description, image_url, experience, instagram, whatsapp, sort_order) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)',
         [
           site.id,
           normalizeString(item.name),
           normalizeString(item.specialty),
+          normalizeString(item.description),
           normalizeString(item.image),
           normalizeString(item.experience),
           normalizeString(item.instagram),
@@ -471,13 +475,14 @@ export const getSpecialists = async () => {
   try {
     const site = await getOrCreateSite(client);
     const result = await client.query(
-      'SELECT id, name, specialty, image_url, experience, instagram, whatsapp, sort_order, is_active FROM app.specialist WHERE site_id = $1 ORDER BY sort_order, created_at',
+      'SELECT id, name, specialty, description, image_url, experience, instagram, whatsapp, sort_order, is_active FROM app.specialist WHERE site_id = $1 ORDER BY sort_order, created_at',
       [site.id]
     );
     return result.rows.map((row) => ({
       id: row.id,
       name: row.name,
       specialty: row.specialty,
+      description: row.description,
       imageUrl: row.image_url,
       experience: row.experience,
       instagram: row.instagram,
@@ -490,12 +495,13 @@ export const getSpecialists = async () => {
   }
 };
 
-export const createSpecialist = async ({ name, specialty, imageUrl, experience, instagram, whatsapp }) => {
+export const createSpecialist = async ({ name, specialty, description, imageUrl, experience, instagram, whatsapp }) => {
   const client = await pool.connect();
   try {
     const site = await getOrCreateSite(client);
     const safeName = normalizeString(name);
     const safeSpecialty = normalizeString(specialty);
+    const safeDescription = normalizeString(description);
     const safeImageUrl = normalizeString(imageUrl);
     const safeExperience = normalizeString(experience);
     const safeInstagram = normalizeString(instagram);
@@ -509,8 +515,8 @@ export const createSpecialist = async ({ name, specialty, imageUrl, experience, 
     const sortOrder = parseInt(countResult.rows[0].count);
 
     const result = await client.query(
-      'INSERT INTO app.specialist (site_id, name, specialty, image_url, experience, instagram, whatsapp, sort_order) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id',
-      [site.id, safeName, safeSpecialty, safeImageUrl, safeExperience, safeInstagram, safeWhatsapp, sortOrder]
+      'INSERT INTO app.specialist (site_id, name, specialty, description, image_url, experience, instagram, whatsapp, sort_order) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id',
+      [site.id, safeName, safeSpecialty, safeDescription, safeImageUrl, safeExperience, safeInstagram, safeWhatsapp, sortOrder]
     );
 
     return result.rows[0].id;
@@ -519,12 +525,13 @@ export const createSpecialist = async ({ name, specialty, imageUrl, experience, 
   }
 };
 
-export const updateSpecialist = async (id, { name, specialty, imageUrl, experience, instagram, whatsapp, sortOrder, isActive }) => {
+export const updateSpecialist = async (id, { name, specialty, description, imageUrl, experience, instagram, whatsapp, sortOrder, isActive }) => {
   const client = await pool.connect();
   try {
     const site = await getOrCreateSite(client);
     const safeName = normalizeString(name);
     const safeSpecialty = normalizeString(specialty);
+    const safeDescription = normalizeString(description);
     const safeImageUrl = normalizeString(imageUrl);
     const safeExperience = normalizeString(experience);
     const safeInstagram = normalizeString(instagram);
@@ -535,8 +542,8 @@ export const updateSpecialist = async (id, { name, specialty, imageUrl, experien
     }
 
     await client.query(
-      'UPDATE app.specialist SET name = $1, specialty = $2, image_url = $3, experience = $4, instagram = $5, whatsapp = $6, sort_order = $7, is_active = $8 WHERE id = $9 AND site_id = $10',
-      [safeName, safeSpecialty, safeImageUrl, safeExperience, safeInstagram, safeWhatsapp, sortOrder ?? 0, isActive ?? true, id, site.id]
+      'UPDATE app.specialist SET name = $1, specialty = $2, description = $3, image_url = $4, experience = $5, instagram = $6, whatsapp = $7, sort_order = $8, is_active = $9 WHERE id = $10 AND site_id = $11',
+      [safeName, safeSpecialty, safeDescription, safeImageUrl, safeExperience, safeInstagram, safeWhatsapp, sortOrder ?? 0, isActive ?? true, id, site.id]
     );
   } finally {
     client.release();
@@ -559,7 +566,7 @@ export const getPortfolioItems = async () => {
   try {
     const site = await getOrCreateSite(client);
     const result = await client.query(
-      'SELECT id, title, style, image_url, sort_order, is_published FROM app.portfolio_item WHERE site_id = $1 ORDER BY sort_order, created_at',
+      'SELECT id, title, style, image_url, specialist_id, sort_order, is_published FROM app.portfolio_item WHERE site_id = $1 ORDER BY sort_order, created_at',
       [site.id]
     );
     return result.rows.map((row) => ({
@@ -567,6 +574,7 @@ export const getPortfolioItems = async () => {
       title: row.title,
       style: row.style,
       imageUrl: row.image_url,
+      specialistId: row.specialist_id,
       sortOrder: row.sort_order,
       isPublished: row.is_published,
     }));
@@ -575,13 +583,14 @@ export const getPortfolioItems = async () => {
   }
 };
 
-export const createPortfolioItem = async ({ title, style, imageUrl }) => {
+export const createPortfolioItem = async ({ title, style, imageUrl, specialistId }) => {
   const client = await pool.connect();
   try {
     const site = await getOrCreateSite(client);
     const safeTitle = normalizeString(title);
     const safeStyle = normalizeString(style);
     const safeImageUrl = normalizeString(imageUrl);
+    const safeSpecialistId = specialistId || null;
 
     if (!safeTitle || !safeImageUrl) {
       throw new Error('Título e imagem são obrigatórios');
@@ -591,8 +600,8 @@ export const createPortfolioItem = async ({ title, style, imageUrl }) => {
     const sortOrder = parseInt(countResult.rows[0].count);
 
     const result = await client.query(
-      'INSERT INTO app.portfolio_item (site_id, title, style, image_url, sort_order) VALUES ($1, $2, $3, $4, $5) RETURNING id',
-      [site.id, safeTitle, safeStyle, safeImageUrl, sortOrder]
+      'INSERT INTO app.portfolio_item (site_id, title, style, image_url, specialist_id, sort_order) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id',
+      [site.id, safeTitle, safeStyle, safeImageUrl, safeSpecialistId, sortOrder]
     );
 
     return result.rows[0].id;
@@ -601,21 +610,22 @@ export const createPortfolioItem = async ({ title, style, imageUrl }) => {
   }
 };
 
-export const updatePortfolioItem = async (id, { title, style, imageUrl, sortOrder, isPublished }) => {
+export const updatePortfolioItem = async (id, { title, style, imageUrl, sortOrder, isPublished, specialistId }) => {
   const client = await pool.connect();
   try {
     const site = await getOrCreateSite(client);
     const safeTitle = normalizeString(title);
     const safeStyle = normalizeString(style);
     const safeImageUrl = normalizeString(imageUrl);
+    const safeSpecialistId = specialistId || null;
 
     if (!safeTitle || !safeImageUrl) {
       throw new Error('Título e imagem são obrigatórios');
     }
 
     await client.query(
-      'UPDATE app.portfolio_item SET title = $1, style = $2, image_url = $3, sort_order = $4, is_published = $5 WHERE id = $6 AND site_id = $7',
-      [safeTitle, safeStyle, safeImageUrl, sortOrder ?? 0, isPublished ?? true, id, site.id]
+      'UPDATE app.portfolio_item SET title = $1, style = $2, image_url = $3, specialist_id = $4, sort_order = $5, is_published = $6 WHERE id = $7 AND site_id = $8',
+      [safeTitle, safeStyle, safeImageUrl, safeSpecialistId, sortOrder ?? 0, isPublished ?? true, id, site.id]
     );
   } finally {
     client.release();

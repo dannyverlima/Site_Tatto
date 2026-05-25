@@ -8,8 +8,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../app/components/ui/t
 import { Button } from '../app/components/ui/button';
 import { Input } from '../app/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '../app/components/ui/card';
-import { Camera, ChevronRight, LayoutDashboard, MoonStar, Sparkles, Upload, Wand2 } from 'lucide-react';
+import { Camera, ChevronRight, MoonStar, Sparkles, Upload, Wand2 } from 'lucide-react';
 import { uploadImageFile } from './uploadImage';
+import { ImageWithFallback } from '../app/components/figma/ImageWithFallback';
 
 const ADMIN_USER = 'admin';
 const ADMIN_PASS = 'Admin@tatto';
@@ -104,7 +105,7 @@ const AdminPanel = () => {
 
   const hasChanges = useMemo(() => JSON.stringify(draft) !== JSON.stringify(config), [draft, config]);
 
-  const handleHeroImageFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleHeroMediaFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) {
       return;
@@ -113,16 +114,22 @@ const AdminPanel = () => {
     setIsUploadingHeroImage(true);
     try {
       const backgroundUrl = await uploadImageFile(file);
-      setDraft((current) => ({
-        ...current,
+      const nextDraft = {
+        ...draft,
         hero: {
-          ...current.hero,
+          ...draft.hero,
+          backgroundType: file.type.startsWith('video/') ? 'video' : 'image',
           backgroundUrl,
         },
-      }));
+      };
+
+      setDraft(nextDraft);
+      setError('');
+      setStatus('Mídia enviada. Clique em Salvar informações para gravar no site.');
+      setTimeout(() => setStatus(''), 3000);
     } catch (uploadError) {
       console.error('Falha ao enviar imagem do hero', uploadError);
-      setError('Não foi possível enviar a imagem do hero.');
+      setError(uploadError?.message ? String(uploadError.message) : 'Não foi possível enviar a imagem do hero.');
     } finally {
       setIsUploadingHeroImage(false);
       event.target.value = '';
@@ -154,31 +161,8 @@ const AdminPanel = () => {
       </div>
 
       <header className="relative border-b border-white/10 bg-black/40 backdrop-blur-2xl">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-4 py-6 lg:px-8">
-          <div className="flex items-center gap-4">
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-white/10 text-white/85 shadow-lg shadow-black/30">
-              <LayoutDashboard className="h-6 w-6" />
-            </div>
-            <div>
-              <p className="text-xs uppercase tracking-[0.3em] text-white/45">Admin</p>
-              <h1 className="text-2xl font-semibold md:text-3xl">Controle do site</h1>
-              <p className="mt-1 text-sm text-white/55">Interface escura, fotos por arquivo e ajustes finos em um único painel.</p>
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/70">
-              {status || (hasChanges ? 'Há alterações pendentes' : 'Tudo sincronizado')}
-            </div>
-            {error ? <span className="rounded-full border border-red-500/20 bg-red-500/10 px-4 py-2 text-sm text-red-200">{error}</span> : null}
-            <Button
-              onClick={handleSave}
-              disabled={!hasChanges || isSaving}
-              className="rounded-full border border-white/10 bg-white px-5 text-black hover:bg-white/90 disabled:opacity-50"
-            >
-              {isSaving ? 'Salvando...' : 'Salvar informações'}
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
+        <div className="mx-auto max-w-7xl px-4 py-6 lg:px-8">
+          <h1 className="text-2xl font-semibold md:text-3xl">Controle do site</h1>
         </div>
       </header>
 
@@ -266,36 +250,39 @@ const AdminPanel = () => {
                           <Upload size={18} />
                         </div>
                         <div>
-                          <p className="text-sm font-medium text-white">Enviar fundo por arquivo</p>
-                          <p className="text-xs text-white/45">Arquivo local, sem URL externa.</p>
+                          <p className="text-sm font-medium text-white">Enviar foto por arquivo</p>
+                          <p className="text-xs text-white/45">PNG, JPG ou WEBP. O arquivo fica salvo no servidor.</p>
                         </div>
                       </div>
                       <Input
                         type="file"
-                        accept="image/*"
-                        onChange={handleHeroImageFile}
+                        accept="image/*,video/*"
+                        onChange={handleHeroMediaFile}
                         className="border-white/10 bg-white/5 text-white file:border-0 file:bg-white/10 file:text-white file:rounded-full file:px-3 file:py-1.5 file:text-xs"
                       />
                     </label>
                   ) : (
-                    <div>
-                      <label className="mb-2 block text-sm text-white/65">URL do vídeo</label>
+                    <label className="flex cursor-pointer flex-col gap-3 rounded-2xl border border-dashed border-white/15 bg-black/20 p-4 transition hover:border-white/30 hover:bg-black/30">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white/80">
+                          <Upload size={18} />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-white">Enviar vídeo por arquivo</p>
+                          <p className="text-xs text-white/45">MP4, WEBM ou MOV. O vídeo fica salvo no servidor.</p>
+                        </div>
+                      </div>
                       <Input
-                        value={draft.hero.backgroundUrl}
-                        onChange={(event) =>
-                          setDraft({
-                            ...draft,
-                            hero: { ...draft.hero, backgroundUrl: event.target.value },
-                          })
-                        }
-                        className={fieldClassName}
-                        placeholder="https://..."
+                        type="file"
+                        accept="image/*,video/*"
+                        onChange={handleHeroMediaFile}
+                        className="border-white/10 bg-white/5 text-white file:border-0 file:bg-white/10 file:text-white file:rounded-full file:px-3 file:py-1.5 file:text-xs"
                       />
-                    </div>
+                    </label>
                   )}
 
                   <div className="rounded-2xl border border-white/10 bg-black/30 p-4 text-sm text-white/65">
-                    {isUploadingHeroImage ? 'Enviando imagem do hero...' : 'A imagem enviada é salva no servidor e reaproveitada no site.'}
+                    {isUploadingHeroImage ? 'Enviando mídia do hero...' : 'A mídia enviada é salva no servidor e reaproveitada no site.'}
                   </div>
                 </div>
 
@@ -305,14 +292,29 @@ const AdminPanel = () => {
                   </div>
                   <div className="aspect-[16/10] bg-black">
                     {draft.hero.backgroundType === 'image' && draft.hero.backgroundUrl ? (
-                      <img src={draft.hero.backgroundUrl} alt="Prévia do fundo" className="h-full w-full object-cover" />
+                      <ImageWithFallback src={draft.hero.backgroundUrl} alt="Prévia do fundo" className="h-full w-full object-cover" />
+                    ) : draft.hero.backgroundType === 'video' && draft.hero.backgroundUrl ? (
+                      <video src={draft.hero.backgroundUrl} className="h-full w-full object-cover" autoPlay loop muted playsInline />
                     ) : (
                       <div className="flex h-full items-center justify-center px-8 text-center text-white/50">
-                        URL do vídeo configurada. Envie uma imagem para ver a prévia aqui.
+                        Envie uma imagem ou vídeo para ver a prévia aqui.
                       </div>
                     )}
                   </div>
                 </div>
+              </div>
+
+              <div className="mt-6 flex flex-wrap items-center gap-3">
+                {status ? <span className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/70">{status}</span> : null}
+                {error ? <span className="rounded-full border border-red-500/20 bg-red-500/10 px-4 py-2 text-sm text-red-200">{error}</span> : null}
+                <Button
+                  onClick={handleSave}
+                  disabled={!hasChanges || isSaving}
+                  className="rounded-full border border-white/10 bg-white px-5 text-black hover:bg-white/90 disabled:opacity-50"
+                >
+                  {isSaving ? 'Salvando...' : 'Salvar informações'}
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
               </div>
             </section>
           </TabsContent>

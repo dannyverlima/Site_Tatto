@@ -9,6 +9,14 @@ export function Hero() {
   const opacity = useTransform(scrollY, [0, 300], [1, 0]);
   const scale = useTransform(scrollY, [0, 300], [1, 0.8]);
 
+  const goToCoursePage = (event: React.MouseEvent<HTMLAnchorElement>) => {
+    event.preventDefault();
+    const targetHref = '/curso.html';
+    window.setTimeout(() => {
+      window.location.href = targetHref;
+    }, 140);
+  };
+
   return (
     <section id="home" className="relative h-screen w-full overflow-hidden flex items-center justify-center bg-neutral-950">
       {/* Background Image com Opacidade Baixa */}
@@ -70,6 +78,7 @@ export function Hero() {
           </motion.a>
           <motion.a
             href="/curso.html"
+            onClick={goToCoursePage}
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.98 }}
             className="px-5 py-2 rounded-full border border-neutral-800 text-neutral-200 text-xs tracking-wide uppercase hover:border-neutral-500 transition-colors"

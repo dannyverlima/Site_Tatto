@@ -1,10 +1,13 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import fs from 'node:fs';
 import path from 'node:path';
+import os from 'node:os';
+import { spawn } from 'node:child_process';
+import fs from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import multer from 'multer';
+import ffmpegPath from 'ffmpeg-static';
 import {
   getSiteConfig,
   saveSiteConfig,
@@ -37,6 +40,7 @@ import {
   updateCourseExtraInfo,
   deleteCourseExtraInfo,
 } from './siteRepository.mjs';
+import { pool } from './db.mjs';
 
 dotenv.config({ path: process.env.DOTENV_CONFIG_PATH || new URL('./.env', import.meta.url).pathname });
 
@@ -44,37 +48,81 @@ const app = express();
 const port = Number(process.env.PORT || 5175);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const uploadDir = path.join(__dirname, 'uploads');
 
-fs.mkdirSync(uploadDir, { recursive: true });
+const storage = multer.memoryStorage();
 
-const storage = multer.diskStorage({
-  destination: uploadDir,
-  filename: (_req, file, callback) => {
-    const extension = path.extname(file.originalname || '').toLowerCase();
-    const safeExtension = extension || '.png';
-    callback(null, `${Date.now()}-${Math.random().toString(36).slice(2, 10)}${safeExtension}`);
-  },
-});
+const runCommand = (command, args) =>
+  new Promise((resolve, reject) => {
+    const child = spawn(command, args, { stdio: ['ignore', 'ignore', 'pipe'] });
+    let stderr = '';
+
+    child.stderr.on('data', (chunk) => {
+      stderr += chunk.toString();
+    });
+
+    child.on('error', reject);
+    child.on('close', (code) => {
+      if (code === 0) {
+        resolve();
+        return;
+      }
+
+      reject(new Error(stderr.trim() || `ffmpeg saiu com código ${code}`));
+    });
+  });
+
+const transcodeVideoBuffer = async (file) => {
+  if (!ffmpegPath) {
+    throw new Error('Transcodificador de vídeo indisponível');
+  }
+
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'site-tatto-'));
+  const inputPath = path.join(tempDir, `input${path.extname(file.originalname || '') || '.bin'}`);
+  const outputPath = path.join(tempDir, 'output.mp4');
+
+  try {
+    await fs.writeFile(inputPath, file.buffer);
+    await runCommand(ffmpegPath, [
+      '-y',
+      '-i', inputPath,
+      '-movflags', '+faststart',
+      '-pix_fmt', 'yuv420p',
+      '-c:v', 'libx264',
+      '-preset', 'veryfast',
+      '-crf', '28',
+      '-c:a', 'aac',
+      '-b:a', '128k',
+      outputPath,
+    ]);
+
+    const data = await fs.readFile(outputPath);
+    return {
+      buffer: data,
+      filename: `${path.parse(file.originalname || 'video').name}.mp4`,
+      mimetype: 'video/mp4',
+    };
+  } finally {
+    await fs.rm(tempDir, { recursive: true, force: true });
+  }
+};
 
 const upload = multer({
   storage,
   limits: {
-    fileSize: 8 * 1024 * 1024,
+    fileSize: 1024 * 1024 * 1024,
   },
   fileFilter: (_req, file, callback) => {
-    if (file.mimetype.startsWith('image/')) {
+    if (file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/')) {
       callback(null, true);
       return;
     }
 
-    callback(new Error('Apenas imagens são permitidas'));
+    callback(new Error('Apenas imagens e vídeos são permitidos'));
   },
 });
 
 app.use(cors());
 app.use(express.json({ limit: '1mb' }));
-app.use('/uploads', express.static(uploadDir));
 
 const badRequest = (res, message) => res.status(400).json({ error: message });
 
@@ -113,22 +161,84 @@ app.put('/api/site-config', async (req, res) => {
   }
 });
 
-app.post('/api/uploads', upload.single('file'), async (req, res) => {
-  try {
-    if (!req.file) {
-      return badRequest(res, 'Arquivo não enviado');
+app.post('/api/uploads', (req, res) => {
+  upload.single('file')(req, res, async (error) => {
+    if (error) {
+      const status = error.code === 'LIMIT_FILE_SIZE' ? 413 : 400;
+      return res.status(status).json({ error: error.message || 'Falha ao enviar arquivo' });
     }
 
-    res.status(201).json({
-      url: `/uploads/${req.file.filename}`,
-      name: req.file.originalname,
-      size: req.file.size,
-      mimetype: req.file.mimetype,
-    });
+    try {
+      if (!req.file) {
+        return badRequest(res, 'Arquivo não enviado');
+      }
+
+      const mediaFile = req.file.mimetype.startsWith('video/')
+        ? await transcodeVideoBuffer(req.file)
+        : {
+            buffer: req.file.buffer,
+            filename: req.file.originalname || 'arquivo',
+            mimetype: req.file.mimetype,
+          };
+
+      const siteQuery = await pool.query('SELECT id FROM app.site ORDER BY created_at LIMIT 1');
+      if (siteQuery.rowCount === 0) {
+        return badRequest(res, 'Site não encontrado');
+      }
+
+      const siteId = siteQuery.rows[0].id;
+      const insertResult = await pool.query(
+        'INSERT INTO app.media_asset (site_id, filename, mimetype, data) VALUES ($1, $2, $3, $4) RETURNING id',
+        [siteId, mediaFile.filename, mediaFile.mimetype, mediaFile.buffer]
+      );
+      const mediaId = insertResult.rows[0].id;
+
+      res.status(201).json({
+        url: `/api/uploads/${mediaId}`,
+        id: mediaId,
+        name: mediaFile.filename,
+        size: mediaFile.buffer.length,
+        mimetype: mediaFile.mimetype,
+      });
+    } catch (uploadError) {
+      console.error('Erro ao enviar arquivo', uploadError);
+      res.status(500).json({ error: uploadError.message || 'Falha ao enviar arquivo' });
+    }
+  });
+});
+
+app.get('/api/uploads/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await pool.query(
+      'SELECT filename, mimetype, data FROM app.media_asset WHERE id = $1',
+      [id]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: 'Arquivo não encontrado' });
+    }
+
+    const media = result.rows[0];
+    res.setHeader('Content-Type', media.mimetype);
+    res.setHeader('Content-Disposition', `inline; filename="${media.filename}"`);
+    res.send(media.data);
   } catch (error) {
-    console.error('Erro ao enviar arquivo', error);
-    res.status(500).json({ error: error.message || 'Falha ao enviar arquivo' });
+    console.error('Erro ao recuperar arquivo', error);
+    res.status(500).json({ error: 'Falha ao recuperar arquivo' });
   }
+});
+
+app.use((error, _req, res, next) => {
+  if (!(error instanceof multer.MulterError)) {
+    return next(error);
+  }
+
+  if (error.code === 'LIMIT_FILE_SIZE') {
+    return res.status(413).json({ error: 'Arquivo muito grande para envio' });
+  }
+
+  return res.status(400).json({ error: error.message || 'Falha ao enviar arquivo' });
 });
 
 app.get('/api/contact-info', async (_req, res) => {
@@ -242,13 +352,13 @@ app.get('/api/specialists', async (_req, res) => {
 });
 
 app.post('/api/specialists', async (req, res) => {
-  const { name, specialty, imageUrl, experience, instagram, whatsapp } = req.body || {};
+  const { name, specialty, description, imageUrl, experience, instagram, whatsapp } = req.body || {};
   if (!name || !specialty || !imageUrl) {
     return badRequest(res, 'Nome, especialidade e imagem são obrigatórios');
   }
 
   try {
-    const id = await createSpecialist({ name, specialty, imageUrl, experience, instagram, whatsapp });
+    const id = await createSpecialist({ name, specialty, description, imageUrl, experience, instagram, whatsapp });
     res.status(201).json({ id, ok: true });
   } catch (error) {
     console.error('Erro ao criar especialista', error);
@@ -258,10 +368,10 @@ app.post('/api/specialists', async (req, res) => {
 
 app.put('/api/specialists/:id', async (req, res) => {
   const { id } = req.params;
-  const { name, specialty, imageUrl, experience, instagram, whatsapp, sortOrder, isActive } = req.body || {};
+  const { name, specialty, description, imageUrl, experience, instagram, whatsapp, sortOrder, isActive } = req.body || {};
 
   try {
-    await updateSpecialist(id, { name, specialty, imageUrl, experience, instagram, whatsapp, sortOrder, isActive });
+    await updateSpecialist(id, { name, specialty, description, imageUrl, experience, instagram, whatsapp, sortOrder, isActive });
     res.json({ ok: true });
   } catch (error) {
     console.error('Erro ao atualizar especialista', error);
@@ -293,13 +403,13 @@ app.get('/api/portfolio', async (_req, res) => {
 });
 
 app.post('/api/portfolio', async (req, res) => {
-  const { title, style, imageUrl } = req.body || {};
+  const { title, style, imageUrl, specialistId } = req.body || {};
   if (!title || !imageUrl) {
     return badRequest(res, 'Título e imagem são obrigatórios');
   }
 
   try {
-    const id = await createPortfolioItem({ title, style, imageUrl });
+    const id = await createPortfolioItem({ title, style, imageUrl, specialistId });
     res.status(201).json({ id, ok: true });
   } catch (error) {
     console.error('Erro ao criar portfolio item', error);
@@ -309,10 +419,10 @@ app.post('/api/portfolio', async (req, res) => {
 
 app.put('/api/portfolio/:id', async (req, res) => {
   const { id } = req.params;
-  const { title, style, imageUrl, sortOrder, isPublished } = req.body || {};
+  const { title, style, imageUrl, sortOrder, isPublished, specialistId } = req.body || {};
 
   try {
-    await updatePortfolioItem(id, { title, style, imageUrl, sortOrder, isPublished });
+    await updatePortfolioItem(id, { title, style, imageUrl, sortOrder, isPublished, specialistId });
     res.json({ ok: true });
   } catch (error) {
     console.error('Erro ao atualizar portfolio item', error);

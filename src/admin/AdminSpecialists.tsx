@@ -4,11 +4,14 @@ import { Input } from '../app/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../app/components/ui/card';
 import { Check, Edit2, ImagePlus, Plus, Sparkles, Trash2, Upload, X } from 'lucide-react';
 import { uploadImageFile } from './uploadImage';
+import { ImageWithFallback } from '../app/components/figma/ImageWithFallback';
+import { RichTextEditor } from './RichTextEditor';
 
 type SpecialistItem = {
   id: number;
   name: string;
   specialty: string;
+  description: string;
   imageUrl: string;
   experience?: string;
   instagram?: string;
@@ -18,6 +21,7 @@ type SpecialistItem = {
 type SpecialistDraft = {
   name: string;
   specialty: string;
+  description: string;
   imageUrl: string;
   experience: string;
   instagram: string;
@@ -29,16 +33,20 @@ const cardClassName = 'border-white/10 bg-white/[0.04] text-white shadow-2xl sha
 const emptyDraft = (): SpecialistDraft => ({
   name: '',
   specialty: '',
+  description: '',
   imageUrl: '',
   experience: '',
   instagram: '',
   whatsapp: '',
 });
 
+const stripHtml = (value: string) => value.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+
 export function AdminSpecialists() {
   const [specialists, setSpecialists] = useState<SpecialistItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingSpecialist, setEditingSpecialist] = useState<SpecialistItem | null>(null);
   const [newSpecialist, setNewSpecialist] = useState<SpecialistDraft>(emptyDraft());
   const [isUploadingNewImage, setIsUploadingNewImage] = useState(false);
   const [uploadingSpecialistId, setUploadingSpecialistId] = useState<number | null>(null);
@@ -76,6 +84,7 @@ export function AdminSpecialists() {
       if (response.ok) {
         setNewSpecialist(emptyDraft());
         loadSpecialists();
+        window.dispatchEvent(new Event('specialists-updated'));
       }
     } catch (error) {
       console.error('Erro ao adicionar:', error);
@@ -113,6 +122,7 @@ export function AdminSpecialists() {
       setSpecialists((items) =>
         items.map((item) => (item.id === specialistId ? { ...item, imageUrl } : item))
       );
+      setEditingSpecialist((current) => (current && current.id === specialistId ? { ...current, imageUrl } : current));
     } catch (error) {
       console.error('Erro ao enviar imagem:', error);
       alert('Não foi possível enviar a imagem');
@@ -132,7 +142,9 @@ export function AdminSpecialists() {
 
       if (response.ok) {
         setEditingId(null);
+        setEditingSpecialist(null);
         loadSpecialists();
+        window.dispatchEvent(new Event('specialists-updated'));
       }
     } catch (error) {
       console.error('Erro ao atualizar:', error);
@@ -145,6 +157,7 @@ export function AdminSpecialists() {
     try {
       await fetch(`/api/specialists/${id}`, { method: 'DELETE' });
       loadSpecialists();
+      window.dispatchEvent(new Event('specialists-updated'));
     } catch (error) {
       console.error('Erro ao deletar:', error);
     }
@@ -177,6 +190,11 @@ export function AdminSpecialists() {
             onChange={(e) => setNewSpecialist({ ...newSpecialist, specialty: e.target.value })}
             className="border-white/10 bg-white/5 text-white placeholder:text-white/35"
           />
+          <RichTextEditor
+            value={newSpecialist.description}
+            onChange={(value) => setNewSpecialist({ ...newSpecialist, description: value })}
+            placeholder="Escreva a descrição do especialista..."
+          />
           <label className="flex cursor-pointer flex-col gap-3 rounded-2xl border border-dashed border-white/15 bg-black/20 p-4 transition hover:border-white/30 hover:bg-black/30">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white/80">
@@ -196,7 +214,7 @@ export function AdminSpecialists() {
           </label>
           {newSpecialist.imageUrl ? (
             <div className="overflow-hidden rounded-2xl border border-white/10 bg-black/30">
-              <img src={newSpecialist.imageUrl} alt="Prévia do especialista" className="h-56 w-full object-cover" />
+              <ImageWithFallback src={newSpecialist.imageUrl} alt="Prévia do especialista" className="h-56 w-full object-cover" />
             </div>
           ) : null}
           <Input
@@ -236,26 +254,31 @@ export function AdminSpecialists() {
               {editingId === specialist.id ? (
                 <div className="space-y-4">
                   <Input
-                    defaultValue={specialist.name}
+                    value={editingSpecialist?.id === specialist.id ? editingSpecialist.name : specialist.name}
                     onChange={(e) =>
-                      setSpecialists(
-                        specialists.map((s) =>
-                          s.id === specialist.id ? { ...s, name: e.target.value } : s
-                        )
+                      setEditingSpecialist((current) =>
+                        current && current.id === specialist.id ? { ...current, name: e.target.value } : current
                       )
                     }
                     className="border-white/10 bg-white/5 text-white placeholder:text-white/35"
                   />
                   <Input
-                    defaultValue={specialist.specialty}
+                    value={editingSpecialist?.id === specialist.id ? editingSpecialist.specialty : specialist.specialty}
                     onChange={(e) =>
-                      setSpecialists(
-                        specialists.map((s) =>
-                          s.id === specialist.id ? { ...s, specialty: e.target.value } : s
-                        )
+                      setEditingSpecialist((current) =>
+                        current && current.id === specialist.id ? { ...current, specialty: e.target.value } : current
                       )
                     }
                     className="border-white/10 bg-white/5 text-white placeholder:text-white/35"
+                  />
+                  <RichTextEditor
+                    value={editingSpecialist?.id === specialist.id ? editingSpecialist.description : specialist.description}
+                    onChange={(value) =>
+                      setEditingSpecialist((current) =>
+                        current && current.id === specialist.id ? { ...current, description: value } : current
+                      )
+                    }
+                    placeholder="Descreva o especialista com formatação"
                   />
                   <label className="flex cursor-pointer flex-col gap-3 rounded-2xl border border-dashed border-white/15 bg-black/20 p-4 transition hover:border-white/30 hover:bg-black/30">
                     <div className="flex items-center gap-3">
@@ -277,7 +300,7 @@ export function AdminSpecialists() {
 
                   {specialist.imageUrl ? (
                     <div className="overflow-hidden rounded-2xl border border-white/10 bg-black/30">
-                      <img src={specialist.imageUrl} alt={specialist.name} className="h-48 w-full object-cover" />
+                      <ImageWithFallback src={specialist.imageUrl} alt={specialist.name} className="h-48 w-full object-cover" />
                     </div>
                   ) : null}
 
@@ -285,10 +308,8 @@ export function AdminSpecialists() {
                     <Button
                       size="sm"
                       onClick={() => {
-                        const updated = specialists.find((s) => s.id === specialist.id);
-                        if (updated) {
-                          handleUpdate(specialist.id, updated);
-                        }
+                        const updated = editingSpecialist?.id === specialist.id ? editingSpecialist : specialists.find((s) => s.id === specialist.id);
+                        if (updated) handleUpdate(specialist.id, updated);
                       }}
                       className="border border-white/10 bg-white text-black hover:bg-white/90"
                     >
@@ -309,19 +330,23 @@ export function AdminSpecialists() {
                   <div className="flex items-center gap-4">
                     <div className="h-20 w-20 overflow-hidden rounded-2xl border border-white/10 bg-black/40">
                       {specialist.imageUrl ? (
-                        <img src={specialist.imageUrl} alt={specialist.name} className="h-full w-full object-cover" />
+                        <ImageWithFallback src={specialist.imageUrl} alt={specialist.name} className="h-full w-full object-cover" />
                       ) : null}
                     </div>
                     <div>
                       <p className="font-semibold text-white">{specialist.name}</p>
                       <p className="text-sm text-white/55">{specialist.specialty}</p>
+                      {specialist.description ? <p className="mt-1 text-xs text-white/40">{stripHtml(specialist.description)}</p> : null}
                     </div>
                   </div>
                   <div className="flex gap-2">
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => setEditingId(specialist.id)}
+                      onClick={() => {
+                        setEditingId(specialist.id);
+                        setEditingSpecialist({ ...specialist });
+                      }}
                       className="border-white/10 bg-white/5 text-white hover:bg-white/10 hover:text-white"
                     >
                       <Edit2 size={16} />

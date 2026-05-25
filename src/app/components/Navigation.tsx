@@ -52,7 +52,9 @@ export function Navigation() {
     if (ctaLink.href.startsWith('#')) {
       scrollToSection(ctaLink.href);
     } else {
-      window.open(ctaLink.href, '_blank');
+      window.setTimeout(() => {
+        window.open(ctaLink.href, '_blank');
+      }, 140);
     }
   };
 
