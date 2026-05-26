@@ -1,28 +1,45 @@
+# Studios Tatto - Site
 
-# Tattoo Studio Website Design
+Site profissional para estúdio de tatuagem com painel administrativo, portfólio, especialistas, curso e formulários de contacto.
 
-This is a code bundle for Tattoo Studio Website Design. The original project is available at https://www.figma.com/design/VoUMBtwXVHMNnO494d6IFq/Tattoo-Studio-Website-Design.
+Design original: https://www.figma.com/design/VoUMBtwXVHMNnO494d6IFq/Tattoo-Studio-Website-Design
 
-## Para rodar igual em outro PC
+## Para rodar localmente
 
-Use o passo a passo em [AMBIENTE_TRABALHO.md](AMBIENTE_TRABALHO.md). Ele explica como restaurar o banco atual, configurar o `.env` e subir o site e a API juntos.
+1. Instale dependências:
 
-## Running the project
+```bash
+pnpm install
+```
 
-1. Install dependencies:
+2. Inicie frontend + API em um comando (acesso via 5173):
 
-   pnpm install
+```bash
+pnpm dev
+```
 
-2. Start frontend + API in one command (access only on 5173):
+Abra: http://localhost:5173
 
-   pnpm dev
+Se preferir terminais separados:
 
-Open: http://localhost:5173
-
-If you prefer separate terminals:
-
-- Terminal 1: pnpm dev:web
-- Terminal 2: pnpm dev:server
+Terminal 1: `pnpm dev:web`
+Terminal 2: `pnpm dev:server`
 
 Admin uploads require the API server to be running.
-  
+
+## Requisitos
+
+- Node.js 18+ (recomendado 22+)
+- PostgreSQL 14+
+
+## Estrutura do Projeto
+
+```
+Site_Tatto/
+├── db/                    # Migrações e seed da base de dados
+├── server/                # Backend (Express + PostgreSQL)
+├── src/                   # Frontend (React)
+├── .env.example           # Exemplo de configuração
+├── package.json           # Dependências e scripts
+└── vite.config.ts         # Configuração do Vite
+```

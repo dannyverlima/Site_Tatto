@@ -298,19 +298,20 @@ export const getSiteConfig = async () => {
 
     if (courseRow) {
       const featureResult = await client.query(
-        'SELECT title, description FROM app.course_feature WHERE course_id = $1 ORDER BY sort_order, created_at',
+        'SELECT id, title, description FROM app.course_feature WHERE course_id = $1 ORDER BY sort_order, created_at',
         [courseRow.id]
       );
       const highlightResult = await client.query(
-        'SELECT text FROM app.course_highlight WHERE course_id = $1 ORDER BY sort_order, created_at',
+        'SELECT id, text FROM app.course_highlight WHERE course_id = $1 ORDER BY sort_order, created_at',
         [courseRow.id]
       );
       const extraInfoResult = await client.query(
-        'SELECT text FROM app.course_extra_info WHERE course_id = $1 ORDER BY sort_order, created_at',
+        'SELECT id, text FROM app.course_extra_info WHERE course_id = $1 ORDER BY sort_order, created_at',
         [courseRow.id]
       );
 
       features.push(...featureResult.rows.map((row) => ({
+        id: row.id,
         title: row.title,
         description: row.description,
       })));
@@ -319,10 +320,14 @@ export const getSiteConfig = async () => {
     }
 
     const hasPortfolioSpecialistId = await hasTableColumn(client, 'portfolio_item', 'specialist_id');
-    const portfolioResult = await client.query(
-      hasPortfolioSpecialistId
-        ? 'SELECT title, style, image_url, specialist_id FROM app.portfolio_item WHERE site_id = $1 ORDER BY sort_order, created_at'
-        : 'SELECT title, style, image_url, NULL::uuid AS specialist_id FROM app.portfolio_item WHERE site_id = $1 ORDER BY sort_order, created_at',
+      const portfolioResult = await client.query(
+        hasPortfolioSpecialistId
+          ? 'SELECT id, title, style, image_url, specialist_id FROM app.portfolio_item WHERE site_id = $1 ORDER BY sort_order, created_at'
+          : 'SELECT id, title, style, image_url, NULL::uuid AS specialist_id FROM app.portfolio_item WHERE site_id = $1 ORDER BY sort_order, created_at',
+        [site.id]
+      );
+      'SELECT id, title, style, image_url, specialist_id FROM app.portfolio_item WHERE site_id = $1 AND is_published = true ORDER BY sort_order, created_at',
+>>>>>>> a52e774cf638540e152caf7a48560aa561ea1a90
       [site.id]
     );
     const specialistResult = await client.query(
@@ -363,6 +368,7 @@ export const getSiteConfig = async () => {
       },
       portfolio: {
         items: portfolioResult.rows.map((row) => ({
+          id: row.id,
           title: row.title,
           style: row.style,
           image: row.image_url,
@@ -457,12 +463,13 @@ export const saveSiteConfig = async (config) => {
     await client.query('DELETE FROM app.portfolio_item WHERE site_id = $1', [site.id]);
     for (const [index, item] of safeConfig.portfolio.items.entries()) {
       await client.query(
-        'INSERT INTO app.portfolio_item (site_id, title, style, image_url, sort_order) VALUES ($1, $2, $3, $4, $5)',
+        'INSERT INTO app.portfolio_item (site_id, title, style, image_url, specialist_id, sort_order) VALUES ($1, $2, $3, $4, $5, $6)',
         [
           site.id,
           normalizeString(item.title),
           normalizeString(item.style),
-          normalizeString(item.image),
+          normalizeString(item.image || item.imageUrl),
+          item.specialistId || null,
           index,
         ]
       );
@@ -477,7 +484,7 @@ export const saveSiteConfig = async (config) => {
           normalizeString(item.name),
           normalizeString(item.specialty),
           normalizeString(item.description),
-          normalizeString(item.image),
+          normalizeString(item.image || item.imageUrl),
           normalizeString(item.experience),
           normalizeString(item.instagram),
           normalizeString(item.whatsapp),
