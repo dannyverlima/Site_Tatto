@@ -13,13 +13,15 @@ Use o passo a passo em [AMBIENTE_TRABALHO.md](AMBIENTE_TRABALHO.md). Ele explica
 
    pnpm install
 
-2. Start frontend and API together:
+2. Start frontend + API in one command (access only on 5173):
 
-   pnpm dev:all
+   pnpm dev
+
+Open: http://localhost:5173
 
 If you prefer separate terminals:
 
-- Terminal 1: pnpm dev
+- Terminal 1: pnpm dev:web
 - Terminal 2: pnpm dev:server
 
 Admin uploads require the API server to be running.

@@ -224,8 +224,11 @@ app.get('/api/uploads/:id', async (req, res) => {
     }
 
     const media = result.rows[0];
+    const safeFilename = String(media.filename || 'arquivo')
+      .replace(/[\r\n"]/g, '_')
+      .replace(/[^\x20-\x7E]/g, '_');
     res.setHeader('Content-Type', media.mimetype);
-    res.setHeader('Content-Disposition', `inline; filename="${media.filename}"`);
+    res.setHeader('Content-Disposition', `inline; filename="${safeFilename}"`);
     res.send(media.data);
   } catch (error) {
     console.error('Erro ao recuperar arquivo', error);

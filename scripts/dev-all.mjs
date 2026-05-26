@@ -48,8 +48,8 @@ const api = process.platform === 'win32'
   ? spawn('cmd.exe', ['/c', 'pnpm', 'dev:server'], { stdio: 'inherit' })
   : spawn('pnpm', ['dev:server'], { stdio: 'inherit' });
 const web = process.platform === 'win32'
-  ? spawn('cmd.exe', ['/c', 'pnpm', 'dev'], { stdio: 'inherit' })
-  : spawn('pnpm', ['dev'], { stdio: 'inherit' });
+  ? spawn('cmd.exe', ['/c', 'pnpm', 'dev:web'], { stdio: 'inherit' })
+  : spawn('pnpm', ['dev:web'], { stdio: 'inherit' });
 
 let shuttingDown = false;
 

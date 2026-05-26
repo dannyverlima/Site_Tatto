@@ -7,8 +7,7 @@ import { AdminCourse } from './AdminCourse';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../app/components/ui/tabs';
 import { Button } from '../app/components/ui/button';
 import { Input } from '../app/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '../app/components/ui/card';
-import { Camera, ChevronRight, MoonStar, Sparkles, Upload, Wand2 } from 'lucide-react';
+import { ChevronRight, Upload, Wand2 } from 'lucide-react';
 import { uploadImageFile } from './uploadImage';
 import { ImageWithFallback } from '../app/components/figma/ImageWithFallback';
 
@@ -174,50 +173,16 @@ const AdminLogin = ({ onSuccess }: { onSuccess: () => void }) => {
       </header>
 
       <main className="relative mx-auto max-w-7xl px-4 py-8 lg:px-8">
-        <div className="mb-8 grid gap-4 md:grid-cols-3">
-          <Card className={panelClassName}>
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-sm uppercase tracking-[0.24em] text-white/50">
-                <Sparkles className="h-4 w-4" />
-                Experiência
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="text-sm text-white/70">
-              O painel foi ajustado para priorizar contraste, leitura rápida e foco nas imagens.
-            </CardContent>
-          </Card>
-          <Card className={panelClassName}>
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-sm uppercase tracking-[0.24em] text-white/50">
-                <Camera className="h-4 w-4" />
-                Fotos
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="text-sm text-white/70">
-              Upload por arquivo no portfólio, especialistas e no fundo do hero.
-            </CardContent>
-          </Card>
-          <Card className={panelClassName}>
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-sm uppercase tracking-[0.24em] text-white/50">
-                <MoonStar className="h-4 w-4" />
-                Tema
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="text-sm text-white/70">
-              Alto contraste, fundo escuro total e poucos detalhes claros para destacar o conteúdo.
-            </CardContent>
-          </Card>
-        </div>
-
         <Tabs defaultValue="hero" className="w-full">
-          <TabsList className="mb-6 grid w-full grid-cols-1 gap-2 rounded-[24px] border border-white/10 bg-white/[0.04] p-2 backdrop-blur-xl md:grid-cols-5">
-            <TabsTrigger value="hero" className="rounded-2xl text-white/60 data-[state=active]:border-white/10 data-[state=active]:bg-white data-[state=active]:text-black">Início</TabsTrigger>
-            <TabsTrigger value="course" className="rounded-2xl text-white/60 data-[state=active]:border-white/10 data-[state=active]:bg-white data-[state=active]:text-black">Curso</TabsTrigger>
-            <TabsTrigger value="portfolio" className="rounded-2xl text-white/60 data-[state=active]:border-white/10 data-[state=active]:bg-white data-[state=active]:text-black">Portfólio</TabsTrigger>
-            <TabsTrigger value="specialists" className="rounded-2xl text-white/60 data-[state=active]:border-white/10 data-[state=active]:bg-white data-[state=active]:text-black">Especialistas</TabsTrigger>
-            <TabsTrigger value="config" className="rounded-2xl text-white/60 data-[state=active]:border-white/10 data-[state=active]:bg-white data-[state=active]:text-black">Config</TabsTrigger>
-          </TabsList>
+          <div className="mb-7 flex justify-center">
+            <TabsList className="!h-auto grid w-full max-w-5xl grid-cols-5 gap-1.5 rounded-full border border-white/10 bg-[linear-gradient(120deg,rgba(255,255,255,0.07),rgba(255,255,255,0.01)_45%,rgba(0,0,0,0.22))] p-1.5 shadow-2xl shadow-black/35 backdrop-blur-2xl">
+              <TabsTrigger value="hero" className="!h-11 rounded-full text-sm font-medium text-white/70 transition-all duration-300 hover:bg-white/10 hover:text-white data-[state=active]:!border-white/20 data-[state=active]:!bg-white data-[state=active]:!text-black data-[state=active]:shadow-[0_8px_20px_rgba(255,255,255,0.18)]">Início</TabsTrigger>
+              <TabsTrigger value="course" className="!h-11 rounded-full text-sm font-medium text-white/70 transition-all duration-300 hover:bg-white/10 hover:text-white data-[state=active]:!border-white/20 data-[state=active]:!bg-white data-[state=active]:!text-black data-[state=active]:shadow-[0_8px_20px_rgba(255,255,255,0.18)]">Curso</TabsTrigger>
+              <TabsTrigger value="portfolio" className="!h-11 rounded-full text-sm font-medium text-white/70 transition-all duration-300 hover:bg-white/10 hover:text-white data-[state=active]:!border-white/20 data-[state=active]:!bg-white data-[state=active]:!text-black data-[state=active]:shadow-[0_8px_20px_rgba(255,255,255,0.18)]">Portfólio</TabsTrigger>
+              <TabsTrigger value="specialists" className="!h-11 rounded-full text-sm font-medium text-white/70 transition-all duration-300 hover:bg-white/10 hover:text-white data-[state=active]:!border-white/20 data-[state=active]:!bg-white data-[state=active]:!text-black data-[state=active]:shadow-[0_8px_20px_rgba(255,255,255,0.18)]">Especialistas</TabsTrigger>
+              <TabsTrigger value="config" className="!h-11 rounded-full text-sm font-medium text-white/70 transition-all duration-300 hover:bg-white/10 hover:text-white data-[state=active]:!border-white/20 data-[state=active]:!bg-white data-[state=active]:!text-black data-[state=active]:shadow-[0_8px_20px_rgba(255,255,255,0.18)]">Config</TabsTrigger>
+            </TabsList>
+          </div>
 
           <TabsContent value="hero" className="space-y-10">
             <section className={`rounded-[28px] border border-white/10 p-6 shadow-2xl shadow-black/30 backdrop-blur-xl ${panelClassName}`}>

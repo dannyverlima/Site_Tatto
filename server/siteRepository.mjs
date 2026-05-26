@@ -321,14 +321,30 @@ export const getSiteConfig = async () => {
     const hasPortfolioSpecialistId = await hasTableColumn(client, 'portfolio_item', 'specialist_id');
     const portfolioResult = await client.query(
       hasPortfolioSpecialistId
-        ? 'SELECT title, style, image_url, specialist_id FROM app.portfolio_item WHERE site_id = $1 AND is_published = true ORDER BY sort_order, created_at'
-        : 'SELECT title, style, image_url, NULL::uuid AS specialist_id FROM app.portfolio_item WHERE site_id = $1 AND is_published = true ORDER BY sort_order, created_at',
+        ? 'SELECT title, style, image_url, specialist_id FROM app.portfolio_item WHERE site_id = $1 ORDER BY sort_order, created_at'
+        : 'SELECT title, style, image_url, NULL::uuid AS specialist_id FROM app.portfolio_item WHERE site_id = $1 ORDER BY sort_order, created_at',
       [site.id]
     );
     const specialistResult = await client.query(
       'SELECT id, name, specialty, description, image_url, experience, instagram, whatsapp FROM app.specialist WHERE site_id = $1 AND is_active = true ORDER BY sort_order, created_at',
       [site.id]
     );
+
+    const specialists = specialistResult.rows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      specialty: row.specialty,
+      description: row.description,
+      image: row.image_url,
+      experience: row.experience,
+      instagram: row.instagram,
+      whatsapp: row.whatsapp,
+    }));
+
+    // Compatibility fallback: old portfolio rows may have NULL specialist_id.
+    // Attach these rows to the first active specialist so albums continue to
+    // render in home and specialist pages until admin updates the association.
+    const fallbackSpecialistId = specialists[0]?.id ?? null;
 
     return {
       hero: {
@@ -350,20 +366,11 @@ export const getSiteConfig = async () => {
           title: row.title,
           style: row.style,
           image: row.image_url,
-          specialistId: row.specialist_id,
+          specialistId: row.specialist_id || fallbackSpecialistId,
         })),
       },
       specialists: {
-        items: specialistResult.rows.map((row) => ({
-          id: row.id,
-          name: row.name,
-          specialty: row.specialty,
-          description: row.description,
-          image: row.image_url,
-          experience: row.experience,
-          instagram: row.instagram,
-          whatsapp: row.whatsapp,
-        })),
+        items: specialists,
       },
     };
   } finally {

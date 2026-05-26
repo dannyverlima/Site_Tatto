@@ -126,7 +126,7 @@ export function SpecialistPage() {
           {/* Botão Portfólio centralizado abaixo do Instagram/WhatsApp */}
           <div className="mt-4 flex justify-center">
             <a
-              href={`/especialista/${slug}/portfolio`}
+              href={`/portifolio/${slug}`}
               className="inline-flex items-center justify-center gap-2 rounded-full border border-white/10 bg-white px-6 py-3 text-sm font-semibold text-black transition hover:bg-white/90"
             >
               Portfólio

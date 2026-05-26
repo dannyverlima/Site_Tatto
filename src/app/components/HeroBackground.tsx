@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { HeroBackgroundType } from '../data/siteConfig';
 
@@ -9,6 +9,10 @@ type HeroBackgroundProps = {
 
 export function HeroBackground({ type, url }: HeroBackgroundProps) {
   const [videoErrored, setVideoErrored] = useState(false);
+
+  useEffect(() => {
+    setVideoErrored(false);
+  }, [type, url]);
 
   const fallback = (
     <div className="relative h-full w-full bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.12),_transparent_35%),linear-gradient(180deg,_#0c0c0c,_#000000)]">
@@ -24,6 +28,7 @@ export function HeroBackground({ type, url }: HeroBackgroundProps) {
     return (
       <div className="relative h-full w-full">
         <video
+          key={url}
           className="absolute inset-0 h-full w-full object-cover"
           src={url}
           autoPlay
