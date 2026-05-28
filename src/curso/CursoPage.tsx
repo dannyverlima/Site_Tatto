@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { motion } from 'motion/react';
+import { motion } from 'framer-motion';
 import { useSiteConfig } from '../app/hooks/useSiteConfig';
 import { HeroBackground } from '../app/components/HeroBackground';
 import { courseBackground } from './cursoBackground';

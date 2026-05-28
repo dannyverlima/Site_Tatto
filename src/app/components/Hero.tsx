@@ -1,4 +1,4 @@
-import { motion, useScroll, useTransform } from 'motion/react';
+import { motion, useScroll, useTransform } from 'framer-motion';
 import logoImg from '../../imports/Logo.png';
 import { HeroBackground } from './HeroBackground';
 import { useSiteConfig } from '../hooks/useSiteConfig';

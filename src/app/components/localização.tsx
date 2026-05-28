@@ -1,5 +1,4 @@
-import { motion } from 'motion/react';
-import { useInView } from 'motion/react';
+import { motion, useInView } from 'framer-motion';
 import { useEffect, useRef, useState } from 'react';
 import { MapPin } from 'lucide-react';
 

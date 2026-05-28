@@ -1,5 +1,4 @@
-import { motion } from 'motion/react';
-import { useInView } from 'motion/react';
+import { motion, useInView } from 'framer-motion';
 import { useRef } from 'react';
 import { GraduationCap, Clock, Users, Award } from 'lucide-react';
 import { useSiteConfig } from '../hooks/useSiteConfig';

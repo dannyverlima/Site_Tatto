@@ -1,5 +1,4 @@
-import { motion } from 'motion/react';
-import { useInView } from 'motion/react';
+import { motion, useInView } from 'framer-motion';
 import { useEffect, useRef, useState } from 'react';
 import { Mail, Phone, MapPin, Clock, Send, Instagram, Facebook, MessageCircle } from 'lucide-react';
 import { toWhatsappLink } from '../utils/formatters';

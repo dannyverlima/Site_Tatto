@@ -1,4 +1,4 @@
-import { motion } from 'motion/react';
+import { motion } from 'framer-motion';
 import { ArrowLeft, Instagram, MessageCircle } from 'lucide-react';
 import { LoadingScreen } from '../app/components/LoadingScreen';
 import { ImageWithFallback } from '../app/components/figma/ImageWithFallback';
