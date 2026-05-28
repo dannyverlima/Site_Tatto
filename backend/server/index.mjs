@@ -45,14 +45,13 @@ import {
   deleteJewelryItem,
   createJewelryOrder,
 } from './siteRepository.mjs';
-import { pool } from './db.mjs';
-
-dotenv.config({ path: process.env.DOTENV_CONFIG_PATH || new URL('./.env', import.meta.url).pathname });
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const envPath = process.env.DOTENV_CONFIG_PATH || path.resolve(__dirname, '..', '.env');
+dotenv.config({ path: envPath });
 
 const app = express();
 const port = Number(process.env.PORT || 5175);
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, '..');
 const adminMediaDir = path.join(projectRoot, 'imagens', 'videos admin');
 

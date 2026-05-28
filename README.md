@@ -36,10 +36,9 @@ Admin uploads require the API server to be running.
 
 ```
 Site_Tatto/
-├── db/                    # Migrações e seed da base de dados
-├── server/                # Backend (Express + PostgreSQL)
-├── src/                   # Frontend (React)
-├── .env.example           # Exemplo de configuração
+├── backend/               # API + base de dados (server, db, midias admin)
+├── frontend/              # React + Vite (src, public, html, config)
+├── scripts/               # Scripts locais de dev
 ├── package.json           # Dependências e scripts
-└── vite.config.ts         # Configuração do Vite
+└── README.md              # Instruções
 ```
