@@ -69,6 +69,13 @@ export const defaultSiteConfig: SiteConfig = {
 
 const UUID_RX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
+type UploadItem = {
+  id: string;
+  filename?: string;
+  mimetype?: string;
+  url?: string;
+};
+
 const normalizeMediaUrl = (value: unknown): string => {
   if (typeof value !== 'string') {
     return '';
@@ -98,6 +105,59 @@ const normalizeMediaUrl = (value: unknown): string => {
   }
 
   return trimmed;
+};
+
+const normalizeFilename = (value: string) => value.trim().toLowerCase();
+
+const extractFilename = (value: string) => {
+  const clean = value.split('?')[0].split('#')[0];
+  const lastPart = clean.split('/').pop();
+  return lastPart ? lastPart.trim() : '';
+};
+
+const buildUploadIndex = (uploads: UploadItem[]) => {
+  const byFilename = new Map<string, UploadItem>();
+  let firstVisual: UploadItem | null = null;
+
+  for (const upload of uploads) {
+    if (upload.filename) {
+      byFilename.set(normalizeFilename(upload.filename), upload);
+    }
+    if (!firstVisual && upload.mimetype && /^(image|video)\//i.test(upload.mimetype)) {
+      firstVisual = upload;
+    }
+  }
+
+  return { byFilename, firstVisual };
+};
+
+const isLocalMediaUrl = (value: string) =>
+  value.startsWith('/') && !value.startsWith('/api/uploads/') && !value.startsWith('/uploads/');
+
+const checkUrlExists = async (url: string) => {
+  try {
+    const response = await fetch(url, { method: 'HEAD' });
+    return response.ok;
+  } catch {
+    return false;
+  }
+};
+
+const resolveMediaUrl = (value: unknown, uploadIndex: ReturnType<typeof buildUploadIndex>) => {
+  const normalized = normalizeMediaUrl(value);
+  if (!normalized) {
+    return uploadIndex.firstVisual?.url || '';
+  }
+
+  const filename = extractFilename(normalized);
+  if (filename) {
+    const match = uploadIndex.byFilename.get(normalizeFilename(filename));
+    if (match?.url) {
+      return match.url;
+    }
+  }
+
+  return normalized;
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -141,33 +201,74 @@ export const loadSiteConfig = async (): Promise<SiteConfig> => {
     const parsed = (await response.json()) as Partial<SiteConfig>;
     const merged = mergeConfig(defaultSiteConfig, parsed);
 
-    merged.hero.backgroundUrl = normalizeMediaUrl(merged.hero.backgroundUrl);
-    merged.portfolio.items = merged.portfolio.items.map((item) => ({
-      ...item,
-      image: normalizeMediaUrl(item.image),
-    }));
-    merged.specialists.items = merged.specialists.items.map((item) => ({
-      ...item,
-      image: normalizeMediaUrl(item.image),
-    }));
-
-    if (!merged.hero.backgroundUrl) {
+    let uploadIndex = buildUploadIndex([]);
+    try {
       const uploadsResponse = await fetch('/api/uploads');
       if (uploadsResponse.ok) {
-        const uploads = (await uploadsResponse.json()) as Array<{ mimetype?: string; url?: string }>;
-        const firstVisual = uploads.find((file) =>
-          typeof file.mimetype === 'string' &&
-          (file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/'))
-        );
+        const uploads = (await uploadsResponse.json()) as UploadItem[];
+        uploadIndex = buildUploadIndex(Array.isArray(uploads) ? uploads : []);
+      }
+    } catch {
+      // ignore upload lookup failures
+    }
 
-        if (firstVisual?.url) {
-          merged.hero.backgroundUrl = normalizeMediaUrl(firstVisual.url);
-          if (firstVisual.mimetype?.startsWith('video/')) {
-            merged.hero.backgroundType = 'video';
-          }
+    let resolvedHeroUrl = resolveMediaUrl(merged.hero.backgroundUrl, uploadIndex);
+    if (resolvedHeroUrl && isLocalMediaUrl(resolvedHeroUrl)) {
+      const exists = await checkUrlExists(resolvedHeroUrl);
+      if (!exists && uploadIndex.firstVisual?.url) {
+        resolvedHeroUrl = uploadIndex.firstVisual.url;
+      }
+    }
+
+    merged.hero.backgroundUrl = resolvedHeroUrl;
+    if (merged.hero.backgroundUrl) {
+      const heroFilename = extractFilename(merged.hero.backgroundUrl);
+      if (heroFilename) {
+        const match = uploadIndex.byFilename.get(normalizeFilename(heroFilename));
+        if (match?.mimetype?.startsWith('video/')) {
+          merged.hero.backgroundType = 'video';
+        }
+        if (match?.mimetype?.startsWith('image/')) {
+          merged.hero.backgroundType = 'image';
         }
       }
     }
+
+    if (!merged.hero.backgroundUrl && uploadIndex.firstVisual?.url) {
+      merged.hero.backgroundUrl = normalizeMediaUrl(uploadIndex.firstVisual.url);
+      if (uploadIndex.firstVisual.mimetype?.startsWith('video/')) {
+        merged.hero.backgroundType = 'video';
+      }
+    }
+
+    const portfolioWithResolved = await Promise.all(
+      merged.portfolio.items.map(async (item) => {
+        let resolved = resolveMediaUrl(item.image, uploadIndex);
+        if (resolved && isLocalMediaUrl(resolved)) {
+          const exists = await checkUrlExists(resolved);
+          if (!exists && uploadIndex.firstVisual?.url) {
+            resolved = uploadIndex.firstVisual.url;
+          }
+        }
+        return { ...item, image: resolved };
+      })
+    );
+
+    const specialistsWithResolved = await Promise.all(
+      merged.specialists.items.map(async (item) => {
+        let resolved = resolveMediaUrl(item.image, uploadIndex);
+        if (resolved && isLocalMediaUrl(resolved)) {
+          const exists = await checkUrlExists(resolved);
+          if (!exists && uploadIndex.firstVisual?.url) {
+            resolved = uploadIndex.firstVisual.url;
+          }
+        }
+        return { ...item, image: resolved };
+      })
+    );
+
+    merged.portfolio.items = portfolioWithResolved;
+    merged.specialists.items = specialistsWithResolved;
 
     return merged;
   } catch {

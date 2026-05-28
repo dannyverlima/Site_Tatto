@@ -129,6 +129,10 @@ const upload = multer({
 app.use(cors());
 app.use(express.json({ limit: '1mb' }));
 
+ensureDatabaseSchema().catch((error) => {
+  console.error('Falha ao preparar schema do banco', error);
+});
+
 const badRequest = (res, message) => res.status(400).json({ error: message });
 
 const ensureDatabaseSchema = async () => {
