@@ -1,6 +1,7 @@
 node_modules/
 dist/
 db/exports/
+imagens/
 .env
 .env.local
 *.mp4

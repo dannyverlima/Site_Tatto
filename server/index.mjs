@@ -53,6 +53,8 @@ const app = express();
 const port = Number(process.env.PORT || 5175);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const projectRoot = path.resolve(__dirname, '..');
+const adminMediaDir = path.join(projectRoot, 'imagens', 'videos admin');
 
 const storage = multer.memoryStorage();
 
@@ -128,12 +130,27 @@ const upload = multer({
 
 app.use(cors());
 app.use(express.json({ limit: '1mb' }));
+app.use('/admin-media', express.static(adminMediaDir));
 
 ensureDatabaseSchema().catch((error) => {
   console.error('Falha ao preparar schema do banco', error);
 });
 
 const badRequest = (res, message) => res.status(400).json({ error: message });
+
+const ensureAdminMediaDir = async () => {
+  await fs.mkdir(adminMediaDir, { recursive: true });
+};
+
+const safeDiskFilename = (filename, mimetype) => {
+  const parsed = path.parse(filename || 'arquivo');
+  const base = parsed.name
+    .replace(/[^a-z0-9-_]+/gi, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 64) || 'arquivo';
+  const extension = parsed.ext || (String(mimetype || '').startsWith('video/') ? '.mp4' : '.bin');
+  return `${Date.now()}-${base}${extension}`;
+};
 
 const ensureDatabaseSchema = async () => {
   await pool.query('CREATE SCHEMA IF NOT EXISTS app');
@@ -237,6 +254,11 @@ app.post('/api/uploads', (req, res) => {
             mimetype: req.file.mimetype || (isMp4Video ? 'video/mp4' : 'application/octet-stream'),
           };
 
+      await ensureAdminMediaDir();
+      const diskFilename = safeDiskFilename(mediaFile.filename, mediaFile.mimetype);
+      const diskPath = path.join(adminMediaDir, diskFilename);
+      await fs.writeFile(diskPath, mediaFile.buffer);
+
       const siteQuery = await pool.query('SELECT id FROM app.site ORDER BY created_at LIMIT 1');
       if (siteQuery.rowCount === 0) {
         return badRequest(res, 'Site não encontrado');
@@ -251,6 +273,7 @@ app.post('/api/uploads', (req, res) => {
 
       res.status(201).json({
         url: `/api/uploads/${mediaId}`,
+        diskUrl: `/admin-media/${diskFilename}`,
         id: mediaId,
         name: mediaFile.filename,
         size: mediaFile.buffer.length,
