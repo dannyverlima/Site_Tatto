@@ -132,17 +132,6 @@ app.use(cors());
 app.use(express.json({ limit: '1mb' }));
 app.use('/admin-media', express.static(adminMediaDir));
 
-const bootstrapAdminMedia = async () => {
-  await ensureAdminMediaDir();
-  await ingestAdminMediaFiles();
-};
-
-ensureDatabaseSchema()
-  .then(() => bootstrapAdminMedia())
-  .catch((error) => {
-    console.error('Falha ao preparar schema do banco', error);
-  });
-
 const badRequest = (res, message) => res.status(400).json({ error: message });
 
 const ensureAdminMediaDir = async () => {
@@ -183,9 +172,29 @@ const mimeByExtension = new Map([
   ['.webm', 'video/webm'],
 ]);
 
+const extensionByMime = new Map([
+  ['image/png', '.png'],
+  ['image/jpeg', '.jpg'],
+  ['image/webp', '.webp'],
+  ['image/gif', '.gif'],
+  ['video/mp4', '.mp4'],
+  ['video/quicktime', '.mov'],
+  ['video/webm', '.webm'],
+]);
+
 const detectMimeType = (filename) => {
   const extension = path.extname(filename || '').toLowerCase();
   return mimeByExtension.get(extension) || 'application/octet-stream';
+};
+
+const buildDiskFilename = (originalName, mimetype, id) => {
+  const parsed = path.parse(originalName || 'arquivo');
+  const base = parsed.name
+    .replace(/[^a-z0-9-_]+/gi, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 64) || (id ? String(id).slice(0, 8) : 'arquivo');
+  const ext = parsed.ext || extensionByMime.get(String(mimetype || '').toLowerCase()) || '.bin';
+  return `${base}-${id || Date.now()}${ext}`;
 };
 
 const ingestAdminMediaFiles = async () => {
@@ -228,6 +237,69 @@ const ingestAdminMediaFiles = async () => {
   }
 
   return { inserted, skipped };
+};
+
+const exportDatabaseMediaToDisk = async () => {
+  await ensureAdminMediaDir();
+
+  const result = await pool.query(
+    'SELECT id, filename, mimetype, disk_filename, disk_path FROM app.media_asset ORDER BY created_at'
+  );
+
+  let exported = 0;
+  let skipped = 0;
+
+  for (const row of result.rows) {
+    const existingFilename = row.disk_filename || '';
+    const diskFilename = existingFilename || buildDiskFilename(row.filename, row.mimetype, row.id);
+    const diskPath = path.join(adminMediaDir, diskFilename);
+
+    try {
+      await fs.access(diskPath);
+      skipped += 1;
+    } catch {
+      const sizeResult = await pool.query(
+        'SELECT octet_length(data) AS size FROM app.media_asset WHERE id = $1',
+        [row.id]
+      );
+      const totalSize = Number(sizeResult.rows[0]?.size || 0);
+      if (!totalSize) {
+        skipped += 1;
+        continue;
+      }
+
+      const chunkSize = 1024 * 1024;
+      const fileHandle = await fs.open(diskPath, 'w');
+      try {
+        for (let offset = 0; offset < totalSize; offset += chunkSize) {
+          const length = Math.min(chunkSize, totalSize - offset);
+          const chunkResult = await pool.query(
+            "SELECT encode(substring(data from $1 for $2), 'base64') AS chunk FROM app.media_asset WHERE id = $3",
+            [offset + 1, length, row.id]
+          );
+          const chunkBase64 = chunkResult.rows[0]?.chunk;
+          if (!chunkBase64) {
+            continue;
+          }
+          const buffer = Buffer.from(chunkBase64, 'base64');
+          await fileHandle.write(buffer);
+        }
+      } finally {
+        await fileHandle.close();
+      }
+
+      exported += 1;
+    }
+
+    if (!existingFilename) {
+      await pool.query(
+        'UPDATE app.media_asset SET disk_filename = $1, disk_path = $2 WHERE id = $3',
+        [diskFilename, diskPath, row.id]
+      );
+    }
+  }
+
+  return { exported, skipped };
 };
 
 const ensureDatabaseSchema = async () => {
@@ -275,6 +347,12 @@ const ensureDatabaseSchema = async () => {
     END
     $$;
   `);
+};
+
+const bootstrapAdminMedia = async () => {
+  await ensureAdminMediaDir();
+  await exportDatabaseMediaToDisk();
+  await ingestAdminMediaFiles();
 };
 
 app.get('/api/health', (_req, res) => {
@@ -897,6 +975,9 @@ const startServer = async () => {
     await ensureDatabaseSchema();
     app.listen(port, () => {
       console.log(`API rodando em http://localhost:${port}`);
+    });
+    bootstrapAdminMedia().catch((error) => {
+      console.error('Falha ao sincronizar midias do admin', error);
     });
   } catch (error) {
     console.error('Falha ao iniciar API', error);
