@@ -17,6 +17,14 @@ export function Hero() {
     }, 140);
   };
 
+  const goToLocationPage = (event: React.MouseEvent<HTMLAnchorElement>) => {
+    event.preventDefault();
+    const targetHref = '/localizacao';
+    window.setTimeout(() => {
+      window.location.href = targetHref;
+    }, 140);
+  };
+
   return (
     <section id="home" className="relative h-screen w-full overflow-hidden flex items-center justify-center bg-neutral-950">
       {/* Background Image com Opacidade Baixa */}
@@ -94,7 +102,8 @@ export function Hero() {
             Avaliacoes
           </motion.a>
           <motion.a
-            href="#localizacao"
+            href="/localizacao"
+            onClick={goToLocationPage}
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.98 }}
             className="px-5 py-2 rounded-full border border-neutral-800 text-neutral-200 text-xs tracking-wide uppercase hover:border-neutral-500 transition-colors"
