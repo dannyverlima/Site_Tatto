@@ -132,14 +132,34 @@ app.use(cors());
 app.use(express.json({ limit: '1mb' }));
 app.use('/admin-media', express.static(adminMediaDir));
 
-ensureDatabaseSchema().catch((error) => {
-  console.error('Falha ao preparar schema do banco', error);
-});
+const bootstrapAdminMedia = async () => {
+  await ensureAdminMediaDir();
+  await ingestAdminMediaFiles();
+};
+
+ensureDatabaseSchema()
+  .then(() => bootstrapAdminMedia())
+  .catch((error) => {
+    console.error('Falha ao preparar schema do banco', error);
+  });
 
 const badRequest = (res, message) => res.status(400).json({ error: message });
 
 const ensureAdminMediaDir = async () => {
   await fs.mkdir(adminMediaDir, { recursive: true });
+};
+
+const ensureSiteId = async () => {
+  const result = await pool.query('SELECT id FROM app.site ORDER BY created_at LIMIT 1');
+  if (result.rowCount > 0) {
+    return result.rows[0].id;
+  }
+
+  const inserted = await pool.query(
+    'INSERT INTO app.site (name, domain) VALUES ($1, $2) RETURNING id',
+    ['Studios Tatto', null]
+  );
+  return inserted.rows[0].id;
 };
 
 const safeDiskFilename = (filename, mimetype) => {
@@ -150,6 +170,64 @@ const safeDiskFilename = (filename, mimetype) => {
     .slice(0, 64) || 'arquivo';
   const extension = parsed.ext || (String(mimetype || '').startsWith('video/') ? '.mp4' : '.bin');
   return `${Date.now()}-${base}${extension}`;
+};
+
+const mimeByExtension = new Map([
+  ['.png', 'image/png'],
+  ['.jpg', 'image/jpeg'],
+  ['.jpeg', 'image/jpeg'],
+  ['.webp', 'image/webp'],
+  ['.gif', 'image/gif'],
+  ['.mp4', 'video/mp4'],
+  ['.mov', 'video/quicktime'],
+  ['.webm', 'video/webm'],
+]);
+
+const detectMimeType = (filename) => {
+  const extension = path.extname(filename || '').toLowerCase();
+  return mimeByExtension.get(extension) || 'application/octet-stream';
+};
+
+const ingestAdminMediaFiles = async () => {
+  let entries = [];
+  try {
+    entries = await fs.readdir(adminMediaDir, { withFileTypes: true });
+  } catch (error) {
+    console.warn('Nao foi possivel ler a pasta de midia do admin', error);
+    return { inserted: 0, skipped: 0 };
+  }
+
+  const files = entries.filter((entry) => entry.isFile()).map((entry) => entry.name);
+  if (files.length === 0) {
+    return { inserted: 0, skipped: 0 };
+  }
+
+  const existing = await pool.query(
+    'SELECT disk_filename FROM app.media_asset WHERE disk_filename IS NOT NULL'
+  );
+  const existingNames = new Set(existing.rows.map((row) => row.disk_filename));
+  const siteId = await ensureSiteId();
+  let inserted = 0;
+  let skipped = 0;
+
+  for (const filename of files) {
+    if (existingNames.has(filename)) {
+      skipped += 1;
+      continue;
+    }
+
+    const diskPath = path.join(adminMediaDir, filename);
+    const buffer = await fs.readFile(diskPath);
+    const mimetype = detectMimeType(filename);
+
+    await pool.query(
+      'INSERT INTO app.media_asset (site_id, filename, mimetype, data, disk_filename, disk_path) VALUES ($1, $2, $3, $4, $5, $6)',
+      [siteId, filename, mimetype, buffer, filename, diskPath]
+    );
+    inserted += 1;
+  }
+
+  return { inserted, skipped };
 };
 
 const ensureDatabaseSchema = async () => {
@@ -165,6 +243,10 @@ const ensureDatabaseSchema = async () => {
       created_at timestamptz NOT NULL DEFAULT now()
     )
   `);
+
+  await pool.query('ALTER TABLE app.media_asset ADD COLUMN IF NOT EXISTS disk_filename text');
+  await pool.query('ALTER TABLE app.media_asset ADD COLUMN IF NOT EXISTS disk_path text');
+  await pool.query('CREATE INDEX IF NOT EXISTS media_asset_disk_filename_idx ON app.media_asset (disk_filename)');
 
   await pool.query(`
     DO $$
@@ -259,15 +341,10 @@ app.post('/api/uploads', (req, res) => {
       const diskPath = path.join(adminMediaDir, diskFilename);
       await fs.writeFile(diskPath, mediaFile.buffer);
 
-      const siteQuery = await pool.query('SELECT id FROM app.site ORDER BY created_at LIMIT 1');
-      if (siteQuery.rowCount === 0) {
-        return badRequest(res, 'Site não encontrado');
-      }
-
-      const siteId = siteQuery.rows[0].id;
+      const siteId = await ensureSiteId();
       const insertResult = await pool.query(
-        'INSERT INTO app.media_asset (site_id, filename, mimetype, data) VALUES ($1, $2, $3, $4) RETURNING id',
-        [siteId, mediaFile.filename, mediaFile.mimetype, mediaFile.buffer]
+        'INSERT INTO app.media_asset (site_id, filename, mimetype, data, disk_filename, disk_path) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id',
+        [siteId, mediaFile.filename, mediaFile.mimetype, mediaFile.buffer, diskFilename, diskPath]
       );
       const mediaId = insertResult.rows[0].id;
 
@@ -289,7 +366,7 @@ app.post('/api/uploads', (req, res) => {
 app.get('/api/uploads', async (_req, res) => {
   try {
     const result = await pool.query(
-      'SELECT id, filename, mimetype, created_at FROM app.media_asset ORDER BY created_at DESC LIMIT 200'
+      'SELECT id, filename, mimetype, created_at, disk_filename FROM app.media_asset ORDER BY created_at DESC LIMIT 200'
     );
 
     res.json(
@@ -299,11 +376,22 @@ app.get('/api/uploads', async (_req, res) => {
         mimetype: row.mimetype,
         createdAt: row.created_at,
         url: `/api/uploads/${row.id}`,
+        diskUrl: row.disk_filename ? `/admin-media/${row.disk_filename}` : null,
       }))
     );
   } catch (error) {
     console.error('Erro ao listar arquivos', error);
     res.status(500).json({ error: 'Falha ao listar arquivos' });
+  }
+});
+
+app.post('/api/admin-media/ingest', async (_req, res) => {
+  try {
+    const result = await ingestAdminMediaFiles();
+    res.json({ ok: true, ...result });
+  } catch (error) {
+    console.error('Erro ao ingerir midia do admin', error);
+    res.status(500).json({ error: 'Falha ao ingerir midia do admin' });
   }
 });
 
