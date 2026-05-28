@@ -67,6 +67,39 @@ export const defaultSiteConfig: SiteConfig = {
   },
 };
 
+const UUID_RX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+const normalizeMediaUrl = (value: unknown): string => {
+  if (typeof value !== 'string') {
+    return '';
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return '';
+  }
+
+  if (
+    trimmed.startsWith('/') ||
+    trimmed.startsWith('http://') ||
+    trimmed.startsWith('https://') ||
+    trimmed.startsWith('data:') ||
+    trimmed.startsWith('blob:')
+  ) {
+    return trimmed;
+  }
+
+  if (trimmed.startsWith('api/uploads/')) {
+    return `/${trimmed}`;
+  }
+
+  if (UUID_RX.test(trimmed)) {
+    return `/api/uploads/${trimmed}`;
+  }
+
+  return trimmed;
+};
+
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
@@ -106,7 +139,37 @@ export const loadSiteConfig = async (): Promise<SiteConfig> => {
       throw new Error(`Falha ao carregar config (${response.status})`);
     }
     const parsed = (await response.json()) as Partial<SiteConfig>;
-    return mergeConfig(defaultSiteConfig, parsed);
+    const merged = mergeConfig(defaultSiteConfig, parsed);
+
+    merged.hero.backgroundUrl = normalizeMediaUrl(merged.hero.backgroundUrl);
+    merged.portfolio.items = merged.portfolio.items.map((item) => ({
+      ...item,
+      image: normalizeMediaUrl(item.image),
+    }));
+    merged.specialists.items = merged.specialists.items.map((item) => ({
+      ...item,
+      image: normalizeMediaUrl(item.image),
+    }));
+
+    if (!merged.hero.backgroundUrl) {
+      const uploadsResponse = await fetch('/api/uploads');
+      if (uploadsResponse.ok) {
+        const uploads = (await uploadsResponse.json()) as Array<{ mimetype?: string; url?: string }>;
+        const firstVisual = uploads.find((file) =>
+          typeof file.mimetype === 'string' &&
+          (file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/'))
+        );
+
+        if (firstVisual?.url) {
+          merged.hero.backgroundUrl = normalizeMediaUrl(firstVisual.url);
+          if (firstVisual.mimetype?.startsWith('video/')) {
+            merged.hero.backgroundType = 'video';
+          }
+        }
+      }
+    }
+
+    return merged;
   } catch {
     return defaultSiteConfig;
   }

@@ -131,6 +131,49 @@ app.use(express.json({ limit: '1mb' }));
 
 const badRequest = (res, message) => res.status(400).json({ error: message });
 
+const ensureDatabaseSchema = async () => {
+  await pool.query('CREATE SCHEMA IF NOT EXISTS app');
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS app.media_asset (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      site_id uuid NOT NULL REFERENCES app.site(id) ON DELETE CASCADE,
+      filename text NOT NULL,
+      mimetype text NOT NULL,
+      data bytea NOT NULL,
+      created_at timestamptz NOT NULL DEFAULT now()
+    )
+  `);
+
+  await pool.query(`
+    DO $$
+    BEGIN
+      IF to_regclass('app.specialist') IS NOT NULL THEN
+        BEGIN
+          ALTER TABLE app.specialist ADD COLUMN IF NOT EXISTS description text NOT NULL DEFAULT '';
+        EXCEPTION WHEN undefined_table THEN
+          NULL;
+        END;
+      END IF;
+    END
+    $$;
+  `);
+
+  await pool.query(`
+    DO $$
+    BEGIN
+      IF to_regclass('app.portfolio_item') IS NOT NULL THEN
+        BEGIN
+          ALTER TABLE app.portfolio_item ADD COLUMN IF NOT EXISTS specialist_id uuid REFERENCES app.specialist(id) ON DELETE SET NULL;
+        EXCEPTION WHEN undefined_table THEN
+          NULL;
+        END;
+      END IF;
+    END
+    $$;
+  `);
+};
+
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok' });
 });
@@ -214,6 +257,27 @@ app.post('/api/uploads', (req, res) => {
       res.status(500).json({ error: uploadError.message || 'Falha ao enviar arquivo' });
     }
   });
+});
+
+app.get('/api/uploads', async (_req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT id, filename, mimetype, created_at FROM app.media_asset ORDER BY created_at DESC LIMIT 200'
+    );
+
+    res.json(
+      result.rows.map((row) => ({
+        id: row.id,
+        filename: row.filename,
+        mimetype: row.mimetype,
+        createdAt: row.created_at,
+        url: `/api/uploads/${row.id}`,
+      }))
+    );
+  } catch (error) {
+    console.error('Erro ao listar arquivos', error);
+    res.status(500).json({ error: 'Falha ao listar arquivos' });
+  }
 });
 
 app.get('/api/uploads/:id', async (req, res) => {
@@ -713,6 +777,16 @@ app.delete('/api/course/extra-info/:id', async (req, res) => {
   }
 });
 
-app.listen(port, () => {
-  console.log(`API rodando em http://localhost:${port}`);
-});
+const startServer = async () => {
+  try {
+    await ensureDatabaseSchema();
+    app.listen(port, () => {
+      console.log(`API rodando em http://localhost:${port}`);
+    });
+  } catch (error) {
+    console.error('Falha ao iniciar API', error);
+    process.exit(1);
+  }
+};
+
+startServer();
