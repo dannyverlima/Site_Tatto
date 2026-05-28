@@ -83,16 +83,26 @@ export function Navigation() {
               />
             </motion.button>
 
-            {ctaLink ? (
-              <motion.button
-                onClick={handleCtaClick}
+            <div className="flex items-center gap-2">
+              <motion.a
+                href="/joias.html"
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.98 }}
                 className="px-5 py-2 rounded-full border border-neutral-700 text-neutral-100 text-xs tracking-wide uppercase hover:border-neutral-400 transition-colors"
               >
-                {ctaLink.label}
-              </motion.button>
-            ) : null}
+                Joias
+              </motion.a>
+              {ctaLink ? (
+                <motion.button
+                  onClick={handleCtaClick}
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.98 }}
+                  className="px-5 py-2 rounded-full border border-neutral-700 text-neutral-100 text-xs tracking-wide uppercase hover:border-neutral-400 transition-colors"
+                >
+                  {ctaLink.label}
+                </motion.button>
+              ) : null}
+            </div>
           </div>
         </div>
       </motion.nav>
