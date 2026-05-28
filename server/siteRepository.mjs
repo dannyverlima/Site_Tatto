@@ -320,16 +320,11 @@ export const getSiteConfig = async () => {
     }
 
     const hasPortfolioSpecialistId = await hasTableColumn(client, 'portfolio_item', 'specialist_id');
-      const portfolioResult = await client.query(
-        hasPortfolioSpecialistId
-          ? 'SELECT id, title, style, image_url, specialist_id FROM app.portfolio_item WHERE site_id = $1 ORDER BY sort_order, created_at'
-          : 'SELECT id, title, style, image_url, NULL::uuid AS specialist_id FROM app.portfolio_item WHERE site_id = $1 ORDER BY sort_order, created_at',
-        [site.id]
-      );
-      'SELECT id, title, style, image_url, specialist_id FROM app.portfolio_item WHERE site_id = $1 AND is_published = true ORDER BY sort_order, created_at',
->>>>>>> a52e774cf638540e152caf7a48560aa561ea1a90
-      [site.id]
-    );
+    const portfolioQuery = hasPortfolioSpecialistId
+      ? 'SELECT id, title, style, image_url, specialist_id FROM app.portfolio_item WHERE site_id = $1 AND is_published = true ORDER BY sort_order, created_at'
+      : 'SELECT id, title, style, image_url, NULL::uuid AS specialist_id FROM app.portfolio_item WHERE site_id = $1 AND is_published = true ORDER BY sort_order, created_at';
+
+    const portfolioResult = await client.query(portfolioQuery, [site.id]);
     const specialistResult = await client.query(
       'SELECT id, name, specialty, description, image_url, experience, instagram, whatsapp FROM app.specialist WHERE site_id = $1 AND is_active = true ORDER BY sort_order, created_at',
       [site.id]
