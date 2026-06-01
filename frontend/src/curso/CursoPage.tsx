@@ -1,9 +1,6 @@
 import { useState } from 'react';
-
-import { motion } from 'motion/react';
-
 import { motion } from 'framer-motion';
- 016eb84c5535207e708aad46b3b4bd68b33f8c94
+import { HeroBackground } from '../app/components/HeroBackground';
 import { useSiteConfig } from '../app/hooks/useSiteConfig';
 
 export default function CursoPage() {
@@ -54,24 +51,17 @@ export default function CursoPage() {
 
   return (
     <motion.div
-
-      className="min-h-screen bg-neutral-950 text-neutral-100"
-
       className="relative min-h-screen overflow-hidden bg-neutral-950 text-neutral-100"
- 016eb84c5535207e708aad46b3b4bd68b33f8c94
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, ease: 'easeOut' }}
     >
-
-
       <div className="absolute inset-0">
-        <HeroBackground type={courseBackground.type} url={courseBackground.url} />
+        <HeroBackground type={config.hero.backgroundType} url={config.hero.backgroundUrl} />
         <div className="absolute inset-0 bg-black/88" />
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.05),_transparent_30%),linear-gradient(180deg,rgba(0,0,0,0.15),rgba(0,0,0,0.55))]" />
       </div>
 
- 016eb84c5535207e708aad46b3b4bd68b33f8c94
       <header className="border-b border-neutral-800">
         <div className="max-w-5xl mx-auto px-4 py-6 flex items-center justify-between">
           <div>

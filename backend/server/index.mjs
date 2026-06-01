@@ -8,11 +8,8 @@ import fs from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import multer from 'multer';
 import ffmpegPath from 'ffmpeg-static';
-<<<<<<< HEAD
 import bcryptjs from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-=======
->>>>>>> 0a6e776b4d71917b49947a7a446e8fd81d2de53b
 import { pool } from './db.mjs';
 import {
   getSiteConfig,
@@ -45,7 +42,6 @@ import {
   createCourseExtraInfo,
   updateCourseExtraInfo,
   deleteCourseExtraInfo,
-<<<<<<< HEAD
   getJewelryItems,
   createJewelryItem,
   updateJewelryItem,
@@ -56,8 +52,6 @@ import {
   getSiteSettings,
   setSiteSetting,
   getJewelrySales,
-=======
->>>>>>> 0a6e776b4d71917b49947a7a446e8fd81d2de53b
 } from './siteRepository.mjs';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -724,7 +718,6 @@ app.delete('/api/portfolio/:id', async (req, res) => {
   }
 });
 
-<<<<<<< HEAD
 // ============= JEWELRY STORE ENDPOINTS =============
 
 // ---- Auth ----
@@ -832,31 +825,7 @@ app.put('/api/jewelry/:id', async (req, res) => {
     console.error('Erro ao atualizar joia', error);
     res.status(500).json({ error: error.message || 'Falha ao atualizar joia' });
   }
-=======
-// ============= JEWELRY STORE ENDPOINTS (Desativado) =============
-// TODO: Implementar funcionalidades de joias
-/*
-app.get('/api/jewelry', async (req, res) => {
-  res.json([]);
 });
-
-app.post('/api/jewelry', async (req, res) => {
-  res.status(501).json({ error: 'Não implementado' });
-});
-
-app.put('/api/jewelry/:id', async (req, res) => {
-  res.status(501).json({ error: 'Não implementado' });
->>>>>>> 0a6e776b4d71917b49947a7a446e8fd81d2de53b
-});
-
-app.delete('/api/jewelry/:id', async (req, res) => {
-  res.status(501).json({ error: 'Não implementado' });
-});
-
-app.post('/api/jewelry-orders', async (req, res) => {
-  res.status(501).json({ error: 'Não implementado' });
-});
-*/
 
 // ============= JEWELRY ORDERS ADMIN =============
 app.get('/api/jewelry-orders', async (_req, res) => {

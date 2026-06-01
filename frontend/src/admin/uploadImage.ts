@@ -7,9 +7,6 @@ export async function uploadImageFile(file: File): Promise<string> {
   const uploadServerHint =
     'Falha de rede: não foi possível contatar o servidor de upload. Inicie a API com "pnpm dev:server" (ou "pnpm dev:all").';
 
-016eb84c5535207e708aad46b3b4bd68b33f8c94
-
-7dadb2db30bdc934d31e84aca9183137fe87996e:frontend/src/admin/uploadImage.ts
   try {
     const response = await fetch('/api/uploads', {
       method: 'POST',
@@ -38,10 +35,7 @@ export async function uploadImageFile(file: File): Promise<string> {
     return payload.url;
   } catch (err: any) {
     if (err instanceof TypeError || String(err).includes('Failed to fetch')) {
-
       throw new Error('Falha de rede: não foi possível contatar o servidor de upload');
-
- 016eb84c5535207e708aad46b3b4bd68b33f8c94
     }
     throw err;
   }

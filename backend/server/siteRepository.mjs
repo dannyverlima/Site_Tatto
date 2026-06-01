@@ -904,13 +904,8 @@ export const deleteCourseExtraInfo = async (extraInfoId) => {
   }
 };
 
-<<<<<<< HEAD
 // ============= JEWELRY STORE =============
 export const getJewelryItems = async ({ includeInactive = false, featuredOnly = false, category = null } = {}) => {
-=======
-
-export const getJewelryItems = async ({ includeInactive = false } = {}) => {
->>>>>>> 0a6e776b4d71917b49947a7a446e8fd81d2de53b
   const client = await pool.connect();
   try {
     const site = await getOrCreateSite(client);
@@ -1180,7 +1175,6 @@ export const createJewelryOrder = async ({
     client.release();
   }
 };
-<<<<<<< HEAD
 
 // ============= JEWELRY ORDERS ADMIN =============
 export const getJewelryOrders = async () => {
@@ -1348,6 +1342,3 @@ export const getJewelrySales = async ({ months = 12 } = {}) => {
     client.release();
   }
 };
-=======
- 7dadb2db30bdc934d31e84aca9183137fe87996e:backend/server/siteRepository.mjs
->>>>>>> 0a6e776b4d71917b49947a7a446e8fd81d2de53b
