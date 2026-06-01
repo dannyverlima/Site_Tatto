@@ -3,16 +3,6 @@ import { defaultSiteConfig } from './defaultConfig.mjs';
 
 const normalizeString = (value) => (typeof value === 'string' ? value.trim() : '');
 const normalizeArray = (value) => (Array.isArray(value) ? value : []);
-const normalizePrice = (value) => {
-  if (typeof value === 'number') {
-    return Number.isFinite(value) ? value : NaN;
-  }
-  if (typeof value === 'string') {
-    const normalized = Number(value.replace(',', '.').replace(/[^0-9.-]/g, ''));
-    return Number.isFinite(normalized) ? normalized : NaN;
-  }
-  return NaN;
-};
 
 const mergeConfig = (partial) => ({
   hero: {
@@ -45,22 +35,6 @@ const getOrCreateSite = async (client) => {
     ['Studios Tatto', null]
   );
   return inserted.rows[0];
-};
-
-const hasTableColumn = async (client, tableName, columnName) => {
-  const result = await client.query(
-    `
-      SELECT 1
-      FROM information_schema.columns
-      WHERE table_schema = 'app'
-        AND table_name = $1
-        AND column_name = $2
-      LIMIT 1
-    `,
-    [tableName, columnName]
-  );
-
-  return result.rowCount > 0;
 };
 
 export const getSiteSummary = async () => {
@@ -329,16 +303,29 @@ export const getSiteConfig = async () => {
       extraInfo.push(...extraInfoResult.rows.map((row) => row.text));
     }
 
+
+D
+ 7dadb2db30bdc934d31e84aca9183137fe87996e:backend/server/siteRepository.mjs
+    const portfolioResult = await client.query(
+      'SELECT id, title, style, image_url, specialist_id FROM app.portfolio_item WHERE site_id = $1 AND is_published = true ORDER BY sort_order, created_at',
+      [site.id]
+    );
+
+
     const hasPortfolioSpecialistId = await hasTableColumn(client, 'portfolio_item', 'specialist_id');
     const portfolioQuery = hasPortfolioSpecialistId
       ? 'SELECT id, title, style, image_url, specialist_id FROM app.portfolio_item WHERE site_id = $1 AND is_published = true ORDER BY sort_order, created_at'
       : 'SELECT id, title, style, image_url, NULL::uuid AS specialist_id FROM app.portfolio_item WHERE site_id = $1 AND is_published = true ORDER BY sort_order, created_at';
 
     const portfolioResult = await client.query(portfolioQuery, [site.id]);
+ 016eb84c5535207e708aad46b3b4bd68b33f8c94
+
+7dadb2db30bdc934d31e84aca9183137fe87996e:backend/server/siteRepository.mjs
     const specialistResult = await client.query(
       'SELECT id, name, specialty, description, image_url, experience, instagram, whatsapp FROM app.specialist WHERE site_id = $1 AND is_active = true ORDER BY sort_order, created_at',
       [site.id]
     );
+
 
     const specialists = specialistResult.rows.map((row) => ({
       id: row.id,
@@ -351,11 +338,9 @@ export const getSiteConfig = async () => {
       whatsapp: row.whatsapp,
     }));
 
-    // Compatibility fallback: old portfolio rows may have NULL specialist_id.
-    // Attach these rows to the first active specialist so albums continue to
-    // render in home and specialist pages until admin updates the association.
-    const fallbackSpecialistId = specialists[0]?.id ?? null;
+      const fallbackSpecialistId = specialists[0]?.id ?? null;
 
+ 7dadb2db30bdc934d31e84aca9183137fe87996e:backend/server/siteRepository.mjs
     return {
       hero: {
         backgroundType: heroRow?.background_type || defaultSiteConfig.hero.backgroundType,
@@ -377,11 +362,28 @@ export const getSiteConfig = async () => {
           title: row.title,
           style: row.style,
           image: row.image_url,
+
+ 7dadb2db30bdc934d31e84aca9183137fe87996e:backend/server/siteRepository.mjs
+          specialistId: row.specialist_id,
+        })),
+      },
+      specialists: {
+        items: specialistResult.rows.map((row) => ({
+          id: row.id,
+          name: row.name,
+          specialty: row.specialty,
+          description: row.description,
+          image: row.image_url,
+          experience: row.experience,
+          instagram: row.instagram,
+          whatsapp: row.whatsapp,
+        })),
           specialistId: row.specialist_id || fallbackSpecialistId,
         })),
       },
       specialists: {
         items: specialists,
+ 016eb84c5535207e708aad46b3b4bd68b33f8c94
       },
     };
   } finally {
@@ -507,7 +509,6 @@ export const saveSiteConfig = async (config) => {
   }
 };
 
-// ============= SPECIALISTS CRUD =============
 export const getSpecialists = async () => {
   const client = await pool.connect();
   try {
@@ -598,7 +599,7 @@ export const deleteSpecialist = async (id) => {
   }
 };
 
-// ============= PORTFOLIO CRUD =============
+
 export const getPortfolioItems = async () => {
   const client = await pool.connect();
   try {
@@ -756,7 +757,6 @@ export const updateCourse = async (courseId, { title, description, nextClass, pr
   }
 };
 
-// ============= COURSE FEATURES CRUD =============
 export const createCourseFeature = async (courseId, { title, description }) => {
   const client = await pool.connect();
   try {
@@ -809,7 +809,6 @@ export const deleteCourseFeature = async (featureId) => {
   }
 };
 
-// ============= COURSE HIGHLIGHTS CRUD =============
 export const createCourseHighlight = async (courseId, { text }) => {
   const client = await pool.connect();
   try {
@@ -857,7 +856,7 @@ export const deleteCourseHighlight = async (highlightId) => {
   }
 };
 
-// ============= COURSE EXTRA INFO CRUD =============
+
 export const createCourseExtraInfo = async (courseId, { text }) => {
   const client = await pool.connect();
   try {
@@ -905,8 +904,13 @@ export const deleteCourseExtraInfo = async (extraInfoId) => {
   }
 };
 
+<<<<<<< HEAD
 // ============= JEWELRY STORE =============
 export const getJewelryItems = async ({ includeInactive = false, featuredOnly = false, category = null } = {}) => {
+=======
+
+export const getJewelryItems = async ({ includeInactive = false } = {}) => {
+>>>>>>> 0a6e776b4d71917b49947a7a446e8fd81d2de53b
   const client = await pool.connect();
   try {
     const site = await getOrCreateSite(client);
@@ -1176,6 +1180,7 @@ export const createJewelryOrder = async ({
     client.release();
   }
 };
+<<<<<<< HEAD
 
 // ============= JEWELRY ORDERS ADMIN =============
 export const getJewelryOrders = async () => {
@@ -1343,3 +1348,6 @@ export const getJewelrySales = async ({ months = 12 } = {}) => {
     client.release();
   }
 };
+=======
+ 7dadb2db30bdc934d31e84aca9183137fe87996e:backend/server/siteRepository.mjs
+>>>>>>> 0a6e776b4d71917b49947a7a446e8fd81d2de53b

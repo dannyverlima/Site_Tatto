@@ -8,12 +8,6 @@ import fs from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import multer from 'multer';
 import ffmpegPath from 'ffmpeg-static';
-<<<<<<< HEAD
-import bcryptjs from 'bcryptjs';
-import jwt from 'jsonwebtoken';
-=======
->>>>>>> 0a6e776b4d71917b49947a7a446e8fd81d2de53b
-import { pool } from './db.mjs';
 import {
   getSiteConfig,
   saveSiteConfig,
@@ -45,29 +39,15 @@ import {
   createCourseExtraInfo,
   updateCourseExtraInfo,
   deleteCourseExtraInfo,
-<<<<<<< HEAD
-  getJewelryItems,
-  createJewelryItem,
-  updateJewelryItem,
-  deleteJewelryItem,
-  createJewelryOrder,
-  getJewelryOrders,
-  updateJewelryOrderStatus,
-  getSiteSettings,
-  setSiteSetting,
-  getJewelrySales,
-=======
->>>>>>> 0a6e776b4d71917b49947a7a446e8fd81d2de53b
 } from './siteRepository.mjs';
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const envPath = process.env.DOTENV_CONFIG_PATH || path.resolve(__dirname, '..', '.env');
-dotenv.config({ path: envPath });
+import { pool } from './db.mjs';
+
+dotenv.config({ path: process.env.DOTENV_CONFIG_PATH || new URL('./.env', import.meta.url).pathname });
 
 const app = express();
 const port = Number(process.env.PORT || 5175);
-const projectRoot = path.resolve(__dirname, '..');
-const adminMediaDir = path.join(projectRoot, 'imagens', 'videos admin');
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const storage = multer.memoryStorage();
 
@@ -143,177 +123,8 @@ const upload = multer({
 
 app.use(cors());
 app.use(express.json({ limit: '1mb' }));
-app.use('/admin-media', express.static(adminMediaDir));
 
 const badRequest = (res, message) => res.status(400).json({ error: message });
-
-const ensureAdminMediaDir = async () => {
-  await fs.mkdir(adminMediaDir, { recursive: true });
-};
-
-const ensureSiteId = async () => {
-  const result = await pool.query('SELECT id FROM app.site ORDER BY created_at LIMIT 1');
-  if (result.rowCount > 0) {
-    return result.rows[0].id;
-  }
-
-  const inserted = await pool.query(
-    'INSERT INTO app.site (name, domain) VALUES ($1, $2) RETURNING id',
-    ['Studios Tatto', null]
-  );
-  return inserted.rows[0].id;
-};
-
-const safeDiskFilename = (filename, mimetype) => {
-  const parsed = path.parse(filename || 'arquivo');
-  const base = parsed.name
-    .replace(/[^a-z0-9-_]+/gi, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 64) || 'arquivo';
-  const extension = parsed.ext || (String(mimetype || '').startsWith('video/') ? '.mp4' : '.bin');
-  return `${Date.now()}-${base}${extension}`;
-};
-
-const mimeByExtension = new Map([
-  ['.png', 'image/png'],
-  ['.jpg', 'image/jpeg'],
-  ['.jpeg', 'image/jpeg'],
-  ['.webp', 'image/webp'],
-  ['.gif', 'image/gif'],
-  ['.mp4', 'video/mp4'],
-  ['.mov', 'video/quicktime'],
-  ['.webm', 'video/webm'],
-]);
-
-const extensionByMime = new Map([
-  ['image/png', '.png'],
-  ['image/jpeg', '.jpg'],
-  ['image/webp', '.webp'],
-  ['image/gif', '.gif'],
-  ['video/mp4', '.mp4'],
-  ['video/quicktime', '.mov'],
-  ['video/webm', '.webm'],
-]);
-
-const detectMimeType = (filename) => {
-  const extension = path.extname(filename || '').toLowerCase();
-  return mimeByExtension.get(extension) || 'application/octet-stream';
-};
-
-const buildDiskFilename = (originalName, mimetype, id) => {
-  const parsed = path.parse(originalName || 'arquivo');
-  const base = parsed.name
-    .replace(/[^a-z0-9-_]+/gi, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 64) || (id ? String(id).slice(0, 8) : 'arquivo');
-  const ext = parsed.ext || extensionByMime.get(String(mimetype || '').toLowerCase()) || '.bin';
-  return `${base}-${id || Date.now()}${ext}`;
-};
-
-const ingestAdminMediaFiles = async () => {
-  let entries = [];
-  try {
-    entries = await fs.readdir(adminMediaDir, { withFileTypes: true });
-  } catch (error) {
-    console.warn('Nao foi possivel ler a pasta de midia do admin', error);
-    return { inserted: 0, skipped: 0 };
-  }
-
-  const files = entries.filter((entry) => entry.isFile()).map((entry) => entry.name);
-  if (files.length === 0) {
-    return { inserted: 0, skipped: 0 };
-  }
-
-  const existing = await pool.query(
-    'SELECT disk_filename FROM app.media_asset WHERE disk_filename IS NOT NULL'
-  );
-  const existingNames = new Set(existing.rows.map((row) => row.disk_filename));
-  const siteId = await ensureSiteId();
-  let inserted = 0;
-  let skipped = 0;
-
-  for (const filename of files) {
-    if (existingNames.has(filename)) {
-      skipped += 1;
-      continue;
-    }
-
-    const diskPath = path.join(adminMediaDir, filename);
-    const buffer = await fs.readFile(diskPath);
-    const mimetype = detectMimeType(filename);
-
-    await pool.query(
-      'INSERT INTO app.media_asset (site_id, filename, mimetype, data, disk_filename, disk_path) VALUES ($1, $2, $3, $4, $5, $6)',
-      [siteId, filename, mimetype, buffer, filename, diskPath]
-    );
-    inserted += 1;
-  }
-
-  return { inserted, skipped };
-};
-
-const exportDatabaseMediaToDisk = async () => {
-  await ensureAdminMediaDir();
-
-  const result = await pool.query(
-    'SELECT id, filename, mimetype, disk_filename, disk_path FROM app.media_asset ORDER BY created_at'
-  );
-
-  let exported = 0;
-  let skipped = 0;
-
-  for (const row of result.rows) {
-    const existingFilename = row.disk_filename || '';
-    const diskFilename = existingFilename || buildDiskFilename(row.filename, row.mimetype, row.id);
-    const diskPath = path.join(adminMediaDir, diskFilename);
-
-    try {
-      await fs.access(diskPath);
-      skipped += 1;
-    } catch {
-      const sizeResult = await pool.query(
-        'SELECT octet_length(data) AS size FROM app.media_asset WHERE id = $1',
-        [row.id]
-      );
-      const totalSize = Number(sizeResult.rows[0]?.size || 0);
-      if (!totalSize) {
-        skipped += 1;
-        continue;
-      }
-
-      const chunkSize = 1024 * 1024;
-      const fileHandle = await fs.open(diskPath, 'w');
-      try {
-        for (let offset = 0; offset < totalSize; offset += chunkSize) {
-          const length = Math.min(chunkSize, totalSize - offset);
-          const chunkResult = await pool.query(
-            "SELECT encode(substring(data from $1 for $2), 'base64') AS chunk FROM app.media_asset WHERE id = $3",
-            [offset + 1, length, row.id]
-          );
-          const chunkBase64 = chunkResult.rows[0]?.chunk;
-          if (!chunkBase64) {
-            continue;
-          }
-          const buffer = Buffer.from(chunkBase64, 'base64');
-          await fileHandle.write(buffer);
-        }
-      } finally {
-        await fileHandle.close();
-      }
-
-      exported += 1;
-    }
-
-    if (!existingFilename) {
-      await pool.query(
-        'UPDATE app.media_asset SET disk_filename = $1, disk_path = $2 WHERE id = $3',
-        [diskFilename, diskPath, row.id]
-      );
-    }
-  }
-
-  return { exported, skipped };
-};
 
 const ensureDatabaseSchema = async () => {
   await pool.query('CREATE SCHEMA IF NOT EXISTS app');
@@ -328,10 +139,6 @@ const ensureDatabaseSchema = async () => {
       created_at timestamptz NOT NULL DEFAULT now()
     )
   `);
-
-  await pool.query('ALTER TABLE app.media_asset ADD COLUMN IF NOT EXISTS disk_filename text');
-  await pool.query('ALTER TABLE app.media_asset ADD COLUMN IF NOT EXISTS disk_path text');
-  await pool.query('CREATE INDEX IF NOT EXISTS media_asset_disk_filename_idx ON app.media_asset (disk_filename)');
 
   await pool.query(`
     DO $$
@@ -360,12 +167,6 @@ const ensureDatabaseSchema = async () => {
     END
     $$;
   `);
-};
-
-const bootstrapAdminMedia = async () => {
-  await ensureAdminMediaDir();
-  await exportDatabaseMediaToDisk();
-  await ingestAdminMediaFiles();
 };
 
 app.get('/api/health', (_req, res) => {
@@ -415,33 +216,28 @@ app.post('/api/uploads', (req, res) => {
         return badRequest(res, 'Arquivo não enviado');
       }
 
-      const isMp4Video =
-        req.file.mimetype === 'video/mp4' ||
-        path.extname(req.file.originalname || '').toLowerCase() === '.mp4';
-
-      const mediaFile = req.file.mimetype.startsWith('video/') && !isMp4Video
+      const mediaFile = req.file.mimetype.startsWith('video/')
         ? await transcodeVideoBuffer(req.file)
         : {
             buffer: req.file.buffer,
-            filename: req.file.originalname || (isMp4Video ? 'video.mp4' : 'arquivo'),
-            mimetype: req.file.mimetype || (isMp4Video ? 'video/mp4' : 'application/octet-stream'),
+            filename: req.file.originalname || 'arquivo',
+            mimetype: req.file.mimetype,
           };
 
-      await ensureAdminMediaDir();
-      const diskFilename = safeDiskFilename(mediaFile.filename, mediaFile.mimetype);
-      const diskPath = path.join(adminMediaDir, diskFilename);
-      await fs.writeFile(diskPath, mediaFile.buffer);
+      const siteQuery = await pool.query('SELECT id FROM app.site ORDER BY created_at LIMIT 1');
+      if (siteQuery.rowCount === 0) {
+        return badRequest(res, 'Site não encontrado');
+      }
 
-      const siteId = await ensureSiteId();
+      const siteId = siteQuery.rows[0].id;
       const insertResult = await pool.query(
-        'INSERT INTO app.media_asset (site_id, filename, mimetype, data, disk_filename, disk_path) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id',
-        [siteId, mediaFile.filename, mediaFile.mimetype, mediaFile.buffer, diskFilename, diskPath]
+        'INSERT INTO app.media_asset (site_id, filename, mimetype, data) VALUES ($1, $2, $3, $4) RETURNING id',
+        [siteId, mediaFile.filename, mediaFile.mimetype, mediaFile.buffer]
       );
       const mediaId = insertResult.rows[0].id;
 
       res.status(201).json({
         url: `/api/uploads/${mediaId}`,
-        diskUrl: `/admin-media/${diskFilename}`,
         id: mediaId,
         name: mediaFile.filename,
         size: mediaFile.buffer.length,
@@ -457,7 +253,7 @@ app.post('/api/uploads', (req, res) => {
 app.get('/api/uploads', async (_req, res) => {
   try {
     const result = await pool.query(
-      'SELECT id, filename, mimetype, created_at, disk_filename FROM app.media_asset ORDER BY created_at DESC LIMIT 200'
+      'SELECT id, filename, mimetype, created_at FROM app.media_asset ORDER BY created_at DESC LIMIT 200'
     );
 
     res.json(
@@ -467,22 +263,11 @@ app.get('/api/uploads', async (_req, res) => {
         mimetype: row.mimetype,
         createdAt: row.created_at,
         url: `/api/uploads/${row.id}`,
-        diskUrl: row.disk_filename ? `/admin-media/${row.disk_filename}` : null,
       }))
     );
   } catch (error) {
     console.error('Erro ao listar arquivos', error);
     res.status(500).json({ error: 'Falha ao listar arquivos' });
-  }
-});
-
-app.post('/api/admin-media/ingest', async (_req, res) => {
-  try {
-    const result = await ingestAdminMediaFiles();
-    res.json({ ok: true, ...result });
-  } catch (error) {
-    console.error('Erro ao ingerir midia do admin', error);
-    res.status(500).json({ error: 'Falha ao ingerir midia do admin' });
   }
 });
 
@@ -499,11 +284,8 @@ app.get('/api/uploads/:id', async (req, res) => {
     }
 
     const media = result.rows[0];
-    const safeFilename = String(media.filename || 'arquivo')
-      .replace(/[\r\n"]/g, '_')
-      .replace(/[^\x20-\x7E]/g, '_');
     res.setHeader('Content-Type', media.mimetype);
-    res.setHeader('Content-Disposition', `inline; filename="${safeFilename}"`);
+    res.setHeader('Content-Disposition', `inline; filename="${media.filename}"`);
     res.send(media.data);
   } catch (error) {
     console.error('Erro ao recuperar arquivo', error);
@@ -724,204 +506,6 @@ app.delete('/api/portfolio/:id', async (req, res) => {
   }
 });
 
-<<<<<<< HEAD
-// ============= JEWELRY STORE ENDPOINTS =============
-
-// ---- Auth ----
-
-const JWT_SECRET = process.env.JWT_SECRET || 'jewelry_secret_change_me_in_production';
-const JWT_EXPIRES = '30d';
-
-function signToken(user) {
-  return jwt.sign({ id: user.id, email: user.email, name: user.name }, JWT_SECRET, { expiresIn: JWT_EXPIRES });
-}
-
-app.post('/api/auth/register', async (req, res) => {
-  try {
-    const { name, email, password } = req.body || {};
-    if (!name || !email || !password) return res.status(400).json({ error: 'Preencha todos os campos' });
-    if (password.length < 6) return res.status(400).json({ error: 'Senha deve ter pelo menos 6 caracteres' });
-    const existing = await pool.query('SELECT id FROM app.jewelry_customer WHERE email = $1', [email.toLowerCase()]);
-    if (existing.rows.length > 0) return res.status(409).json({ error: 'Este email já está cadastrado' });
-    const hash = await bcryptjs.hash(password, 12);
-    const result = await pool.query(
-      'INSERT INTO app.jewelry_customer (name, email, password_hash) VALUES ($1, $2, $3) RETURNING id, name, email',
-      [name.trim(), email.toLowerCase().trim(), hash]
-    );
-    const user = result.rows[0];
-    res.status(201).json({ token: signToken(user), user });
-  } catch (err) {
-    console.error('Erro no cadastro:', err);
-    res.status(500).json({ error: 'Erro interno ao criar conta' });
-  }
-});
-
-app.post('/api/auth/login', async (req, res) => {
-  try {
-    const { email, password } = req.body || {};
-    if (!email || !password) return res.status(400).json({ error: 'Preencha email e senha' });
-    const result = await pool.query(
-      'SELECT id, name, email, password_hash FROM app.jewelry_customer WHERE email = $1',
-      [email.toLowerCase().trim()]
-    );
-    if (result.rows.length === 0) return res.status(401).json({ error: 'Email ou senha inválidos' });
-    const user = result.rows[0];
-    const valid = await bcryptjs.compare(password, user.password_hash);
-    if (!valid) return res.status(401).json({ error: 'Email ou senha inválidos' });
-    res.json({ token: signToken(user), user: { id: user.id, name: user.name, email: user.email } });
-  } catch (err) {
-    console.error('Erro no login:', err);
-    res.status(500).json({ error: 'Erro interno ao autenticar' });
-  }
-});
-
-app.get('/api/auth/me', async (req, res) => {
-  try {
-    const auth = req.headers.authorization;
-    if (!auth?.startsWith('Bearer ')) return res.status(401).json({ error: 'Não autorizado' });
-    const token = auth.slice(7);
-    const payload = jwt.verify(token, JWT_SECRET);
-    const result = await pool.query(
-      'SELECT id, name, email FROM app.jewelry_customer WHERE id = $1',
-      [payload.id]
-    );
-    if (result.rows.length === 0) return res.status(404).json({ error: 'Usuário não encontrado' });
-    res.json(result.rows[0]);
-  } catch (err) {
-    res.status(401).json({ error: 'Token inválido ou expirado' });
-  }
-});
-// ---- End Auth ----
-
-app.get('/api/jewelry', async (req, res) => {
-  try {
-    const includeInactive = String(req.query.all || '') === '1';
-    const featuredOnly = String(req.query.featured || '') === '1';
-    const category = req.query.category ? String(req.query.category) : null;
-    const items = await getJewelryItems({ includeInactive, featuredOnly, category });
-    res.json(items);
-  } catch (error) {
-    console.error('Erro ao carregar joias', error);
-    res.status(500).json({ error: 'Falha ao carregar joias' });
-  }
-});
-
-app.post('/api/jewelry', async (req, res) => {
-  const { name, description, price, imageUrls, isActive, stock, discountPercent, isFeatured, category } = req.body || {};
-  if (!name) {
-    return badRequest(res, 'Nome é obrigatório');
-  }
-
-  try {
-    const id = await createJewelryItem({ name, description, price, imageUrls, isActive, stock, discountPercent, isFeatured, category });
-    res.status(201).json({ id, ok: true });
-  } catch (error) {
-    console.error('Erro ao criar joia', error);
-    res.status(500).json({ error: error.message || 'Falha ao criar joia' });
-  }
-});
-
-app.put('/api/jewelry/:id', async (req, res) => {
-  const { id } = req.params;
-  const { name, description, price, imageUrls, isActive, stock, discountPercent, isFeatured, category } = req.body || {};
-
-  try {
-    await updateJewelryItem(id, { name, description, price, imageUrls, isActive, stock, discountPercent, isFeatured, category });
-    res.json({ ok: true });
-  } catch (error) {
-    console.error('Erro ao atualizar joia', error);
-    res.status(500).json({ error: error.message || 'Falha ao atualizar joia' });
-  }
-=======
-// ============= JEWELRY STORE ENDPOINTS (Desativado) =============
-// TODO: Implementar funcionalidades de joias
-/*
-app.get('/api/jewelry', async (req, res) => {
-  res.json([]);
-});
-
-app.post('/api/jewelry', async (req, res) => {
-  res.status(501).json({ error: 'Não implementado' });
-});
-
-app.put('/api/jewelry/:id', async (req, res) => {
-  res.status(501).json({ error: 'Não implementado' });
->>>>>>> 0a6e776b4d71917b49947a7a446e8fd81d2de53b
-});
-
-app.delete('/api/jewelry/:id', async (req, res) => {
-  res.status(501).json({ error: 'Não implementado' });
-});
-
-app.post('/api/jewelry-orders', async (req, res) => {
-  res.status(501).json({ error: 'Não implementado' });
-});
-*/
-
-// ============= JEWELRY ORDERS ADMIN =============
-app.get('/api/jewelry-orders', async (_req, res) => {
-  try {
-    const orders = await getJewelryOrders();
-    res.json(orders);
-  } catch (error) {
-    console.error('Erro ao carregar pedidos de joias', error);
-    res.status(500).json({ error: 'Falha ao carregar pedidos' });
-  }
-});
-
-app.put('/api/jewelry-orders/:id', async (req, res) => {
-  const { id } = req.params;
-  const { status } = req.body || {};
-  if (!status) {
-    return badRequest(res, 'Status é obrigatório');
-  }
-  try {
-    await updateJewelryOrderStatus(id, { status });
-    res.json({ ok: true });
-  } catch (error) {
-    console.error('Erro ao atualizar pedido', error);
-    res.status(500).json({ error: error.message || 'Falha ao atualizar pedido' });
-  }
-});
-
-// ============= SITE SETTINGS =============
-app.get('/api/site-settings', async (req, res) => {
-  try {
-    const keysParam = typeof req.query.keys === 'string' ? req.query.keys.split(',').filter(Boolean) : [];
-    const settings = await getSiteSettings(keysParam);
-    res.json(settings);
-  } catch (error) {
-    console.error('Erro ao carregar configuracoes', error);
-    res.status(500).json({ error: 'Falha ao carregar configuracoes' });
-  }
-});
-
-app.put('/api/site-settings', async (req, res) => {
-  const body = req.body || {};
-  try {
-    for (const [key, value] of Object.entries(body)) {
-      await setSiteSetting(key, value);
-    }
-    const settings = await getSiteSettings();
-    res.json(settings);
-  } catch (error) {
-    console.error('Erro ao salvar configuracoes', error);
-    res.status(500).json({ error: error.message || 'Falha ao salvar configuracoes' });
-  }
-});
-
-// ============= JEWELRY SALES / FATURAMENTO =============
-app.get('/api/jewelry-sales', async (req, res) => {
-  try {
-    const months = Math.min(36, Math.max(1, Number(req.query.months || 12)));
-    const data = await getJewelrySales({ months });
-    res.json(data);
-  } catch (error) {
-    console.error('Erro ao carregar faturamento', error);
-    res.status(500).json({ error: 'Falha ao carregar faturamento' });
-  }
-});
-
 // ============= COURSE ENDPOINTS =============
 app.get('/api/course', async (_req, res) => {
   try {
@@ -1094,9 +678,6 @@ const startServer = async () => {
     await ensureDatabaseSchema();
     app.listen(port, () => {
       console.log(`API rodando em http://localhost:${port}`);
-    });
-    bootstrapAdminMedia().catch((error) => {
-      console.error('Falha ao sincronizar midias do admin', error);
     });
   } catch (error) {
     console.error('Falha ao iniciar API', error);

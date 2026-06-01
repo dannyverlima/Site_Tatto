@@ -1,4 +1,4 @@
-import { motion, useScroll, useTransform } from 'framer-motion';
+import { motion, useScroll, useTransform } from 'motion/react';
 import logoImg from '../../imports/Logo.png';
 import { HeroBackground } from './HeroBackground';
 import { useSiteConfig } from '../hooks/useSiteConfig';
@@ -42,7 +42,7 @@ export function Hero() {
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 1, delay: 0.2 }}
-        className="relative z-10 text-center px-4 -mt-4 md:-mt-8"
+        className="relative z-10 text-center px-4 mt-32"
       >
         <motion.img
           src={logoImg}
@@ -50,7 +50,7 @@ export function Hero() {
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.8, delay: 0.5 }}
-          className="mx-auto mb-4 h-60 w-auto md:h-100"
+          className="mx-auto mb-6 h-60 w-auto md:h-100"
           style={{ mixBlendMode: 'lighten' }}
         />
         <motion.p
@@ -59,14 +59,14 @@ export function Hero() {
           transition={{ duration: 0.8, delay: 0.8 }}
           className="text-xl md:text-2xl text-neutral-300 tracking-wide"
         >
-          Qualidade e elegância que seu corpo merece
+          Arte na Pele, Memórias para a Vida
         </motion.p>
 
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 1.15 }}
-          className="mt-4 flex flex-wrap items-center justify-center gap-3"
+          className="mt-6 flex flex-wrap items-center justify-center gap-3"
         >
           <motion.a
             href="#especialistas"

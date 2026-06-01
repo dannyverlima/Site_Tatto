@@ -1,4 +1,8 @@
+
+import { motion } from 'motion/react';
+
 import { motion } from 'framer-motion';
+ 016eb84c5535207e708aad46b3b4bd68b33f8c94
 import { ArrowLeft, Instagram, MessageCircle } from 'lucide-react';
 import { LoadingScreen } from '../app/components/LoadingScreen';
 import { ImageWithFallback } from '../app/components/figma/ImageWithFallback';
@@ -90,12 +94,7 @@ export function SpecialistPage() {
             ) : null}
           </div>
 
-          {/* Descrição do especialista */}
-          {descriptionHtml ? (
-            <div className="prose mt-4 max-w-none text-white/85 dark:prose-invert" dangerouslySetInnerHTML={{ __html: descriptionHtml }} />
-          ) : (
-            <p className="mt-4 text-sm text-white/65">Descrição não informada.</p>
-          )}
+          {/* Descrição removida conforme solicitado */}
 
           <div className="mt-8 grid gap-3 sm:grid-cols-2">
             {instagramLink ? (
@@ -126,7 +125,11 @@ export function SpecialistPage() {
           {/* Botão Portfólio centralizado abaixo do Instagram/WhatsApp */}
           <div className="mt-4 flex justify-center">
             <a
+
+              href={`/especialista/${slug}/portfolio`}
+
               href={`/portifolio/${slug}`}
+ 016eb84c5535207e708aad46b3b4bd68b33f8c94
               className="inline-flex items-center justify-center gap-2 rounded-full border border-white/10 bg-white px-6 py-3 text-sm font-semibold text-black transition hover:bg-white/90"
             >
               Portfólio
