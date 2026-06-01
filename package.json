@@ -4,11 +4,12 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --config frontend/vite.config.ts",
     "build": "vite build",
     "preview": "vite preview",
     "dev:server": "node backend/server/index.mjs",
-    "dev:web": "vite --config frontend/vite.config.ts"
+    "dev:web": "vite --config frontend/vite.config.ts",
+    "start": "node ./start.bat"
   },
   "dependencies": {
     "@emotion/react": "11.14.0",
