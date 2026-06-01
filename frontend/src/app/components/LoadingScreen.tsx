@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import logoImg from '../../imports/Logo.png';
 
 type LoadingScreenProps = {

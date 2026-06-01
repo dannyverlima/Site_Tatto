@@ -3,16 +3,6 @@ import { defaultSiteConfig } from './defaultConfig.mjs';
 
 const normalizeString = (value) => (typeof value === 'string' ? value.trim() : '');
 const normalizeArray = (value) => (Array.isArray(value) ? value : []);
-const normalizePrice = (value) => {
-  if (typeof value === 'number') {
-    return Number.isFinite(value) ? value : NaN;
-  }
-  if (typeof value === 'string') {
-    const normalized = Number(value.replace(',', '.').replace(/[^0-9.-]/g, ''));
-    return Number.isFinite(normalized) ? normalized : NaN;
-  }
-  return NaN;
-};
 
 const mergeConfig = (partial) => ({
   hero: {
@@ -45,22 +35,6 @@ const getOrCreateSite = async (client) => {
     ['Studios Tatto', null]
   );
   return inserted.rows[0];
-};
-
-const hasTableColumn = async (client, tableName, columnName) => {
-  const result = await client.query(
-    `
-      SELECT 1
-      FROM information_schema.columns
-      WHERE table_schema = 'app'
-        AND table_name = $1
-        AND column_name = $2
-      LIMIT 1
-    `,
-    [tableName, columnName]
-  );
-
-  return result.rowCount > 0;
 };
 
 export const getSiteSummary = async () => {
@@ -329,32 +303,14 @@ export const getSiteConfig = async () => {
       extraInfo.push(...extraInfoResult.rows.map((row) => row.text));
     }
 
-    const hasPortfolioSpecialistId = await hasTableColumn(client, 'portfolio_item', 'specialist_id');
-    const portfolioQuery = hasPortfolioSpecialistId
-      ? 'SELECT id, title, style, image_url, specialist_id FROM app.portfolio_item WHERE site_id = $1 AND is_published = true ORDER BY sort_order, created_at'
-      : 'SELECT id, title, style, image_url, NULL::uuid AS specialist_id FROM app.portfolio_item WHERE site_id = $1 AND is_published = true ORDER BY sort_order, created_at';
-
-    const portfolioResult = await client.query(portfolioQuery, [site.id]);
+    const portfolioResult = await client.query(
+      'SELECT id, title, style, image_url, specialist_id FROM app.portfolio_item WHERE site_id = $1 AND is_published = true ORDER BY sort_order, created_at',
+      [site.id]
+    );
     const specialistResult = await client.query(
       'SELECT id, name, specialty, description, image_url, experience, instagram, whatsapp FROM app.specialist WHERE site_id = $1 AND is_active = true ORDER BY sort_order, created_at',
       [site.id]
     );
-
-    const specialists = specialistResult.rows.map((row) => ({
-      id: row.id,
-      name: row.name,
-      specialty: row.specialty,
-      description: row.description,
-      image: row.image_url,
-      experience: row.experience,
-      instagram: row.instagram,
-      whatsapp: row.whatsapp,
-    }));
-
-    // Compatibility fallback: old portfolio rows may have NULL specialist_id.
-    // Attach these rows to the first active specialist so albums continue to
-    // render in home and specialist pages until admin updates the association.
-    const fallbackSpecialistId = specialists[0]?.id ?? null;
 
     return {
       hero: {
@@ -377,11 +333,20 @@ export const getSiteConfig = async () => {
           title: row.title,
           style: row.style,
           image: row.image_url,
-          specialistId: row.specialist_id || fallbackSpecialistId,
+          specialistId: row.specialist_id,
         })),
       },
       specialists: {
-        items: specialists,
+        items: specialistResult.rows.map((row) => ({
+          id: row.id,
+          name: row.name,
+          specialty: row.specialty,
+          description: row.description,
+          image: row.image_url,
+          experience: row.experience,
+          instagram: row.instagram,
+          whatsapp: row.whatsapp,
+        })),
       },
     };
   } finally {
@@ -900,242 +865,6 @@ export const deleteCourseExtraInfo = async (extraInfoId) => {
   const client = await pool.connect();
   try {
     await client.query('DELETE FROM app.course_extra_info WHERE id = $1', [extraInfoId]);
-  } finally {
-    client.release();
-  }
-};
-
-// ============= JEWELRY STORE =============
-export const getJewelryItems = async ({ includeInactive = false } = {}) => {
-  const client = await pool.connect();
-  try {
-    const site = await getOrCreateSite(client);
-    const query = includeInactive
-      ? 'SELECT id, name, description, price, is_active FROM app.jewelry_item WHERE site_id = $1 ORDER BY created_at DESC'
-      : 'SELECT id, name, description, price, is_active FROM app.jewelry_item WHERE site_id = $1 AND is_active = true ORDER BY created_at DESC';
-    const result = await client.query(query, [site.id]);
-
-    if (result.rowCount === 0) {
-      return [];
-    }
-
-    const itemIds = result.rows.map((row) => row.id);
-    const photoResult = await client.query(
-      'SELECT item_id, image_url, sort_order FROM app.jewelry_photo WHERE item_id = ANY($1::uuid[]) ORDER BY sort_order, created_at',
-      [itemIds]
-    );
-
-    const photosByItem = new Map();
-    for (const row of photoResult.rows) {
-      if (!photosByItem.has(row.item_id)) {
-        photosByItem.set(row.item_id, []);
-      }
-      photosByItem.get(row.item_id).push(row.image_url);
-    }
-
-    return result.rows.map((row) => {
-      const imageUrls = photosByItem.get(row.id) || [];
-      return {
-        id: row.id,
-        name: row.name,
-        description: row.description,
-        price: Number(row.price),
-        isActive: row.is_active,
-        imageUrls,
-        primaryImageUrl: imageUrls[0] || '',
-      };
-    });
-  } finally {
-    client.release();
-  }
-};
-
-export const createJewelryItem = async ({ name, description, price, imageUrls, isActive }) => {
-  const client = await pool.connect();
-  try {
-    const site = await getOrCreateSite(client);
-    const safeName = normalizeString(name);
-    const safeDescription = normalizeString(description);
-    const safePrice = normalizePrice(price);
-    const safeIsActive = typeof isActive === 'boolean' ? isActive : true;
-    const safeImages = normalizeArray(imageUrls).map(normalizeString).filter(Boolean);
-
-    if (!safeName || Number.isNaN(safePrice)) {
-      throw new Error('Nome e preço são obrigatórios');
-    }
-
-    await client.query('BEGIN');
-    const result = await client.query(
-      'INSERT INTO app.jewelry_item (site_id, name, description, price, is_active) VALUES ($1, $2, $3, $4, $5) RETURNING id',
-      [site.id, safeName, safeDescription, safePrice, safeIsActive]
-    );
-    const itemId = result.rows[0].id;
-
-    for (const [index, imageUrl] of safeImages.entries()) {
-      await client.query(
-        'INSERT INTO app.jewelry_photo (item_id, image_url, sort_order) VALUES ($1, $2, $3)',
-        [itemId, imageUrl, index]
-      );
-    }
-
-    await client.query('COMMIT');
-    return itemId;
-  } catch (error) {
-    await client.query('ROLLBACK');
-    throw error;
-  } finally {
-    client.release();
-  }
-};
-
-export const updateJewelryItem = async (id, { name, description, price, imageUrls, isActive }) => {
-  const client = await pool.connect();
-  try {
-    const site = await getOrCreateSite(client);
-    const safeName = normalizeString(name);
-    const safeDescription = normalizeString(description);
-    const safePrice = normalizePrice(price);
-    const safeIsActive = typeof isActive === 'boolean' ? isActive : true;
-    const safeImages = normalizeArray(imageUrls).map(normalizeString).filter(Boolean);
-
-    if (!safeName || Number.isNaN(safePrice)) {
-      throw new Error('Nome e preço são obrigatórios');
-    }
-
-    await client.query('BEGIN');
-    await client.query(
-      'UPDATE app.jewelry_item SET name = $1, description = $2, price = $3, is_active = $4, updated_at = now() WHERE id = $5 AND site_id = $6',
-      [safeName, safeDescription, safePrice, safeIsActive, id, site.id]
-    );
-
-    if (Array.isArray(imageUrls)) {
-      await client.query('DELETE FROM app.jewelry_photo WHERE item_id = $1', [id]);
-      for (const [index, imageUrl] of safeImages.entries()) {
-        await client.query(
-          'INSERT INTO app.jewelry_photo (item_id, image_url, sort_order) VALUES ($1, $2, $3)',
-          [id, imageUrl, index]
-        );
-      }
-    }
-
-    await client.query('COMMIT');
-  } catch (error) {
-    await client.query('ROLLBACK');
-    throw error;
-  } finally {
-    client.release();
-  }
-};
-
-export const deleteJewelryItem = async (id) => {
-  const client = await pool.connect();
-  try {
-    const site = await getOrCreateSite(client);
-    await client.query('DELETE FROM app.jewelry_item WHERE id = $1 AND site_id = $2', [id, site.id]);
-  } finally {
-    client.release();
-  }
-};
-
-export const createJewelryOrder = async ({
-  customerName,
-  email,
-  phone,
-  deliveryMethod,
-  addressLine1,
-  addressLine2,
-  city,
-  state,
-  postalCode,
-  notes,
-  items,
-}) => {
-  const client = await pool.connect();
-  try {
-    const site = await getOrCreateSite(client);
-    const safeName = normalizeString(customerName);
-    const safeEmail = normalizeString(email);
-    const safePhone = normalizeString(phone);
-    const safeDelivery = deliveryMethod === 'pickup' ? 'pickup' : 'delivery';
-    const safeAddressLine1 = normalizeString(addressLine1);
-    const safeAddressLine2 = normalizeString(addressLine2);
-    const safeCity = normalizeString(city);
-    const safeState = normalizeString(state);
-    const safePostalCode = normalizeString(postalCode);
-    const safeNotes = normalizeString(notes);
-
-    const safeItems = normalizeArray(items)
-      .map((item) => ({
-        id: normalizeString(item?.id),
-        quantity: Number.parseInt(item?.quantity, 10),
-      }))
-      .filter((item) => item.id && Number.isFinite(item.quantity) && item.quantity > 0);
-
-    if (!safeName) {
-      throw new Error('Nome é obrigatório');
-    }
-
-    if (safeItems.length === 0) {
-      throw new Error('Itens inválidos');
-    }
-
-    if (safeDelivery === 'delivery' && (!safeAddressLine1 || !safeCity || !safeState)) {
-      throw new Error('Endereco incompleto para entrega');
-    }
-
-    const uniqueIds = Array.from(new Set(safeItems.map((item) => item.id)));
-    const productResult = await client.query(
-      'SELECT id, name, price FROM app.jewelry_item WHERE site_id = $1 AND id = ANY($2::uuid[]) AND is_active = true',
-      [site.id, uniqueIds]
-    );
-
-    if (productResult.rowCount !== uniqueIds.length) {
-      throw new Error('Uma ou mais joias nao foram encontradas');
-    }
-
-    const productMap = new Map(productResult.rows.map((row) => [row.id, row]));
-
-    await client.query('BEGIN');
-    const orderResult = await client.query(
-      `
-        INSERT INTO app.jewelry_order
-          (site_id, customer_name, email, phone, delivery_method, address_line1, address_line2, city, state, postal_code, notes)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-        RETURNING id
-      `,
-      [
-        site.id,
-        safeName,
-        safeEmail,
-        safePhone,
-        safeDelivery,
-        safeAddressLine1,
-        safeAddressLine2,
-        safeCity,
-        safeState,
-        safePostalCode,
-        safeNotes,
-      ]
-    );
-
-    const orderId = orderResult.rows[0].id;
-    for (const item of safeItems) {
-      const product = productMap.get(item.id);
-      if (!product) {
-        continue;
-      }
-
-      await client.query(
-        'INSERT INTO app.jewelry_order_item (order_id, jewelry_item_id, name, price, quantity) VALUES ($1, $2, $3, $4, $5)',
-        [orderId, product.id, product.name, product.price, item.quantity]
-      );
-    }
-
-    await client.query('COMMIT');
-    return orderId;
-  } catch (error) {
-    await client.query('ROLLBACK');
-    throw error;
   } finally {
     client.release();
   }

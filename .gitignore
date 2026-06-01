@@ -1,6 +1,4 @@
 node_modules/
 dist/
-frontend/dist/
-backend/db/exports/
 .env
 .env.local
