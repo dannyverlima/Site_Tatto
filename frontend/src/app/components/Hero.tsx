@@ -26,7 +26,7 @@ export function Hero() {
   };
 
   return (
-    <section id="home" className="relative h-screen w-full overflow-hidden flex items-center justify-center bg-neutral-950">
+    <section id="home" className="relative h-screen w-full overflow-hidden flex items-center justify-center bg-black">
       {/* Background Image com Opacidade Baixa */}
       <div className="absolute inset-0 z-0">
         <HeroBackground
@@ -77,12 +77,12 @@ export function Hero() {
             Especialistas
           </motion.a>
           <motion.a
-            href="#portfolio"
+            href="/joalheria"
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.98 }}
             className="px-5 py-2 rounded-full border border-neutral-800 text-neutral-200 text-xs tracking-wide uppercase hover:border-neutral-500 transition-colors"
           >
-            Portofolio
+            Joalheria
           </motion.a>
           <motion.a
             href="/curso.html"

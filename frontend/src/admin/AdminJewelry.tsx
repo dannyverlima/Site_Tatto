@@ -22,6 +22,10 @@ type JewelryItem = {
   description: string;
   price: number;
   isActive: boolean;
+  stock: number;
+  discountPercent: number;
+  isFeatured: boolean;
+  category: string;
   imageUrls: string[];
 };
 
@@ -30,6 +34,10 @@ type JewelryDraft = {
   description: string;
   price: string;
   isActive: boolean;
+  stock: string;
+  discountPercent: string;
+  isFeatured: boolean;
+  category: string;
   imageUrls: string[];
 };
 
@@ -38,6 +46,10 @@ const emptyDraft = (): JewelryDraft => ({
   description: '',
   price: '',
   isActive: true,
+  stock: '0',
+  discountPercent: '0',
+  isFeatured: false,
+  category: 'geral',
   imageUrls: [''],
 });
 
@@ -93,6 +105,10 @@ export function AdminJewelry() {
           price: priceValue,
           imageUrls,
           isActive: newItem.isActive,
+          stock: Number(newItem.stock) || 0,
+          discountPercent: Number(newItem.discountPercent) || 0,
+          isFeatured: newItem.isFeatured,
+          category: newItem.category || 'geral',
         }),
       });
 
@@ -131,6 +147,10 @@ export function AdminJewelry() {
           price: priceValue,
           imageUrls,
           isActive: editingItem.isActive,
+          stock: Number(editingItem.stock) || 0,
+          discountPercent: Number(editingItem.discountPercent) || 0,
+          isFeatured: editingItem.isFeatured,
+          category: editingItem.category || 'geral',
         }),
       });
 
@@ -277,6 +297,35 @@ export function AdminJewelry() {
             onChange={(e) => setNewItem({ ...newItem, price: e.target.value })}
             className={inputClassName}
           />
+          <div className="grid grid-cols-2 gap-3">
+            <Input
+              placeholder="Estoque"
+              type="number"
+              min="0"
+              value={newItem.stock}
+              onChange={(e) => setNewItem({ ...newItem, stock: e.target.value })}
+              className={inputClassName}
+            />
+            <Input
+              placeholder="Desconto (%)"
+              type="number"
+              min="0"
+              max="100"
+              value={newItem.discountPercent}
+              onChange={(e) => setNewItem({ ...newItem, discountPercent: e.target.value })}
+              className={`${inputClassName} border-amber-500/40 focus-visible:ring-amber-500/50`}
+            />
+            <select
+              value={newItem.category}
+              onChange={(e) => setNewItem({ ...newItem, category: e.target.value })}
+              className="h-10 rounded-md border border-white/10 bg-white/5 px-3 text-sm text-white"
+            >
+              <option value="geral">Geral</option>
+              <option value="homem">Homem</option>
+              <option value="mulher">Mulher</option>
+              <option value="crianca">Criança</option>
+            </select>
+          </div>
 
           <div className="space-y-3">
             {newItem.imageUrls.map((url, index) => (
@@ -325,15 +374,26 @@ export function AdminJewelry() {
             </Button>
           </div>
 
-          <label className="flex items-center gap-2 text-sm text-white/70">
-            <input
-              type="checkbox"
-              checked={newItem.isActive}
-              onChange={(e) => setNewItem({ ...newItem, isActive: e.target.checked })}
-              className="h-4 w-4 rounded border-white/20 bg-white/10"
-            />
-            Joia ativa na vitrine
-          </label>
+          <div className="flex flex-col gap-2">
+            <label className="flex items-center gap-2 text-sm text-white/70">
+              <input
+                type="checkbox"
+                checked={newItem.isActive}
+                onChange={(e) => setNewItem({ ...newItem, isActive: e.target.checked })}
+                className="h-4 w-4 rounded border-white/20 bg-white/10"
+              />
+              Joia ativa na vitrine
+            </label>
+            <label className="flex items-center gap-2 text-sm text-amber-300/80">
+              <input
+                type="checkbox"
+                checked={newItem.isFeatured}
+                onChange={(e) => setNewItem({ ...newItem, isFeatured: e.target.checked })}
+                className="h-4 w-4 rounded border-amber-400/30 bg-white/10"
+              />
+              Destaque na página principal
+            </label>
+          </div>
 
           <Button
             onClick={handleAdd}
@@ -371,6 +431,35 @@ export function AdminJewelry() {
                       onChange={(e) => setEditingItem({ ...editingItem, price: e.target.value })}
                       className={inputClassName}
                     />
+                    <div className="grid grid-cols-2 gap-3">
+                      <Input
+                        placeholder="Estoque"
+                        type="number"
+                        min="0"
+                        value={editingItem.stock}
+                        onChange={(e) => setEditingItem({ ...editingItem, stock: e.target.value })}
+                        className={inputClassName}
+                      />
+                      <Input
+                        placeholder="Desconto (%)"
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={editingItem.discountPercent}
+                        onChange={(e) => setEditingItem({ ...editingItem, discountPercent: e.target.value })}
+                        className={`${inputClassName} border-amber-500/40 focus-visible:ring-amber-500/50`}
+                      />
+                    </div>
+                    <select
+                      value={editingItem.category}
+                      onChange={(e) => setEditingItem({ ...editingItem, category: e.target.value })}
+                      className="h-10 w-full rounded-md border border-white/10 bg-white/5 px-3 text-sm text-white"
+                    >
+                      <option value="geral">Geral</option>
+                      <option value="homem">Homem</option>
+                      <option value="mulher">Mulher</option>
+                      <option value="crianca">Criança</option>
+                    </select>
 
                     <div className="space-y-3">
                       {editingItem.imageUrls.map((url, index) => (
@@ -421,15 +510,26 @@ export function AdminJewelry() {
                       </Button>
                     </div>
 
-                    <label className="flex items-center gap-2 text-sm text-white/70">
-                      <input
-                        type="checkbox"
-                        checked={editingItem.isActive}
-                        onChange={(e) => setEditingItem({ ...editingItem, isActive: e.target.checked })}
-                        className="h-4 w-4 rounded border-white/20 bg-white/10"
-                      />
-                      Joia ativa na vitrine
-                    </label>
+                    <div className="flex flex-col gap-2">
+                      <label className="flex items-center gap-2 text-sm text-white/70">
+                        <input
+                          type="checkbox"
+                          checked={editingItem.isActive}
+                          onChange={(e) => setEditingItem({ ...editingItem, isActive: e.target.checked })}
+                          className="h-4 w-4 rounded border-white/20 bg-white/10"
+                        />
+                        Joia ativa na vitrine
+                      </label>
+                      <label className="flex items-center gap-2 text-sm text-amber-300/80">
+                        <input
+                          type="checkbox"
+                          checked={editingItem.isFeatured}
+                          onChange={(e) => setEditingItem({ ...editingItem, isFeatured: e.target.checked })}
+                          className="h-4 w-4 rounded border-amber-400/30 bg-white/10"
+                        />
+                        Destaque na página principal
+                      </label>
+                    </div>
 
                     <div className="flex flex-wrap gap-2">
                       <Button
@@ -464,9 +564,20 @@ export function AdminJewelry() {
                         />
                       </div>
                       <div>
-                        <p className="text-lg font-semibold text-white">{item.name}</p>
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="text-lg font-semibold text-white">{item.name}</p>
+                          {item.isFeatured && (
+                            <span className="shrink-0 rounded-full bg-amber-400/15 border border-amber-400/20 px-2 py-0.5 text-[10px] text-amber-300 font-medium">Destaque</span>
+                          )}
+                        </div>
                         <p className="text-sm text-white/60">{item.description || 'Sem descricao'}</p>
-                        <p className="mt-3 text-sm text-white/80">Preco: {displayPrice}</p>
+                        <div className="mt-3 flex flex-wrap gap-3 text-sm text-white/80">
+                          <span>R$ {displayPrice}</span>
+                          {Number(item.discountPercent) > 0 && (
+                            <span className="text-rose-300">-{item.discountPercent}% desconto</span>
+                          )}
+                          <span className="text-white/50">Estoque: {item.stock ?? 0}</span>
+                        </div>
                         <p className="mt-1 text-xs text-white/50">
                           {item.isActive ? 'Ativo na vitrine' : 'Inativo'}
                         </p>
@@ -481,6 +592,10 @@ export function AdminJewelry() {
                             description: item.description,
                             price: displayPrice,
                             isActive: item.isActive,
+                            stock: String(item.stock ?? 0),
+                            discountPercent: String(item.discountPercent ?? 0),
+                            isFeatured: Boolean(item.isFeatured),
+                            category: item.category || 'geral',
                             imageUrls: item.imageUrls && item.imageUrls.length ? [...item.imageUrls] : [''],
                           });
                         }}

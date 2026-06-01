@@ -35,6 +35,8 @@ export default defineConfig({
       // Alias @ to the src directory
       '@': path.resolve(__dirname, './src'),
     },
+    // Prevent duplicate Three.js instances (required for @react-three/fiber)
+    dedupe: ['three'],
   },
 
   server: {
@@ -55,6 +57,7 @@ export default defineConfig({
         main: path.resolve(__dirname, 'index.html'),
         curso: path.resolve(__dirname, 'curso.html'),
         joias: path.resolve(__dirname, 'joias.html'),
+        joalheria: path.resolve(__dirname, 'joalheria.html'),
       },
     },
   },

@@ -2,13 +2,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { defaultSiteConfig, saveSiteConfig, SiteConfig } from '../app/data/siteConfig';
 import { useSiteConfig } from '../app/hooks/useSiteConfig';
 import { AdminSpecialists } from './AdminSpecialists';
-import { AdminPortfolio } from './AdminPortfolio';
 import { AdminCourse } from './AdminCourse';
-import { AdminJewelry } from './AdminJewelry';
+import { AdminPortfolio } from './AdminPortfolio';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../app/components/ui/tabs';
 import { Button } from '../app/components/ui/button';
 import { Input } from '../app/components/ui/input';
-import { ChevronRight, Upload, Wand2 } from 'lucide-react';
+import { ChevronRight, Upload, Wand2, Gem } from 'lucide-react';
 import { uploadImageFile } from './uploadImage';
 import { ImageWithFallback } from '../app/components/figma/ImageWithFallback';
 
@@ -176,14 +175,13 @@ const AdminLogin = ({ onSuccess }: { onSuccess: () => void }) => {
       <main className="relative mx-auto max-w-7xl px-4 py-8 lg:px-8">
         <Tabs defaultValue="hero" className="w-full">
           <div className="mb-7 flex justify-center">
-            <TabsList className="!h-auto grid w-full max-w-6xl grid-cols-6 gap-1.5 rounded-full border border-white/10 bg-[linear-gradient(120deg,rgba(255,255,255,0.07),rgba(255,255,255,0.01)_45%,rgba(0,0,0,0.22))] p-1.5 shadow-2xl shadow-black/35 backdrop-blur-2xl">
-              <TabsTrigger value="hero" className="!h-11 rounded-full text-sm font-medium text-white/70 transition-all duration-300 hover:bg-white/10 hover:text-white data-[state=active]:!border-white/20 data-[state=active]:!bg-white data-[state=active]:!text-black data-[state=active]:shadow-[0_8px_20px_rgba(255,255,255,0.18)]">Início</TabsTrigger>
-              <TabsTrigger value="course" className="!h-11 rounded-full text-sm font-medium text-white/70 transition-all duration-300 hover:bg-white/10 hover:text-white data-[state=active]:!border-white/20 data-[state=active]:!bg-white data-[state=active]:!text-black data-[state=active]:shadow-[0_8px_20px_rgba(255,255,255,0.18)]">Curso</TabsTrigger>
-              <TabsTrigger value="portfolio" className="!h-11 rounded-full text-sm font-medium text-white/70 transition-all duration-300 hover:bg-white/10 hover:text-white data-[state=active]:!border-white/20 data-[state=active]:!bg-white data-[state=active]:!text-black data-[state=active]:shadow-[0_8px_20px_rgba(255,255,255,0.18)]">Portfólio</TabsTrigger>
-              <TabsTrigger value="specialists" className="!h-11 rounded-full text-sm font-medium text-white/70 transition-all duration-300 hover:bg-white/10 hover:text-white data-[state=active]:!border-white/20 data-[state=active]:!bg-white data-[state=active]:!text-black data-[state=active]:shadow-[0_8px_20px_rgba(255,255,255,0.18)]">Especialistas</TabsTrigger>
-              <TabsTrigger value="jewelry" className="!h-11 rounded-full text-sm font-medium text-white/70 transition-all duration-300 hover:bg-white/10 hover:text-white data-[state=active]:!border-white/20 data-[state=active]:!bg-white data-[state=active]:!text-black data-[state=active]:shadow-[0_8px_20px_rgba(255,255,255,0.18)]">Joias</TabsTrigger>
-              <TabsTrigger value="config" className="!h-11 rounded-full text-sm font-medium text-white/70 transition-all duration-300 hover:bg-white/10 hover:text-white data-[state=active]:!border-white/20 data-[state=active]:!bg-white data-[state=active]:!text-black data-[state=active]:shadow-[0_8px_20px_rgba(255,255,255,0.18)]">Config</TabsTrigger>
-            </TabsList>
+              <TabsList className="!h-auto grid w-full max-w-3xl grid-cols-5 gap-1.5 rounded-full border border-white/10 bg-[linear-gradient(120deg,rgba(255,255,255,0.07),rgba(255,255,255,0.01)_45%,rgba(0,0,0,0.22))] p-1.5 shadow-2xl shadow-black/35 backdrop-blur-2xl">
+                <TabsTrigger value="hero" className="!h-11 rounded-full text-sm font-medium text-white/70 transition-all duration-300 hover:bg-white/10 hover:text-white data-[state=active]:!border-white/20 data-[state=active]:!bg-white data-[state=active]:!text-black data-[state=active]:shadow-[0_8px_20px_rgba(255,255,255,0.18)]">Início</TabsTrigger>
+                <TabsTrigger value="course" className="!h-11 rounded-full text-sm font-medium text-white/70 transition-all duration-300 hover:bg-white/10 hover:text-white data-[state=active]:!border-white/20 data-[state=active]:!bg-white data-[state=active]:!text-black data-[state=active]:shadow-[0_8px_20px_rgba(255,255,255,0.18)]">Curso</TabsTrigger>
+                <TabsTrigger value="specialists" className="!h-11 rounded-full text-sm font-medium text-white/70 transition-all duration-300 hover:bg-white/10 hover:text-white data-[state=active]:!border-white/20 data-[state=active]:!bg-white data-[state=active]:!text-black data-[state=active]:shadow-[0_8px_20px_rgba(255,255,255,0.18)]">Especialistas</TabsTrigger>
+                <TabsTrigger value="portfolio" className="!h-11 rounded-full text-sm font-medium text-white/70 transition-all duration-300 hover:bg-white/10 hover:text-white data-[state=active]:!border-white/20 data-[state=active]:!bg-white data-[state=active]:!text-black data-[state=active]:shadow-[0_8px_20px_rgba(255,255,255,0.18)]">Portfólio</TabsTrigger>
+                <TabsTrigger value="config" className="!h-11 rounded-full text-sm font-medium text-white/70 transition-all duration-300 hover:bg-white/10 hover:text-white data-[state=active]:!border-white/20 data-[state=active]:!bg-white data-[state=active]:!text-black data-[state=active]:shadow-[0_8px_20px_rgba(255,255,255,0.18)]">Config</TabsTrigger>
+              </TabsList>
           </div>
 
           <TabsContent value="hero" className="space-y-10">
@@ -299,21 +297,15 @@ const AdminLogin = ({ onSuccess }: { onSuccess: () => void }) => {
             </div>
           </TabsContent>
 
-          <TabsContent value="portfolio" className="space-y-10">
-            <div className="rounded-[28px] border border-white/10 bg-white/[0.03] p-4 backdrop-blur-xl">
-              <AdminPortfolio />
-            </div>
-          </TabsContent>
-
           <TabsContent value="specialists" className="space-y-10">
             <div className="rounded-[28px] border border-white/10 bg-white/[0.03] p-4 backdrop-blur-xl">
               <AdminSpecialists />
             </div>
           </TabsContent>
 
-          <TabsContent value="jewelry" className="space-y-10">
+          <TabsContent value="portfolio" className="space-y-10">
             <div className="rounded-[28px] border border-white/10 bg-white/[0.03] p-4 backdrop-blur-xl">
-              <AdminJewelry />
+              <AdminPortfolio />
             </div>
           </TabsContent>
 
@@ -327,6 +319,23 @@ const AdminLogin = ({ onSuccess }: { onSuccess: () => void }) => {
               >
                 Restaurar padrão
               </Button>
+              <div className="mt-6 border-t border-white/10 pt-6">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/8">
+                    <Gem className="h-4 w-4 text-white/60" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-semibold">Admin Joalheria</h3>
+                    <p className="text-xs text-white/40">Gerencie joias, encomendas e faturamento</p>
+                  </div>
+                </div>
+                <a
+                  href="/joalheria/Admin@joalheria"
+                  className="inline-flex items-center gap-2 mt-2 rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm text-white/70 hover:bg-white/10 hover:text-white transition"
+                >
+                  Ir para Admin Joalheria →
+                </a>
+              </div>
             </section>
           </TabsContent>
         </Tabs>

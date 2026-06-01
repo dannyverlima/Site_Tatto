@@ -51,6 +51,19 @@ export function AdminSpecialists() {
   const [isUploadingNewImage, setIsUploadingNewImage] = useState(false);
   const [uploadingSpecialistId, setUploadingSpecialistId] = useState<number | null>(null);
 
+  // Campos auxiliares: handle e número (para gerar URL automaticamente)
+  const [newInstaHandle, setNewInstaHandle] = useState('');
+  const [newWaNumber, setNewWaNumber] = useState('');
+  const [editInstaHandle, setEditInstaHandle] = useState('');
+  const [editWaNumber, setEditWaNumber] = useState('');
+
+  const makeInstaUrl = (handle: string) =>
+    handle ? `https://instagram.com/${handle.replace('@', '')}` : '';
+  const makeWaUrl = (number: string) => {
+    const digits = number.replace(/\D/g, '');
+    return digits ? `https://wa.me/${digits}` : '';
+  };
+
   useEffect(() => {
     loadSpecialists();
   }, []);
@@ -83,6 +96,8 @@ export function AdminSpecialists() {
 
       if (response.ok) {
         setNewSpecialist(emptyDraft());
+        setNewInstaHandle('');
+        setNewWaNumber('');
         loadSpecialists();
         window.dispatchEvent(new Event('specialists-updated'));
       }
@@ -223,18 +238,40 @@ export function AdminSpecialists() {
             onChange={(e) => setNewSpecialist({ ...newSpecialist, experience: e.target.value })}
             className="border-white/10 bg-white/5 text-white placeholder:text-white/35"
           />
-          <Input
-            placeholder="Instagram"
-            value={newSpecialist.instagram}
-            onChange={(e) => setNewSpecialist({ ...newSpecialist, instagram: e.target.value })}
-            className="border-white/10 bg-white/5 text-white placeholder:text-white/35"
-          />
-          <Input
-            placeholder="WhatsApp"
-            value={newSpecialist.whatsapp}
-            onChange={(e) => setNewSpecialist({ ...newSpecialist, whatsapp: e.target.value })}
-            className="border-white/10 bg-white/5 text-white placeholder:text-white/35"
-          />
+          <div className="space-y-2">
+            <Input
+              placeholder="Instagram (@usuario)"
+              value={newInstaHandle}
+              onChange={(e) => {
+                setNewInstaHandle(e.target.value);
+                setNewSpecialist({ ...newSpecialist, instagram: makeInstaUrl(e.target.value) });
+              }}
+              className="border-white/10 bg-white/5 text-white placeholder:text-white/35"
+            />
+            <Input
+              placeholder="URL do Instagram (preenchida automaticamente)"
+              value={newSpecialist.instagram}
+              onChange={(e) => setNewSpecialist({ ...newSpecialist, instagram: e.target.value })}
+              className="border-white/10 bg-white/[0.02] text-white/60 placeholder:text-white/25 text-xs"
+            />
+          </div>
+          <div className="space-y-2">
+            <Input
+              placeholder="WhatsApp (+55 27 99999-9999)"
+              value={newWaNumber}
+              onChange={(e) => {
+                setNewWaNumber(e.target.value);
+                setNewSpecialist({ ...newSpecialist, whatsapp: makeWaUrl(e.target.value) });
+              }}
+              className="border-white/10 bg-white/5 text-white placeholder:text-white/35"
+            />
+            <Input
+              placeholder="URL do WhatsApp (preenchida automaticamente)"
+              value={newSpecialist.whatsapp}
+              onChange={(e) => setNewSpecialist({ ...newSpecialist, whatsapp: e.target.value })}
+              className="border-white/10 bg-white/[0.02] text-white/60 placeholder:text-white/25 text-xs"
+            />
+          </div>
           <Button
             onClick={handleAdd}
             className="w-full border border-white/10 bg-white text-black hover:bg-white/90"
@@ -304,6 +341,69 @@ export function AdminSpecialists() {
                     </div>
                   ) : null}
 
+                  <Input
+                    placeholder="Experiência (ex: 10+ anos)"
+                    value={editingSpecialist?.id === specialist.id ? (editingSpecialist.experience ?? '') : (specialist.experience ?? '')}
+                    onChange={(e) =>
+                      setEditingSpecialist((current) =>
+                        current && current.id === specialist.id ? { ...current, experience: e.target.value } : current
+                      )
+                    }
+                    className="border-white/10 bg-white/5 text-white placeholder:text-white/35"
+                  />
+
+                  <div className="space-y-2">
+                    <Input
+                      placeholder="Instagram (@usuario)"
+                      value={editInstaHandle}
+                      onChange={(e) => {
+                        setEditInstaHandle(e.target.value);
+                        setEditingSpecialist((current) =>
+                          current && current.id === specialist.id
+                            ? { ...current, instagram: makeInstaUrl(e.target.value) }
+                            : current
+                        );
+                      }}
+                      className="border-white/10 bg-white/5 text-white placeholder:text-white/35"
+                    />
+                    <Input
+                      placeholder="URL do Instagram (preenchida automaticamente)"
+                      value={editingSpecialist?.id === specialist.id ? (editingSpecialist.instagram ?? '') : (specialist.instagram ?? '')}
+                      onChange={(e) =>
+                        setEditingSpecialist((current) =>
+                          current && current.id === specialist.id ? { ...current, instagram: e.target.value } : current
+                        )
+                      }
+                      className="border-white/10 bg-white/[0.02] text-white/60 placeholder:text-white/25 text-xs"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Input
+                      placeholder="WhatsApp (+55 27 99999-9999)"
+                      value={editWaNumber}
+                      onChange={(e) => {
+                        setEditWaNumber(e.target.value);
+                        setEditingSpecialist((current) =>
+                          current && current.id === specialist.id
+                            ? { ...current, whatsapp: makeWaUrl(e.target.value) }
+                            : current
+                        );
+                      }}
+                      className="border-white/10 bg-white/5 text-white placeholder:text-white/35"
+                    />
+                    <Input
+                      placeholder="URL do WhatsApp (preenchida automaticamente)"
+                      value={editingSpecialist?.id === specialist.id ? (editingSpecialist.whatsapp ?? '') : (specialist.whatsapp ?? '')}
+                      onChange={(e) =>
+                        setEditingSpecialist((current) =>
+                          current && current.id === specialist.id ? { ...current, whatsapp: e.target.value } : current
+                        )
+                      }
+                      className="border-white/10 bg-white/[0.02] text-white/60 placeholder:text-white/25 text-xs"
+                    />
+                  </div>
+
                   <div className="flex flex-wrap gap-2">
                     <Button
                       size="sm"
@@ -346,6 +446,15 @@ export function AdminSpecialists() {
                       onClick={() => {
                         setEditingId(specialist.id);
                         setEditingSpecialist({ ...specialist });
+                        // popular handles/números para os campos auxiliares
+                        const ig = specialist.instagram ?? '';
+                        const wa = specialist.whatsapp ?? '';
+                        setEditInstaHandle(ig.includes('instagram.com/')
+                          ? '@' + ig.replace(/.*instagram\.com\//, '').replace(/\/$/, '')
+                          : ig);
+                        setEditWaNumber(wa.includes('wa.me/')
+                          ? '+' + wa.replace(/.*wa\.me\//, '')
+                          : wa);
                       }}
                       className="border-white/10 bg-white/5 text-white hover:bg-white/10 hover:text-white"
                     >

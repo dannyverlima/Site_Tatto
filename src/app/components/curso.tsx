@@ -1,6 +1,6 @@
 import { motion, useInView } from 'framer-motion';
 import { useRef } from 'react';
-import { GraduationCap, Clock, Users, Award } from 'lucide-react';
+import { GraduationCap, Clock, Users, Award, ArrowRight } from 'lucide-react';
 import { useSiteConfig } from '../hooks/useSiteConfig';
 
 const featureIcons = [Clock, Users, Award, GraduationCap];
@@ -16,7 +16,7 @@ export function Course() {
   const hasDescription = Boolean(course.description);
 
   return (
-    <section id="curso" ref={ref} className="py-20 px-4 bg-black">
+    <section id="curso" ref={ref} className="py-20 px-4 bg-neutral-900">
       <div className="max-w-7xl mx-auto">
         <motion.div
           initial={{ opacity: 0, y: 50 }}
@@ -110,11 +110,13 @@ export function Course() {
                     href="/curso.html"
                     target="_blank"
                     rel="noopener noreferrer"
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    className="inline-flex items-center justify-center px-8 py-4 bg-neutral-100 text-neutral-900 rounded-lg font-semibold hover:bg-neutral-200 transition-colors duration-300"
+                    whileHover={{ scale: 1.04, boxShadow: '0 0 40px rgba(255,255,255,0.35)' }}
+                    whileTap={{ scale: 0.97 }}
+                    className="group relative overflow-hidden inline-flex items-center justify-center gap-2 px-8 py-4 bg-white text-neutral-900 rounded-xl font-bold tracking-wide shadow-[0_0_20px_rgba(255,255,255,0.15)] transition-all duration-300"
                   >
+                    <span className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-out bg-gradient-to-r from-transparent via-neutral-300/40 to-transparent skew-x-12" />
                     Abrir pagina de inscricao
+                    <ArrowRight size={18} className="transition-transform duration-300 group-hover:translate-x-1" />
                   </motion.a>
                 </div>
               ) : null}

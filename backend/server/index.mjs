@@ -8,6 +8,9 @@ import fs from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import multer from 'multer';
 import ffmpegPath from 'ffmpeg-static';
+import bcryptjs from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+import { pool } from './db.mjs';
 import {
   getSiteConfig,
   saveSiteConfig,
@@ -44,6 +47,11 @@ import {
   updateJewelryItem,
   deleteJewelryItem,
   createJewelryOrder,
+  getJewelryOrders,
+  updateJewelryOrderStatus,
+  getSiteSettings,
+  setSiteSetting,
+  getJewelrySales,
 } from './siteRepository.mjs';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -711,10 +719,79 @@ app.delete('/api/portfolio/:id', async (req, res) => {
 });
 
 // ============= JEWELRY STORE ENDPOINTS =============
+
+// ---- Auth ----
+
+const JWT_SECRET = process.env.JWT_SECRET || 'jewelry_secret_change_me_in_production';
+const JWT_EXPIRES = '30d';
+
+function signToken(user) {
+  return jwt.sign({ id: user.id, email: user.email, name: user.name }, JWT_SECRET, { expiresIn: JWT_EXPIRES });
+}
+
+app.post('/api/auth/register', async (req, res) => {
+  try {
+    const { name, email, password } = req.body || {};
+    if (!name || !email || !password) return res.status(400).json({ error: 'Preencha todos os campos' });
+    if (password.length < 6) return res.status(400).json({ error: 'Senha deve ter pelo menos 6 caracteres' });
+    const existing = await pool.query('SELECT id FROM app.jewelry_customer WHERE email = $1', [email.toLowerCase()]);
+    if (existing.rows.length > 0) return res.status(409).json({ error: 'Este email já está cadastrado' });
+    const hash = await bcryptjs.hash(password, 12);
+    const result = await pool.query(
+      'INSERT INTO app.jewelry_customer (name, email, password_hash) VALUES ($1, $2, $3) RETURNING id, name, email',
+      [name.trim(), email.toLowerCase().trim(), hash]
+    );
+    const user = result.rows[0];
+    res.status(201).json({ token: signToken(user), user });
+  } catch (err) {
+    console.error('Erro no cadastro:', err);
+    res.status(500).json({ error: 'Erro interno ao criar conta' });
+  }
+});
+
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { email, password } = req.body || {};
+    if (!email || !password) return res.status(400).json({ error: 'Preencha email e senha' });
+    const result = await pool.query(
+      'SELECT id, name, email, password_hash FROM app.jewelry_customer WHERE email = $1',
+      [email.toLowerCase().trim()]
+    );
+    if (result.rows.length === 0) return res.status(401).json({ error: 'Email ou senha inválidos' });
+    const user = result.rows[0];
+    const valid = await bcryptjs.compare(password, user.password_hash);
+    if (!valid) return res.status(401).json({ error: 'Email ou senha inválidos' });
+    res.json({ token: signToken(user), user: { id: user.id, name: user.name, email: user.email } });
+  } catch (err) {
+    console.error('Erro no login:', err);
+    res.status(500).json({ error: 'Erro interno ao autenticar' });
+  }
+});
+
+app.get('/api/auth/me', async (req, res) => {
+  try {
+    const auth = req.headers.authorization;
+    if (!auth?.startsWith('Bearer ')) return res.status(401).json({ error: 'Não autorizado' });
+    const token = auth.slice(7);
+    const payload = jwt.verify(token, JWT_SECRET);
+    const result = await pool.query(
+      'SELECT id, name, email FROM app.jewelry_customer WHERE id = $1',
+      [payload.id]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Usuário não encontrado' });
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(401).json({ error: 'Token inválido ou expirado' });
+  }
+});
+// ---- End Auth ----
+
 app.get('/api/jewelry', async (req, res) => {
   try {
     const includeInactive = String(req.query.all || '') === '1';
-    const items = await getJewelryItems({ includeInactive });
+    const featuredOnly = String(req.query.featured || '') === '1';
+    const category = req.query.category ? String(req.query.category) : null;
+    const items = await getJewelryItems({ includeInactive, featuredOnly, category });
     res.json(items);
   } catch (error) {
     console.error('Erro ao carregar joias', error);
@@ -723,13 +800,13 @@ app.get('/api/jewelry', async (req, res) => {
 });
 
 app.post('/api/jewelry', async (req, res) => {
-  const { name, description, price, imageUrls, isActive } = req.body || {};
+  const { name, description, price, imageUrls, isActive, stock, discountPercent, isFeatured, category } = req.body || {};
   if (!name) {
     return badRequest(res, 'Nome é obrigatório');
   }
 
   try {
-    const id = await createJewelryItem({ name, description, price, imageUrls, isActive });
+    const id = await createJewelryItem({ name, description, price, imageUrls, isActive, stock, discountPercent, isFeatured, category });
     res.status(201).json({ id, ok: true });
   } catch (error) {
     console.error('Erro ao criar joia', error);
@@ -739,10 +816,10 @@ app.post('/api/jewelry', async (req, res) => {
 
 app.put('/api/jewelry/:id', async (req, res) => {
   const { id } = req.params;
-  const { name, description, price, imageUrls, isActive } = req.body || {};
+  const { name, description, price, imageUrls, isActive, stock, discountPercent, isFeatured, category } = req.body || {};
 
   try {
-    await updateJewelryItem(id, { name, description, price, imageUrls, isActive });
+    await updateJewelryItem(id, { name, description, price, imageUrls, isActive, stock, discountPercent, isFeatured, category });
     res.json({ ok: true });
   } catch (error) {
     console.error('Erro ao atualizar joia', error);
@@ -799,6 +876,70 @@ app.post('/api/jewelry-orders', async (req, res) => {
   } catch (error) {
     console.error('Erro ao criar pedido de joias', error);
     res.status(500).json({ error: error.message || 'Falha ao criar pedido' });
+  }
+});
+
+// ============= JEWELRY ORDERS ADMIN =============
+app.get('/api/jewelry-orders', async (_req, res) => {
+  try {
+    const orders = await getJewelryOrders();
+    res.json(orders);
+  } catch (error) {
+    console.error('Erro ao carregar pedidos de joias', error);
+    res.status(500).json({ error: 'Falha ao carregar pedidos' });
+  }
+});
+
+app.put('/api/jewelry-orders/:id', async (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body || {};
+  if (!status) {
+    return badRequest(res, 'Status é obrigatório');
+  }
+  try {
+    await updateJewelryOrderStatus(id, { status });
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Erro ao atualizar pedido', error);
+    res.status(500).json({ error: error.message || 'Falha ao atualizar pedido' });
+  }
+});
+
+// ============= SITE SETTINGS =============
+app.get('/api/site-settings', async (req, res) => {
+  try {
+    const keysParam = typeof req.query.keys === 'string' ? req.query.keys.split(',').filter(Boolean) : [];
+    const settings = await getSiteSettings(keysParam);
+    res.json(settings);
+  } catch (error) {
+    console.error('Erro ao carregar configuracoes', error);
+    res.status(500).json({ error: 'Falha ao carregar configuracoes' });
+  }
+});
+
+app.put('/api/site-settings', async (req, res) => {
+  const body = req.body || {};
+  try {
+    for (const [key, value] of Object.entries(body)) {
+      await setSiteSetting(key, value);
+    }
+    const settings = await getSiteSettings();
+    res.json(settings);
+  } catch (error) {
+    console.error('Erro ao salvar configuracoes', error);
+    res.status(500).json({ error: error.message || 'Falha ao salvar configuracoes' });
+  }
+});
+
+// ============= JEWELRY SALES / FATURAMENTO =============
+app.get('/api/jewelry-sales', async (req, res) => {
+  try {
+    const months = Math.min(36, Math.max(1, Number(req.query.months || 12)));
+    const data = await getJewelrySales({ months });
+    res.json(data);
+  } catch (error) {
+    console.error('Erro ao carregar faturamento', error);
+    res.status(500).json({ error: 'Falha ao carregar faturamento' });
   }
 });
 

@@ -1,0 +1,23 @@
+Erro ao carregar faturamento error: invalid input value for enum app.submission_status: "completed"
+    at C:\Users\User\Documents\GitHub\Site_Tatto\node_modules\pg\lib\client.js:545:17
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async getJewelrySales (file:///C:/Users/User/Documents/GitHub/Site_Tatto/backend/server/siteRepository.mjs:1299:27)
+    at async file:///C:/Users/User/Documents/GitHub/Site_Tatto/backend/server/index.mjs:938:18 {
+  length: 118,
+  severity: 'ERROR',
+  code: '22P02',
+  detail: undefined,
+  hint: undefined,
+  position: '310',
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'enum.c',
+  line: '133',
+  routine: 'enum_in'
+}

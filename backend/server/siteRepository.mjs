@@ -906,13 +906,19 @@ export const deleteCourseExtraInfo = async (extraInfoId) => {
 };
 
 // ============= JEWELRY STORE =============
-export const getJewelryItems = async ({ includeInactive = false } = {}) => {
+export const getJewelryItems = async ({ includeInactive = false, featuredOnly = false, category = null } = {}) => {
   const client = await pool.connect();
   try {
     const site = await getOrCreateSite(client);
-    const query = includeInactive
-      ? 'SELECT id, name, description, price, is_active FROM app.jewelry_item WHERE site_id = $1 ORDER BY created_at DESC'
-      : 'SELECT id, name, description, price, is_active FROM app.jewelry_item WHERE site_id = $1 AND is_active = true ORDER BY created_at DESC';
+    let query;
+    const categoryFilter = category && category !== 'geral' ? ` AND category = '${category.replace(/'/g, "''")}'` : '';
+    if (featuredOnly) {
+      query = `SELECT id, name, description, price, is_active, stock, discount_percent, is_featured, category FROM app.jewelry_item WHERE site_id = $1 AND is_active = true AND is_featured = true${categoryFilter} ORDER BY created_at DESC`;
+    } else if (includeInactive) {
+      query = `SELECT id, name, description, price, is_active, stock, discount_percent, is_featured, category FROM app.jewelry_item WHERE site_id = $1${categoryFilter} ORDER BY created_at DESC`;
+    } else {
+      query = `SELECT id, name, description, price, is_active, stock, discount_percent, is_featured, category FROM app.jewelry_item WHERE site_id = $1 AND is_active = true${categoryFilter} ORDER BY created_at DESC`;
+    }
     const result = await client.query(query, [site.id]);
 
     if (result.rowCount === 0) {
@@ -941,6 +947,10 @@ export const getJewelryItems = async ({ includeInactive = false } = {}) => {
         description: row.description,
         price: Number(row.price),
         isActive: row.is_active,
+        stock: Number(row.stock ?? 0),
+        discountPercent: Number(row.discount_percent ?? 0),
+        isFeatured: Boolean(row.is_featured),
+        category: row.category || 'geral',
         imageUrls,
         primaryImageUrl: imageUrls[0] || '',
       };
@@ -950,7 +960,7 @@ export const getJewelryItems = async ({ includeInactive = false } = {}) => {
   }
 };
 
-export const createJewelryItem = async ({ name, description, price, imageUrls, isActive }) => {
+export const createJewelryItem = async ({ name, description, price, imageUrls, isActive, stock, discountPercent, isFeatured, category }) => {
   const client = await pool.connect();
   try {
     const site = await getOrCreateSite(client);
@@ -959,6 +969,11 @@ export const createJewelryItem = async ({ name, description, price, imageUrls, i
     const safePrice = normalizePrice(price);
     const safeIsActive = typeof isActive === 'boolean' ? isActive : true;
     const safeImages = normalizeArray(imageUrls).map(normalizeString).filter(Boolean);
+    const safeStock = Number.isFinite(Number(stock)) ? Math.max(0, Math.floor(Number(stock))) : 0;
+    const safeDiscount = Number.isFinite(Number(discountPercent)) ? Math.min(100, Math.max(0, Number(discountPercent))) : 0;
+    const safeIsFeatured = typeof isFeatured === 'boolean' ? isFeatured : false;
+    const validCategories = ['geral', 'homem', 'mulher', 'crianca'];
+    const safeCategory = validCategories.includes(category) ? category : 'geral';
 
     if (!safeName || Number.isNaN(safePrice)) {
       throw new Error('Nome e preço são obrigatórios');
@@ -966,8 +981,8 @@ export const createJewelryItem = async ({ name, description, price, imageUrls, i
 
     await client.query('BEGIN');
     const result = await client.query(
-      'INSERT INTO app.jewelry_item (site_id, name, description, price, is_active) VALUES ($1, $2, $3, $4, $5) RETURNING id',
-      [site.id, safeName, safeDescription, safePrice, safeIsActive]
+      'INSERT INTO app.jewelry_item (site_id, name, description, price, is_active, stock, discount_percent, is_featured, category) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id',
+      [site.id, safeName, safeDescription, safePrice, safeIsActive, safeStock, safeDiscount, safeIsFeatured, safeCategory]
     );
     const itemId = result.rows[0].id;
 
@@ -988,7 +1003,7 @@ export const createJewelryItem = async ({ name, description, price, imageUrls, i
   }
 };
 
-export const updateJewelryItem = async (id, { name, description, price, imageUrls, isActive }) => {
+export const updateJewelryItem = async (id, { name, description, price, imageUrls, isActive, stock, discountPercent, isFeatured, category }) => {
   const client = await pool.connect();
   try {
     const site = await getOrCreateSite(client);
@@ -997,6 +1012,11 @@ export const updateJewelryItem = async (id, { name, description, price, imageUrl
     const safePrice = normalizePrice(price);
     const safeIsActive = typeof isActive === 'boolean' ? isActive : true;
     const safeImages = normalizeArray(imageUrls).map(normalizeString).filter(Boolean);
+    const safeStock = Number.isFinite(Number(stock)) ? Math.max(0, Math.floor(Number(stock))) : 0;
+    const safeDiscount = Number.isFinite(Number(discountPercent)) ? Math.min(100, Math.max(0, Number(discountPercent))) : 0;
+    const safeIsFeatured = typeof isFeatured === 'boolean' ? isFeatured : false;
+    const validCategories2 = ['geral', 'homem', 'mulher', 'crianca'];
+    const safeCategory2 = validCategories2.includes(category) ? category : 'geral';
 
     if (!safeName || Number.isNaN(safePrice)) {
       throw new Error('Nome e preço são obrigatórios');
@@ -1004,8 +1024,8 @@ export const updateJewelryItem = async (id, { name, description, price, imageUrl
 
     await client.query('BEGIN');
     await client.query(
-      'UPDATE app.jewelry_item SET name = $1, description = $2, price = $3, is_active = $4, updated_at = now() WHERE id = $5 AND site_id = $6',
-      [safeName, safeDescription, safePrice, safeIsActive, id, site.id]
+      'UPDATE app.jewelry_item SET name = $1, description = $2, price = $3, is_active = $4, stock = $5, discount_percent = $6, is_featured = $7, category = $8, updated_at = now() WHERE id = $9 AND site_id = $10',
+      [safeName, safeDescription, safePrice, safeIsActive, safeStock, safeDiscount, safeIsFeatured, safeCategory2, id, site.id]
     );
 
     if (Array.isArray(imageUrls)) {
@@ -1131,11 +1151,194 @@ export const createJewelryOrder = async ({
       );
     }
 
+    // Update shipping fee and total on order
+    const shippingFeeResult = await client.query(
+      "SELECT value FROM app.site_setting WHERE site_id = $1 AND key = 'jewelry_shipping_fee'",
+      [site.id]
+    );
+    const shippingFee = shippingFeeResult.rowCount > 0 ? Number(shippingFeeResult.rows[0].value) || 0 : 0;
+    const orderTotal = safeItems.reduce((acc, item) => {
+      const product = productMap.get(item.id);
+      return acc + (product ? Number(product.price) * item.quantity : 0);
+    }, 0) + (safeDelivery === 'delivery' ? shippingFee : 0);
+
+    await client.query(
+      'UPDATE app.jewelry_order SET shipping_fee = $1, total = $2 WHERE id = $3',
+      [safeDelivery === 'delivery' ? shippingFee : 0, orderTotal, orderId]
+    );
+
     await client.query('COMMIT');
     return orderId;
   } catch (error) {
     await client.query('ROLLBACK');
     throw error;
+  } finally {
+    client.release();
+  }
+};
+
+// ============= JEWELRY ORDERS ADMIN =============
+export const getJewelryOrders = async () => {
+  const client = await pool.connect();
+  try {
+    const site = await getOrCreateSite(client);
+    const result = await client.query(
+      `SELECT id, customer_name, email, phone, delivery_method, address_line1, city, state,
+              postal_code, notes, status, shipping_fee, total, submitted_at, updated_at, paid_at
+       FROM app.jewelry_order WHERE site_id = $1 ORDER BY submitted_at DESC`,
+      [site.id]
+    );
+
+    if (result.rowCount === 0) {
+      return [];
+    }
+
+    const orderIds = result.rows.map((row) => row.id);
+    const itemsResult = await client.query(
+      'SELECT order_id, name, price, quantity FROM app.jewelry_order_item WHERE order_id = ANY($1::uuid[]) ORDER BY id',
+      [orderIds]
+    );
+
+    const itemsByOrder = new Map();
+    for (const row of itemsResult.rows) {
+      if (!itemsByOrder.has(row.order_id)) {
+        itemsByOrder.set(row.order_id, []);
+      }
+      itemsByOrder.get(row.order_id).push({
+        name: row.name,
+        price: Number(row.price),
+        quantity: row.quantity,
+      });
+    }
+
+    return result.rows.map((row) => ({
+      id: row.id,
+      customerName: row.customer_name,
+      email: row.email,
+      phone: row.phone,
+      deliveryMethod: row.delivery_method,
+      addressLine1: row.address_line1,
+      city: row.city,
+      state: row.state,
+      postalCode: row.postal_code,
+      notes: row.notes,
+      status: row.status,
+      shippingFee: Number(row.shipping_fee ?? 0),
+      total: Number(row.total ?? 0),
+      submittedAt: row.submitted_at,
+      updatedAt: row.updated_at,
+      paidAt: row.paid_at,
+      items: itemsByOrder.get(row.id) || [],
+    }));
+  } finally {
+    client.release();
+  }
+};
+
+export const updateJewelryOrderStatus = async (id, { status }) => {
+  const client = await pool.connect();
+  try {
+    const site = await getOrCreateSite(client);
+    const allowed = ['new', 'processing', 'completed', 'cancelled'];
+    const safeStatus = allowed.includes(status) ? status : 'new';
+
+    const paidAt = safeStatus === 'completed' ? 'now()' : 'paid_at';
+
+    await client.query(
+      `UPDATE app.jewelry_order SET status = $1, updated_at = now(), paid_at = ${safeStatus === 'completed' ? 'COALESCE(paid_at, now())' : 'paid_at'} WHERE id = $2 AND site_id = $3`,
+      [safeStatus, id, site.id]
+    );
+  } finally {
+    client.release();
+  }
+};
+
+// ============= SITE SETTINGS =============
+export const getSiteSettings = async (keys = []) => {
+  const client = await pool.connect();
+  try {
+    const site = await getOrCreateSite(client);
+    const result = keys.length > 0
+      ? await client.query('SELECT key, value FROM app.site_setting WHERE site_id = $1 AND key = ANY($2)', [site.id, keys])
+      : await client.query('SELECT key, value FROM app.site_setting WHERE site_id = $1', [site.id]);
+    const settings = {};
+    for (const row of result.rows) {
+      settings[row.key] = row.value;
+    }
+    return settings;
+  } finally {
+    client.release();
+  }
+};
+
+export const setSiteSetting = async (key, value) => {
+  const client = await pool.connect();
+  try {
+    const site = await getOrCreateSite(client);
+    const safeKey = String(key || '').trim().slice(0, 128);
+    const safeValue = String(value ?? '').slice(0, 2048);
+    if (!safeKey) {
+      throw new Error('Chave inválida');
+    }
+    await client.query(
+      'INSERT INTO app.site_setting (site_id, key, value) VALUES ($1, $2, $3) ON CONFLICT (site_id, key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()',
+      [site.id, safeKey, safeValue]
+    );
+  } finally {
+    client.release();
+  }
+};
+
+// ============= JEWELRY SALES / FATURAMENTO =============
+export const getJewelrySales = async ({ months = 12 } = {}) => {
+  const client = await pool.connect();
+  try {
+    const site = await getOrCreateSite(client);
+
+    // Monthly revenue from completed orders in the last N months
+    const monthlyResult = await client.query(
+      `SELECT
+         date_trunc('month', o.paid_at) AS month,
+         COUNT(DISTINCT o.id) AS orders_count,
+         COALESCE(SUM(oi.price * oi.quantity), 0) AS revenue
+       FROM app.jewelry_order o
+       JOIN app.jewelry_order_item oi ON oi.order_id = o.id
+       WHERE o.site_id = $1
+         AND o.status = 'completed'
+         AND o.paid_at >= now() - ($2 || ' months')::interval
+       GROUP BY date_trunc('month', o.paid_at)
+       ORDER BY month ASC`,
+      [site.id, months]
+    );
+
+    // Recent completed orders
+    const ordersResult = await client.query(
+      `SELECT o.id, o.customer_name, o.total, o.paid_at, o.delivery_method,
+              array_agg(oi.name || ' x' || oi.quantity) AS items_summary
+       FROM app.jewelry_order o
+       JOIN app.jewelry_order_item oi ON oi.order_id = o.id
+       WHERE o.site_id = $1 AND o.status = 'completed'
+       GROUP BY o.id
+       ORDER BY o.paid_at DESC
+       LIMIT 50`,
+      [site.id]
+    );
+
+    return {
+      monthly: monthlyResult.rows.map((row) => ({
+        month: row.month,
+        ordersCount: Number(row.orders_count),
+        revenue: Number(row.revenue),
+      })),
+      recentSales: ordersResult.rows.map((row) => ({
+        id: row.id,
+        customerName: row.customer_name,
+        total: Number(row.total),
+        paidAt: row.paid_at,
+        deliveryMethod: row.delivery_method,
+        itemsSummary: row.items_summary || [],
+      })),
+    };
   } finally {
     client.release();
   }

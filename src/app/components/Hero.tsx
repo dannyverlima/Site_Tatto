@@ -1,0 +1,122 @@
+import { motion, useScroll, useTransform } from 'framer-motion';
+import logoImg from '../../imports/Logo.png';
+import { HeroBackground } from './HeroBackground';
+import { useSiteConfig } from '../hooks/useSiteConfig';
+
+export function Hero() {
+  const { config } = useSiteConfig();
+  const { scrollY } = useScroll();
+  const opacity = useTransform(scrollY, [0, 300], [1, 0]);
+  const scale = useTransform(scrollY, [0, 300], [1, 0.8]);
+
+  const goToCoursePage = (event: React.MouseEvent<HTMLAnchorElement>) => {
+    event.preventDefault();
+    const targetHref = '/curso.html';
+    window.setTimeout(() => {
+      window.location.href = targetHref;
+    }, 140);
+  };
+
+  const goToLocationPage = (event: React.MouseEvent<HTMLAnchorElement>) => {
+    event.preventDefault();
+    const targetHref = '/localizacao';
+    window.setTimeout(() => {
+      window.location.href = targetHref;
+    }, 140);
+  };
+
+  return (
+    <section id="home" className="relative h-screen w-full overflow-hidden flex items-center justify-center bg-neutral-950">
+      {/* Background Image com Opacidade Baixa */}
+      <div className="absolute inset-0 z-0">
+        <HeroBackground
+          type={config.hero.backgroundType}
+          url={config.hero.backgroundUrl}
+        />
+        <div className="absolute inset-0 bg-black opacity-50"></div>
+      </div>
+
+      {/* Logo e Conteúdo com animação de scroll */}
+      <motion.div
+        style={{ opacity, scale }}
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 1, delay: 0.2 }}
+        className="relative z-10 text-center px-4 -mt-4 md:-mt-8"
+      >
+        <motion.img
+          src={logoImg}
+          alt="Studios Tatto"
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.8, delay: 0.5 }}
+          className="mx-auto mb-4 h-60 w-auto md:h-100"
+          style={{ mixBlendMode: 'lighten' }}
+        />
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.8, delay: 0.8 }}
+          className="text-xl md:text-2xl text-neutral-300 tracking-wide"
+        >
+          Qualidade e elegância que seu corpo merece
+        </motion.p>
+
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 1.15 }}
+          className="mt-4 flex flex-wrap items-center justify-center gap-3"
+        >
+          <motion.a
+            href="#especialistas"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.97 }}
+            className="group relative overflow-hidden px-5 py-2 rounded-full border border-white/10 bg-white/5 backdrop-blur-sm text-neutral-200 text-xs tracking-wide uppercase hover:border-white/30 hover:bg-white/10 hover:text-white hover:shadow-[0_0_18px_rgba(255,255,255,0.1)] transition-all duration-300"
+          >
+            <span className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-out bg-gradient-to-r from-transparent via-white/10 to-transparent skew-x-12" />
+            Especialistas
+          </motion.a>
+          <motion.a
+            href="#portfolio"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.97 }}
+            className="group relative overflow-hidden px-5 py-2 rounded-full border border-white/10 bg-white/5 backdrop-blur-sm text-neutral-200 text-xs tracking-wide uppercase hover:border-white/30 hover:bg-white/10 hover:text-white hover:shadow-[0_0_18px_rgba(255,255,255,0.1)] transition-all duration-300"
+          >
+            <span className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-out bg-gradient-to-r from-transparent via-white/10 to-transparent skew-x-12" />
+            Portofolio
+          </motion.a>
+          <motion.a
+            href="/curso.html"
+            onClick={goToCoursePage}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.97 }}
+            className="group relative overflow-hidden px-5 py-2 rounded-full border border-white/20 bg-white/10 backdrop-blur-sm text-white text-xs tracking-wide uppercase font-semibold hover:border-white/50 hover:bg-white/20 hover:shadow-[0_0_24px_rgba(255,255,255,0.2)] transition-all duration-300"
+          >
+            <span className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-out bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-12" />
+            Curso
+          </motion.a>
+          <motion.a
+            href="#avaliacoes"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.97 }}
+            className="group relative overflow-hidden px-5 py-2 rounded-full border border-white/10 bg-white/5 backdrop-blur-sm text-neutral-200 text-xs tracking-wide uppercase hover:border-white/30 hover:bg-white/10 hover:text-white hover:shadow-[0_0_18px_rgba(255,255,255,0.1)] transition-all duration-300"
+          >
+            <span className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-out bg-gradient-to-r from-transparent via-white/10 to-transparent skew-x-12" />
+            Avaliacoes
+          </motion.a>
+          <motion.a
+            href="/localizacao"
+            onClick={goToLocationPage}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.97 }}
+            className="group relative overflow-hidden px-5 py-2 rounded-full border border-white/10 bg-white/5 backdrop-blur-sm text-neutral-200 text-xs tracking-wide uppercase hover:border-white/30 hover:bg-white/10 hover:text-white hover:shadow-[0_0_18px_rgba(255,255,255,0.1)] transition-all duration-300"
+          >
+            <span className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-out bg-gradient-to-r from-transparent via-white/10 to-transparent skew-x-12" />
+            Localizacao
+          </motion.a>
+        </motion.div>
+      </motion.div>
+    </section>
+  );
+}

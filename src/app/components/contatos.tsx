@@ -124,7 +124,7 @@ export function Contact() {
   const infoExtras = contactInfo.filter((info) => info.kind === 'other');
 
   return (
-    <section id="contato" ref={ref} className="py-20 px-4 bg-black">
+    <section id="contato" ref={ref} className="py-20 px-4 bg-neutral-900">
       <div className="max-w-7xl mx-auto">
         <motion.div
           initial={{ opacity: 0, y: 50 }}
@@ -287,13 +287,14 @@ export function Contact() {
 
                 <motion.button
                   type="submit"
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
+                  whileHover={{ scale: 1.02, boxShadow: '0 0 36px rgba(255,255,255,0.25)' }}
+                  whileTap={{ scale: 0.97 }}
                   disabled={isSubmitting}
-                  className="w-full px-6 py-4 bg-neutral-100 text-neutral-900 rounded-lg font-semibold hover:bg-white transition-colors duration-300 flex items-center justify-center gap-2 disabled:opacity-60"
+                  className="group relative overflow-hidden w-full px-6 py-4 bg-white text-neutral-900 rounded-xl font-bold tracking-wide shadow-[0_0_16px_rgba(255,255,255,0.1)] transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-50"
                 >
+                  <span className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-out bg-gradient-to-r from-transparent via-neutral-300/40 to-transparent skew-x-12" />
                   <span>{isSubmitting ? 'Enviando...' : 'Enviar Mensagem'}</span>
-                  <Send size={20} />
+                  <Send size={20} className="transition-transform duration-300 group-hover:translate-x-1" />
                 </motion.button>
               </form>
             )}
