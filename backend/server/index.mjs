@@ -8,6 +8,7 @@ import fs from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import multer from 'multer';
 import ffmpegPath from 'ffmpeg-static';
+import { pool } from './db.mjs';
 import {
   getSiteConfig,
   saveSiteConfig,
@@ -39,11 +40,6 @@ import {
   createCourseExtraInfo,
   updateCourseExtraInfo,
   deleteCourseExtraInfo,
-  getJewelryItems,
-  createJewelryItem,
-  updateJewelryItem,
-  deleteJewelryItem,
-  createJewelryOrder,
 } from './siteRepository.mjs';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -710,97 +706,29 @@ app.delete('/api/portfolio/:id', async (req, res) => {
   }
 });
 
-// ============= JEWELRY STORE ENDPOINTS =============
+// ============= JEWELRY STORE ENDPOINTS (Desativado) =============
+// TODO: Implementar funcionalidades de joias
+/*
 app.get('/api/jewelry', async (req, res) => {
-  try {
-    const includeInactive = String(req.query.all || '') === '1';
-    const items = await getJewelryItems({ includeInactive });
-    res.json(items);
-  } catch (error) {
-    console.error('Erro ao carregar joias', error);
-    res.status(500).json({ error: 'Falha ao carregar joias' });
-  }
+  res.json([]);
 });
 
 app.post('/api/jewelry', async (req, res) => {
-  const { name, description, price, imageUrls, isActive } = req.body || {};
-  if (!name) {
-    return badRequest(res, 'Nome é obrigatório');
-  }
-
-  try {
-    const id = await createJewelryItem({ name, description, price, imageUrls, isActive });
-    res.status(201).json({ id, ok: true });
-  } catch (error) {
-    console.error('Erro ao criar joia', error);
-    res.status(500).json({ error: error.message || 'Falha ao criar joia' });
-  }
+  res.status(501).json({ error: 'Não implementado' });
 });
 
 app.put('/api/jewelry/:id', async (req, res) => {
-  const { id } = req.params;
-  const { name, description, price, imageUrls, isActive } = req.body || {};
-
-  try {
-    await updateJewelryItem(id, { name, description, price, imageUrls, isActive });
-    res.json({ ok: true });
-  } catch (error) {
-    console.error('Erro ao atualizar joia', error);
-    res.status(500).json({ error: error.message || 'Falha ao atualizar joia' });
-  }
+  res.status(501).json({ error: 'Não implementado' });
 });
 
 app.delete('/api/jewelry/:id', async (req, res) => {
-  const { id } = req.params;
-
-  try {
-    await deleteJewelryItem(id);
-    res.json({ ok: true });
-  } catch (error) {
-    console.error('Erro ao deletar joia', error);
-    res.status(500).json({ error: 'Falha ao deletar joia' });
-  }
+  res.status(501).json({ error: 'Não implementado' });
 });
 
 app.post('/api/jewelry-orders', async (req, res) => {
-  const {
-    customerName,
-    email,
-    phone,
-    deliveryMethod,
-    addressLine1,
-    addressLine2,
-    city,
-    state,
-    postalCode,
-    notes,
-    items,
-  } = req.body || {};
-
-  if (!customerName || !Array.isArray(items) || items.length === 0) {
-    return badRequest(res, 'Dados invalidos');
-  }
-
-  try {
-    const id = await createJewelryOrder({
-      customerName,
-      email,
-      phone,
-      deliveryMethod,
-      addressLine1,
-      addressLine2,
-      city,
-      state,
-      postalCode,
-      notes,
-      items,
-    });
-    res.status(201).json({ id, ok: true });
-  } catch (error) {
-    console.error('Erro ao criar pedido de joias', error);
-    res.status(500).json({ error: error.message || 'Falha ao criar pedido' });
-  }
+  res.status(501).json({ error: 'Não implementado' });
 });
+*/
 
 // ============= COURSE ENDPOINTS =============
 app.get('/api/course', async (_req, res) => {
