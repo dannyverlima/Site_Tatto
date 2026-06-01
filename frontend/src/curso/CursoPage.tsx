@@ -5,8 +5,6 @@ import { motion } from 'motion/react';
 import { motion } from 'framer-motion';
  016eb84c5535207e708aad46b3b4bd68b33f8c94
 import { useSiteConfig } from '../app/hooks/useSiteConfig';
-import { HeroBackground } from '../app/components/HeroBackground';
-import { courseBackground } from './cursoBackground';
 
 export default function CursoPage() {
   const { config } = useSiteConfig();
@@ -75,7 +73,7 @@ export default function CursoPage() {
 
  016eb84c5535207e708aad46b3b4bd68b33f8c94
       <header className="border-b border-neutral-800">
-        <div className="relative z-10 max-w-5xl mx-auto px-4 py-6 flex items-center justify-between">
+        <div className="max-w-5xl mx-auto px-4 py-6 flex items-center justify-between">
           <div>
             <p className="text-xs uppercase tracking-[0.3em] text-neutral-500">Curso</p>
             <h1 className="text-3xl md:text-4xl font-bold">Inscricao e Informacoes</h1>
@@ -89,10 +87,10 @@ export default function CursoPage() {
         </div>
       </header>
 
-      <main className="relative z-10 max-w-5xl mx-auto px-4 py-10 grid gap-10 lg:grid-cols-5">
+      <main className="max-w-5xl mx-auto px-4 py-10 grid gap-10 lg:grid-cols-5">
         <section className="lg:col-span-3 space-y-6">
           {(course.description || hasFeatures) ? (
-            <div className="rounded-2xl border border-white/10 bg-neutral-950/80 p-6 shadow-2xl shadow-black/30 backdrop-blur-md">
+            <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6">
               <h2 className="text-2xl font-semibold mb-3">Sobre o curso</h2>
               {course.description ? (
                 <p className="text-neutral-300">{course.description}</p>
@@ -108,7 +106,7 @@ export default function CursoPage() {
           ) : null}
 
           {hasHighlights ? (
-            <div className="rounded-2xl border border-white/10 bg-neutral-950/80 p-6 shadow-2xl shadow-black/30 backdrop-blur-md">
+            <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6">
               <h2 className="text-2xl font-semibold mb-3">Destaques do curso</h2>
               <div className="grid gap-3 sm:grid-cols-2 text-sm text-neutral-400">
                 {course.highlights.map((item) => (
@@ -121,7 +119,7 @@ export default function CursoPage() {
           ) : null}
 
           {hasExtraInfo ? (
-            <div className="rounded-2xl border border-white/10 bg-neutral-950/80 p-6 shadow-2xl shadow-black/30 backdrop-blur-md">
+            <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6">
               <h2 className="text-2xl font-semibold mb-3">Conteudo e metodologia</h2>
               <ul className="mt-5 space-y-2 text-neutral-400 text-sm">
                 {course.extraInfo.map((item) => (
@@ -132,7 +130,7 @@ export default function CursoPage() {
           ) : null}
 
           {hasNextClass ? (
-            <div className="rounded-2xl border border-white/10 bg-neutral-950/80 p-6 shadow-2xl shadow-black/30 backdrop-blur-md">
+            <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6">
               <h2 className="text-2xl font-semibold mb-3">Proxima turma</h2>
               {course.nextClass ? (
                 <p className="text-neutral-300">{course.nextClass}</p>
@@ -150,7 +148,7 @@ export default function CursoPage() {
         </section>
 
         <aside className="lg:col-span-2">
-          <div className="rounded-2xl border border-white/10 bg-neutral-950/80 p-6 shadow-2xl shadow-black/30 backdrop-blur-md">
+          <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6">
             <h2 className="text-2xl font-semibold mb-4">Inscricao</h2>
             {submitted ? (
               <p className="text-neutral-300 text-sm">

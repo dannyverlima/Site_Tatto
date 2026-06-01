@@ -3,16 +3,6 @@ import { defaultSiteConfig } from './defaultConfig.mjs';
 
 const normalizeString = (value) => (typeof value === 'string' ? value.trim() : '');
 const normalizeArray = (value) => (Array.isArray(value) ? value : []);
-const normalizePrice = (value) => {
-  if (typeof value === 'number') {
-    return Number.isFinite(value) ? value : NaN;
-  }
-  if (typeof value === 'string') {
-    const normalized = Number(value.replace(',', '.').replace(/[^0-9.-]/g, ''));
-    return Number.isFinite(normalized) ? normalized : NaN;
-  }
-  return NaN;
-};
 
 const mergeConfig = (partial) => ({
   hero: {
@@ -45,22 +35,6 @@ const getOrCreateSite = async (client) => {
     ['Studios Tatto', null]
   );
   return inserted.rows[0];
-};
-
-const hasTableColumn = async (client, tableName, columnName) => {
-  const result = await client.query(
-    `
-      SELECT 1
-      FROM information_schema.columns
-      WHERE table_schema = 'app'
-        AND table_name = $1
-        AND column_name = $2
-      LIMIT 1
-    `,
-    [tableName, columnName]
-  );
-
-  return result.rowCount > 0;
 };
 
 export const getSiteSummary = async () => {
@@ -329,11 +303,14 @@ export const getSiteConfig = async () => {
       extraInfo.push(...extraInfoResult.rows.map((row) => row.text));
     }
 
+
 D
+ 7dadb2db30bdc934d31e84aca9183137fe87996e:backend/server/siteRepository.mjs
     const portfolioResult = await client.query(
       'SELECT id, title, style, image_url, specialist_id FROM app.portfolio_item WHERE site_id = $1 AND is_published = true ORDER BY sort_order, created_at',
       [site.id]
     );
+
 
     const hasPortfolioSpecialistId = await hasTableColumn(client, 'portfolio_item', 'specialist_id');
     const portfolioQuery = hasPortfolioSpecialistId
@@ -342,10 +319,13 @@ D
 
     const portfolioResult = await client.query(portfolioQuery, [site.id]);
  016eb84c5535207e708aad46b3b4bd68b33f8c94
+
+7dadb2db30bdc934d31e84aca9183137fe87996e:backend/server/siteRepository.mjs
     const specialistResult = await client.query(
       'SELECT id, name, specialty, description, image_url, experience, instagram, whatsapp FROM app.specialist WHERE site_id = $1 AND is_active = true ORDER BY sort_order, created_at',
       [site.id]
     );
+
 
     const specialists = specialistResult.rows.map((row) => ({
       id: row.id,
@@ -360,6 +340,7 @@ D
 
       const fallbackSpecialistId = specialists[0]?.id ?? null;
 
+ 7dadb2db30bdc934d31e84aca9183137fe87996e:backend/server/siteRepository.mjs
     return {
       hero: {
         backgroundType: heroRow?.background_type || defaultSiteConfig.hero.backgroundType,
@@ -382,6 +363,7 @@ D
           style: row.style,
           image: row.image_url,
 
+ 7dadb2db30bdc934d31e84aca9183137fe87996e:backend/server/siteRepository.mjs
           specialistId: row.specialist_id,
         })),
       },
@@ -617,7 +599,7 @@ export const deleteSpecialist = async (id) => {
   }
 };
 
-// ============= PORTFOLIO CRUD =============
+
 export const getPortfolioItems = async () => {
   const client = await pool.connect();
   try {
@@ -874,7 +856,7 @@ export const deleteCourseHighlight = async (highlightId) => {
   }
 };
 
-// ============= COURSE EXTRA INFO CRUD =============
+
 export const createCourseExtraInfo = async (courseId, { text }) => {
   const client = await pool.connect();
   try {
@@ -921,6 +903,7 @@ export const deleteCourseExtraInfo = async (extraInfoId) => {
     client.release();
   }
 };
+
 
 export const getJewelryItems = async ({ includeInactive = false } = {}) => {
   const client = await pool.connect();
@@ -1156,3 +1139,4 @@ export const createJewelryOrder = async ({
     client.release();
   }
 };
+ 7dadb2db30bdc934d31e84aca9183137fe87996e:backend/server/siteRepository.mjs

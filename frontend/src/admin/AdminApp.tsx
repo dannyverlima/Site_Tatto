@@ -4,15 +4,11 @@ import { useSiteConfig } from '../app/hooks/useSiteConfig';
 import { AdminSpecialists } from './AdminSpecialists';
 import { AdminPortfolio } from './AdminPortfolio';
 import { AdminCourse } from './AdminCourse';
+import { AdminJewelry } from './AdminJewelry';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../app/components/ui/tabs';
 import { Button } from '../app/components/ui/button';
 import { Input } from '../app/components/ui/input';
-
-import { Card, CardContent, CardHeader, CardTitle } from '../app/components/ui/card';
-import { Camera, ChevronRight, MoonStar, Sparkles, Upload, Wand2 } from 'lucide-react';
-
 import { ChevronRight, Upload, Wand2 } from 'lucide-react';
- 016eb84c5535207e708aad46b3b4bd68b33f8c94
 import { uploadImageFile } from './uploadImage';
 import { ImageWithFallback } from '../app/components/figma/ImageWithFallback';
 
@@ -41,68 +37,24 @@ const AdminLogin = ({ onSuccess }: { onSuccess: () => void }) => {
 
   return (
     <div className={`${shellClassName} flex items-center justify-center px-4`}>
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute left-[-10%] top-[-8%] h-72 w-72 rounded-full bg-white/10 blur-3xl animate-pulse" />
-        <div className="absolute right-[-8%] bottom-[-12%] h-96 w-96 rounded-full bg-white/6 blur-3xl animate-pulse" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.06),_transparent_40%),linear-gradient(180deg,_rgba(255,255,255,0.03),_transparent_30%)]" />
-      </div>
-      <form
-        onSubmit={handleSubmit}
-        className="relative w-full max-w-md overflow-hidden rounded-[28px] border border-white/10 bg-white/[0.05] p-8 shadow-2xl shadow-black/40 backdrop-blur-2xl"
-      >
-        <div className="mb-8 flex items-center gap-3 text-white/90">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/10">
-            <MoonStar className="h-5 w-5" />
-          </div>
-          <div>
-            <p className="text-xs uppercase tracking-[0.3em] text-white/45">Admin</p>
-            <h1 className="text-2xl font-semibold">Área de controle</h1>
-          </div>
-        </div>
-        <div className="space-y-4">
-          <div>
-            <label className="mb-2 block text-sm text-white/65">Nome</label>
-            <input
-              value={username}
-              onChange={(event) => setUsername(event.target.value)}
-              className={`w-full rounded-2xl px-4 py-3 outline-none ring-1 ring-inset ring-white/10 transition focus:ring-2 focus:ring-white/30 ${fieldClassName}`}
-              placeholder="admin"
-              required
-            />
-          </div>
-          <div>
-            <label className="mb-2 block text-sm text-white/65">Senha</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              className={`w-full rounded-2xl px-4 py-3 outline-none ring-1 ring-inset ring-white/10 transition focus:ring-2 focus:ring-white/30 ${fieldClassName}`}
-              placeholder="Admin@tatto"
-              required
-            />
-          </div>
-          {error ? <p className="text-sm text-red-300">{error}</p> : null}
-          <button
-            type="submit"
-            className="flex w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white px-6 py-3 font-semibold text-black transition hover:bg-white/90"
-          >
-            <Wand2 className="h-4 w-4" />
-            Entrar
-          </button>
-
       <form onSubmit={handleSubmit} className="w-full max-w-md p-6">
         <h2 className="mb-4 text-xl font-semibold">Admin</h2>
         <div className="mb-3">
           <label className="block mb-1 text-sm">Nome</label>
           <input value={username} onChange={(e) => setUsername(e.target.value)} className={`${fieldClassName} w-full rounded px-3 py-2`} />
- 016eb84c5535207e708aad46b3b4bd68b33f8c94
         </div>
+        <div className="mb-3">
+          <label className="block mb-1 text-sm">Senha</label>
+          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className={`${fieldClassName} w-full rounded px-3 py-2`} />
+        </div>
+        {error ? <p className="text-sm text-red-300 mb-2">{error}</p> : null}
+        <button type="submit" className="rounded-full bg-white px-4 py-2 text-black">Entrar</button>
       </form>
     </div>
   );
 };
 
-const AdminPanel = () => {
+  const AdminPanel = () => {
   const { config } = useSiteConfig();
   const [draft, setDraft] = useState<SiteConfig>(config);
   const [status, setStatus] = useState('');
@@ -121,27 +73,6 @@ const AdminPanel = () => {
     if (!file) {
       return;
     }
-
-    setIsUploadingHeroImage(true);
-    try {
-      const backgroundUrl = await uploadImageFile(file);
-      const nextDraft = {
-        ...draft,
-        hero: {
-          ...draft.hero,
-          backgroundType: file.type.startsWith('video/') ? 'video' : 'image',
-          backgroundUrl,
-        },
-      };
-
-      setDraft(nextDraft);
-      setError('');
-      setStatus('Mídia enviada. Clique em Salvar informações para gravar no site.');
-      setTimeout(() => setStatus(''), 3000);
-    } catch (uploadError) {
-      console.error('Falha ao enviar imagem do hero', uploadError);
-      setError(uploadError?.message ? String(uploadError.message) : 'Não foi possível enviar a imagem do hero.');
-    } finally {
 
     const localPreviewUrl = URL.createObjectURL(file);
     const backgroundType = file.type.startsWith('video/') ? 'video' : 'image';
@@ -205,6 +136,17 @@ const AdminPanel = () => {
     setIsSaving(true);
     setError('');
 
+    if (isUploadingHeroImage) {
+      setError('Aguarde o upload da mídia antes de salvar.');
+      setIsSaving(false);
+      return;
+    }
+
+    if (draft.hero.backgroundUrl && draft.hero.backgroundUrl.startsWith('blob:')) {
+      setError('A mídia ainda está em pré-visualização. Aguarde o envio completo antes de salvar.');
+      setIsSaving(false);
+      return;
+    }
     try {
       await saveSiteConfig(draft);
       setStatus('Atualizado com sucesso.');
@@ -232,51 +174,6 @@ const AdminPanel = () => {
       </header>
 
       <main className="relative mx-auto max-w-7xl px-4 py-8 lg:px-8">
-        <div className="mb-8 grid gap-4 md:grid-cols-3">
-          <Card className={panelClassName}>
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-sm uppercase tracking-[0.24em] text-white/50">
-                <Sparkles className="h-4 w-4" />
-                Experiência
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="text-sm text-white/70">
-              O painel foi ajustado para priorizar contraste, leitura rápida e foco nas imagens.
-            </CardContent>
-          </Card>
-          <Card className={panelClassName}>
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-sm uppercase tracking-[0.24em] text-white/50">
-                <Camera className="h-4 w-4" />
-                Fotos
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="text-sm text-white/70">
-              Upload por arquivo no portfólio, especialistas e no fundo do hero.
-            </CardContent>
-          </Card>
-          <Card className={panelClassName}>
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-sm uppercase tracking-[0.24em] text-white/50">
-                <MoonStar className="h-4 w-4" />
-                Tema
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="text-sm text-white/70">
-              Alto contraste, fundo escuro total e poucos detalhes claros para destacar o conteúdo.
-            </CardContent>
-          </Card>
-        </div>
-
-        <Tabs defaultValue="hero" className="w-full">
-          <TabsList className="mb-6 grid w-full grid-cols-1 gap-2 rounded-[24px] border border-white/10 bg-white/[0.04] p-2 backdrop-blur-xl md:grid-cols-5">
-            <TabsTrigger value="hero" className="rounded-2xl text-white/60 data-[state=active]:border-white/10 data-[state=active]:bg-white data-[state=active]:text-black">Início</TabsTrigger>
-            <TabsTrigger value="course" className="rounded-2xl text-white/60 data-[state=active]:border-white/10 data-[state=active]:bg-white data-[state=active]:text-black">Curso</TabsTrigger>
-            <TabsTrigger value="portfolio" className="rounded-2xl text-white/60 data-[state=active]:border-white/10 data-[state=active]:bg-white data-[state=active]:text-black">Portfólio</TabsTrigger>
-            <TabsTrigger value="specialists" className="rounded-2xl text-white/60 data-[state=active]:border-white/10 data-[state=active]:bg-white data-[state=active]:text-black">Especialistas</TabsTrigger>
-            <TabsTrigger value="config" className="rounded-2xl text-white/60 data-[state=active]:border-white/10 data-[state=active]:bg-white data-[state=active]:text-black">Config</TabsTrigger>
-          </TabsList>
-
         <Tabs defaultValue="hero" className="w-full">
           <div className="mb-7 flex justify-center">
             <TabsList className="!h-auto grid w-full max-w-6xl grid-cols-6 gap-1.5 rounded-full border border-white/10 bg-[linear-gradient(120deg,rgba(255,255,255,0.07),rgba(255,255,255,0.01)_45%,rgba(0,0,0,0.22))] p-1.5 shadow-2xl shadow-black/35 backdrop-blur-2xl">
@@ -288,7 +185,6 @@ const AdminPanel = () => {
               <TabsTrigger value="config" className="!h-11 rounded-full text-sm font-medium text-white/70 transition-all duration-300 hover:bg-white/10 hover:text-white data-[state=active]:!border-white/20 data-[state=active]:!bg-white data-[state=active]:!text-black data-[state=active]:shadow-[0_8px_20px_rgba(255,255,255,0.18)]">Config</TabsTrigger>
             </TabsList>
           </div>
- 016eb84c5535207e708aad46b3b4bd68b33f8c94
 
           <TabsContent value="hero" className="space-y-10">
             <section className={`rounded-[28px] border border-white/10 p-6 shadow-2xl shadow-black/30 backdrop-blur-xl ${panelClassName}`}>
@@ -412,6 +308,12 @@ const AdminPanel = () => {
           <TabsContent value="specialists" className="space-y-10">
             <div className="rounded-[28px] border border-white/10 bg-white/[0.03] p-4 backdrop-blur-xl">
               <AdminSpecialists />
+            </div>
+          </TabsContent>
+
+          <TabsContent value="jewelry" className="space-y-10">
+            <div className="rounded-[28px] border border-white/10 bg-white/[0.03] p-4 backdrop-blur-xl">
+              <AdminJewelry />
             </div>
           </TabsContent>
 

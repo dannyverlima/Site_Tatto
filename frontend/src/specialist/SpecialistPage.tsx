@@ -94,16 +94,7 @@ export function SpecialistPage() {
             ) : null}
           </div>
 
-
           {/* Descrição removida conforme solicitado */}
-
-          {/* Descrição do especialista */}
-          {descriptionHtml ? (
-            <div className="prose mt-4 max-w-none text-white/85 dark:prose-invert" dangerouslySetInnerHTML={{ __html: descriptionHtml }} />
-          ) : (
-            <p className="mt-4 text-sm text-white/65">Descrição não informada.</p>
-          )}
- 016eb84c5535207e708aad46b3b4bd68b33f8c94
 
           <div className="mt-8 grid gap-3 sm:grid-cols-2">
             {instagramLink ? (
