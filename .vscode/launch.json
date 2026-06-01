@@ -1,26 +1,26 @@
 {
-    // Use IntelliSense to learn about possible attributes.
-    // Hover to view descriptions of existing attributes.
-    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
-<<<<<<< Updated upstream
-        
+016eb84c5535207e708aad46b3b4bd68b33f8c94
         {
             "type": "chrome",
             "request": "launch",
             "name": "Chrome",
+
             "url": "http://localhost:5174",
             "webRoot": "${workspaceFolder}",
             "runtimeExecutable": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
-=======
+
         {
             "type": "chrome",
             "request": "launch",
             "name": "Launch Chrome against localhost",
             "url": "http://localhost:8080",
             "webRoot": "${workspaceFolder}"
->>>>>>> Stashed changes
+
+            "url": "http://localhost:5173",
+            "webRoot": "${workspaceFolder}"
+016eb84c5535207e708aad46b3b4bd68b33f8c94
         }
     ]
 }

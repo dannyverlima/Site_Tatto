@@ -4,11 +4,16 @@ import { useSiteConfig } from '../app/hooks/useSiteConfig';
 import { AdminSpecialists } from './AdminSpecialists';
 import { AdminPortfolio } from './AdminPortfolio';
 import { AdminCourse } from './AdminCourse';
+import { AdminJewelry } from './AdminJewelry';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../app/components/ui/tabs';
 import { Button } from '../app/components/ui/button';
 import { Input } from '../app/components/ui/input';
+
 import { Card, CardContent, CardHeader, CardTitle } from '../app/components/ui/card';
 import { Camera, ChevronRight, MoonStar, Sparkles, Upload, Wand2 } from 'lucide-react';
+
+import { ChevronRight, Upload, Wand2 } from 'lucide-react';
+ 016eb84c5535207e708aad46b3b4bd68b33f8c94
 import { uploadImageFile } from './uploadImage';
 import { ImageWithFallback } from '../app/components/figma/ImageWithFallback';
 
@@ -37,6 +42,7 @@ const AdminLogin = ({ onSuccess }: { onSuccess: () => void }) => {
 
   return (
     <div className={`${shellClassName} flex items-center justify-center px-4`}>
+
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute left-[-10%] top-[-8%] h-72 w-72 rounded-full bg-white/10 blur-3xl animate-pulse" />
         <div className="absolute right-[-8%] bottom-[-12%] h-96 w-96 rounded-full bg-white/6 blur-3xl animate-pulse" />
@@ -85,13 +91,26 @@ const AdminLogin = ({ onSuccess }: { onSuccess: () => void }) => {
             <Wand2 className="h-4 w-4" />
             Entrar
           </button>
+
+      <form onSubmit={handleSubmit} className="w-full max-w-md p-6">
+        <h2 className="mb-4 text-xl font-semibold">Admin</h2>
+        <div className="mb-3">
+          <label className="block mb-1 text-sm">Nome</label>
+          <input value={username} onChange={(e) => setUsername(e.target.value)} className={`${fieldClassName} w-full rounded px-3 py-2`} />
+ 016eb84c5535207e708aad46b3b4bd68b33f8c94
         </div>
+        <div className="mb-3">
+          <label className="block mb-1 text-sm">Senha</label>
+          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className={`${fieldClassName} w-full rounded px-3 py-2`} />
+        </div>
+        {error ? <p className="text-sm text-red-300 mb-2">{error}</p> : null}
+        <button type="submit" className="rounded-full bg-white px-4 py-2 text-black">Entrar</button>
       </form>
     </div>
   );
 };
 
-const AdminPanel = () => {
+  const AdminPanel = () => {
   const { config } = useSiteConfig();
   const [draft, setDraft] = useState<SiteConfig>(config);
   const [status, setStatus] = useState('');
@@ -131,6 +150,60 @@ const AdminPanel = () => {
       console.error('Falha ao enviar imagem do hero', uploadError);
       setError(uploadError?.message ? String(uploadError.message) : 'Não foi possível enviar a imagem do hero.');
     } finally {
+
+    const localPreviewUrl = URL.createObjectURL(file);
+    const backgroundType = file.type.startsWith('video/') ? 'video' : 'image';
+    const previousBackgroundUrl = draft.hero.backgroundUrl;
+    const previousBackgroundType = draft.hero.backgroundType;
+
+    setDraft({
+      ...draft,
+      hero: {
+        ...draft.hero,
+        backgroundType,
+        backgroundUrl: localPreviewUrl,
+      },
+    });
+    setStatus('Prévia aplicada. Enviando mídia para o servidor...');
+    setError('');
+    setIsUploadingHeroImage(true);
+    try {
+      const backgroundUrl = await uploadImageFile(file);
+      const updatedDraft = {
+        ...draft,
+        hero: {
+          ...draft.hero,
+          backgroundType,
+          backgroundUrl,
+        },
+      } as SiteConfig;
+      setDraft(updatedDraft);
+      setStatus('Mídia enviada. Salvando automaticamente...');
+      try {
+        setIsSaving(true);
+        await saveSiteConfig(updatedDraft);
+        setStatus('Atualizado com sucesso.');
+        setTimeout(() => setStatus(''), 3000);
+      } catch (saveErr) {
+        console.error('Falha ao salvar automaticamente', saveErr);
+        setStatus('Mídia enviada. Clique em Salvar informações para gravar no site.');
+        setTimeout(() => setStatus(''), 3000);
+      } finally {
+        setIsSaving(false);
+      }
+    } catch (uploadError) {
+      console.error('Falha ao enviar mídia do hero', uploadError);
+      setDraft((currentDraft) => ({
+        ...currentDraft,
+        hero: {
+          ...currentDraft.hero,
+          backgroundType: previousBackgroundType,
+          backgroundUrl: previousBackgroundUrl,
+        },
+      }));
+      setError(uploadError?.message ? String(uploadError.message) : 'Não foi possível enviar a mídia do hero.');
+    } finally {
+      URL.revokeObjectURL(localPreviewUrl);
       setIsUploadingHeroImage(false);
       event.target.value = '';
     }
@@ -140,6 +213,17 @@ const AdminPanel = () => {
     setIsSaving(true);
     setError('');
 
+    if (isUploadingHeroImage) {
+      setError('Aguarde o upload da mídia antes de salvar.');
+      setIsSaving(false);
+      return;
+    }
+
+    if (draft.hero.backgroundUrl && draft.hero.backgroundUrl.startsWith('blob:')) {
+      setError('A mídia ainda está em pré-visualização. Aguarde o envio completo antes de salvar.');
+      setIsSaving(false);
+      return;
+    }
     try {
       await saveSiteConfig(draft);
       setStatus('Atualizado com sucesso.');
@@ -211,6 +295,19 @@ const AdminPanel = () => {
             <TabsTrigger value="specialists" className="rounded-2xl text-white/60 data-[state=active]:border-white/10 data-[state=active]:bg-white data-[state=active]:text-black">Especialistas</TabsTrigger>
             <TabsTrigger value="config" className="rounded-2xl text-white/60 data-[state=active]:border-white/10 data-[state=active]:bg-white data-[state=active]:text-black">Config</TabsTrigger>
           </TabsList>
+
+        <Tabs defaultValue="hero" className="w-full">
+          <div className="mb-7 flex justify-center">
+            <TabsList className="!h-auto grid w-full max-w-6xl grid-cols-6 gap-1.5 rounded-full border border-white/10 bg-[linear-gradient(120deg,rgba(255,255,255,0.07),rgba(255,255,255,0.01)_45%,rgba(0,0,0,0.22))] p-1.5 shadow-2xl shadow-black/35 backdrop-blur-2xl">
+              <TabsTrigger value="hero" className="!h-11 rounded-full text-sm font-medium text-white/70 transition-all duration-300 hover:bg-white/10 hover:text-white data-[state=active]:!border-white/20 data-[state=active]:!bg-white data-[state=active]:!text-black data-[state=active]:shadow-[0_8px_20px_rgba(255,255,255,0.18)]">Início</TabsTrigger>
+              <TabsTrigger value="course" className="!h-11 rounded-full text-sm font-medium text-white/70 transition-all duration-300 hover:bg-white/10 hover:text-white data-[state=active]:!border-white/20 data-[state=active]:!bg-white data-[state=active]:!text-black data-[state=active]:shadow-[0_8px_20px_rgba(255,255,255,0.18)]">Curso</TabsTrigger>
+              <TabsTrigger value="portfolio" className="!h-11 rounded-full text-sm font-medium text-white/70 transition-all duration-300 hover:bg-white/10 hover:text-white data-[state=active]:!border-white/20 data-[state=active]:!bg-white data-[state=active]:!text-black data-[state=active]:shadow-[0_8px_20px_rgba(255,255,255,0.18)]">Portfólio</TabsTrigger>
+              <TabsTrigger value="specialists" className="!h-11 rounded-full text-sm font-medium text-white/70 transition-all duration-300 hover:bg-white/10 hover:text-white data-[state=active]:!border-white/20 data-[state=active]:!bg-white data-[state=active]:!text-black data-[state=active]:shadow-[0_8px_20px_rgba(255,255,255,0.18)]">Especialistas</TabsTrigger>
+              <TabsTrigger value="jewelry" className="!h-11 rounded-full text-sm font-medium text-white/70 transition-all duration-300 hover:bg-white/10 hover:text-white data-[state=active]:!border-white/20 data-[state=active]:!bg-white data-[state=active]:!text-black data-[state=active]:shadow-[0_8px_20px_rgba(255,255,255,0.18)]">Joias</TabsTrigger>
+              <TabsTrigger value="config" className="!h-11 rounded-full text-sm font-medium text-white/70 transition-all duration-300 hover:bg-white/10 hover:text-white data-[state=active]:!border-white/20 data-[state=active]:!bg-white data-[state=active]:!text-black data-[state=active]:shadow-[0_8px_20px_rgba(255,255,255,0.18)]">Config</TabsTrigger>
+            </TabsList>
+          </div>
+ 016eb84c5535207e708aad46b3b4bd68b33f8c94
 
           <TabsContent value="hero" className="space-y-10">
             <section className={`rounded-[28px] border border-white/10 p-6 shadow-2xl shadow-black/30 backdrop-blur-xl ${panelClassName}`}>
@@ -335,6 +432,15 @@ const AdminPanel = () => {
             <div className="rounded-[28px] border border-white/10 bg-white/[0.03] p-4 backdrop-blur-xl">
               <AdminSpecialists />
             </div>
+
+
+          </TabsContent>
+
+          <TabsContent value="jewelry" className="space-y-10">
+            <div className="rounded-[28px] border border-white/10 bg-white/[0.03] p-4 backdrop-blur-xl">
+              <AdminJewelry />
+            </div>
+ 016eb84c5535207e708aad46b3b4bd68b33f8c94
           </TabsContent>
 
           <TabsContent value="config" className="space-y-10">

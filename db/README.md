@@ -3,6 +3,8 @@
 Arquivos de migracao:
 - db/migrations/000_create_database.sql
 - db/migrations/001_init.sql
+- db/migrations/005_schema_full_sync.sql
+- db/migrations/006_jewelry_store.sql
 
 ## Como aplicar
 
@@ -16,6 +18,8 @@ psql -U postgres -f db/migrations/000_create_database.sql
 
 ```
 psql -U postgres -d studio_tatto -f db/migrations/001_init.sql
+psql -U postgres -d studio_tatto -f db/migrations/005_schema_full_sync.sql
+psql -U postgres -d studio_tatto -f db/migrations/006_jewelry_store.sql
 ```
 
 ## Observacoes

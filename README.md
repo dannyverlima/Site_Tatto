@@ -1,15 +1,35 @@
 # Studios Tatto - Site
 
-Site profissional para estúdio de tatuagem com painel administrativo, portfólio, especialistas, curso e formulários de contacto.
-
-Design original: https://www.figma.com/design/VoUMBtwXVHMNnO494d6IFq/Tattoo-Studio-Website-Design
-
 ## Tecnologias
 
 - **Frontend:** React + Vite + TypeScript + TailwindCSS + Radix UI + MUI
 - **Backend:** Node.js + Express
 - **Base de Dados:** PostgreSQL
 
+## Para rodar localmente
+
+1. Instale dependências:
+
+```bash
+pnpm install
+```
+
+2. Inicie frontend + API em um comando (acesso via 5173):
+
+```bash
+pnpm dev
+```
+
+Abra: http://localhost:5173
+
+Se preferir terminais separados:
+
+Terminal 1: `pnpm dev:web`
+Terminal 2: `pnpm dev:server`
+
+Admin uploads require the API server to be running.
+
+016eb84c5535207e708aad46b3b4bd68b33f8c94
 ## Requisitos
 
 - Node.js 18+ (recomendado 22+)
@@ -66,6 +86,7 @@ npm run dev
 ```
 
 Aceda ao site em: `http://localhost:5173`
+016eb84c5535207e708aad46b3b4bd68b33f8c94
 
 ## Estrutura do Projeto
 
@@ -90,4 +111,10 @@ Site_Tatto/
 ├── .env.example          # Exemplo de configuração
 ├── package.json          # Dependências e scripts
 └── vite.config.ts        # Configuração do Vite
+├── server/                # Backend (Express + PostgreSQL)
+├── src/                   # Frontend (React)
+├── .env.example           # Exemplo de configuração
+├── package.json           # Dependências e scripts
+└── vite.config.ts         # Configuração do Vite
+016eb84c5535207e708aad46b3b4bd68b33f8c94
 ```

@@ -2,3 +2,10 @@ node_modules/
 dist/
 .env
 .env.local
+db/exports/
+.env
+.env.local
+*.mp4
+*.mov
+*.webm
+ 016eb84c5535207e708aad46b3b4bd68b33f8c94
