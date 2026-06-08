@@ -117,18 +117,22 @@ const extractFilename = (value: string) => {
 
 const buildUploadIndex = (uploads: UploadItem[]) => {
   const byFilename = new Map<string, UploadItem>();
+  const byId = new Map<string, UploadItem>();
   let firstVisual: UploadItem | null = null;
 
   for (const upload of uploads) {
     if (upload.filename) {
       byFilename.set(normalizeFilename(upload.filename), upload);
     }
+    if (upload.id) {
+      byId.set(upload.id, upload);
+    }
     if (!firstVisual && upload.mimetype && /^(image|video)\//i.test(upload.mimetype)) {
       firstVisual = upload;
     }
   }
 
-  return { byFilename, firstVisual };
+  return { byFilename, byId, firstVisual };
 };
 
 const isLocalMediaUrl = (value: string) =>
@@ -222,15 +226,19 @@ export const loadSiteConfig = async (): Promise<SiteConfig> => {
 
     merged.hero.backgroundUrl = resolvedHeroUrl;
     if (merged.hero.backgroundUrl) {
+      // Tenta encontrar o upload pelo ID (URLs no formato /api/uploads/{uuid})
+      const idMatch = merged.hero.backgroundUrl.match(/\/api\/uploads\/([^/?#]+)/);
+      const uploadById = idMatch ? uploadIndex.byId.get(idMatch[1]) : null;
+      // Fallback: busca pelo filename
       const heroFilename = extractFilename(merged.hero.backgroundUrl);
-      if (heroFilename) {
-        const match = uploadIndex.byFilename.get(normalizeFilename(heroFilename));
-        if (match?.mimetype?.startsWith('video/')) {
-          merged.hero.backgroundType = 'video';
-        }
-        if (match?.mimetype?.startsWith('image/')) {
-          merged.hero.backgroundType = 'image';
-        }
+      const uploadByFilename = heroFilename
+        ? uploadIndex.byFilename.get(normalizeFilename(heroFilename))
+        : null;
+      const heroUpload = uploadById ?? uploadByFilename;
+      if (heroUpload?.mimetype?.startsWith('video/')) {
+        merged.hero.backgroundType = 'video';
+      } else if (heroUpload?.mimetype?.startsWith('image/')) {
+        merged.hero.backgroundType = 'image';
       }
     }
 

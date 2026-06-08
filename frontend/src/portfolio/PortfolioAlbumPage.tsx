@@ -1,16 +1,16 @@
 import { ArrowLeft } from 'lucide-react';
 import { LoadingScreen } from '../app/components/LoadingScreen';
 import { Portfolio } from '../app/components/Portfolio';
-import { useSiteConfig } from '../app/hooks/useSiteConfig';
+import { useSpecialists } from '../app/hooks/useSpecialists';
 import { slugify } from '../app/utils/slugify';
 
 export function PortfolioAlbumPage() {
-  const { config } = useSiteConfig();
+  const { specialists, loading } = useSpecialists();
   const slug = (window.location.pathname.split('/').filter(Boolean).pop() ?? '').toString();
 
-  const specialist = config.specialists.items.find((item) => slugify(item.name) === slug) ?? null;
+  const specialist = specialists.find((item) => slugify(item.name) === slug) ?? null;
 
-  if (!config.specialists.items.length) {
+  if (loading) {
     return <LoadingScreen message="Carregando álbum..." />;
   }
 
@@ -38,7 +38,7 @@ export function PortfolioAlbumPage() {
       <div className="mx-auto mb-6 flex max-w-7xl items-center justify-between">
         <button
           type="button"
-          onClick={() => (window.location.href = `/especialista/${slugify(specialist.name)}`)}
+          onClick={() => (window.location.href = '/')}
           className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/80 transition hover:bg-white/10"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -50,7 +50,7 @@ export function PortfolioAlbumPage() {
       <div className="mx-auto max-w-7xl rounded-[28px] border border-white/10 bg-white/[0.04] p-6 shadow-2xl shadow-black/40 backdrop-blur-xl md:p-8">
         <p className="text-xs uppercase tracking-[0.3em] text-white/45">Portfólio</p>
         <h1 className="mt-3 text-3xl font-semibold md:text-4xl">{specialist.name}</h1>
-        <p className="mt-2 text-sm text-white/65">Confira até 5 fotos do álbum deste especialista.</p>
+        <p className="mt-2 text-sm text-white/65">{specialist.specialty}</p>
       </div>
 
       <Portfolio specialistId={specialist.id as any} />

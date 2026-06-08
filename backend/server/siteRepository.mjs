@@ -4,6 +4,15 @@ import { defaultSiteConfig } from './defaultConfig.mjs';
 const normalizeString = (value) => (typeof value === 'string' ? value.trim() : '');
 const normalizeArray = (value) => (Array.isArray(value) ? value : []);
 
+const hasTableColumn = async (client, table, column) => {
+  const res = await client.query(
+    `SELECT 1 FROM information_schema.columns
+      WHERE table_schema = 'app' AND table_name = $1 AND column_name = $2`,
+    [table, column]
+  );
+  return res.rowCount > 0;
+};
+
 const mergeConfig = (partial) => ({
   hero: {
     ...defaultSiteConfig.hero,
@@ -304,28 +313,17 @@ export const getSiteConfig = async () => {
     }
 
 
-D
- 7dadb2db30bdc934d31e84aca9183137fe87996e:backend/server/siteRepository.mjs
-    const portfolioResult = await client.query(
-      'SELECT id, title, style, image_url, specialist_id FROM app.portfolio_item WHERE site_id = $1 AND is_published = true ORDER BY sort_order, created_at',
-      [site.id]
-    );
-
-
     const hasPortfolioSpecialistId = await hasTableColumn(client, 'portfolio_item', 'specialist_id');
     const portfolioQuery = hasPortfolioSpecialistId
       ? 'SELECT id, title, style, image_url, specialist_id FROM app.portfolio_item WHERE site_id = $1 AND is_published = true ORDER BY sort_order, created_at'
       : 'SELECT id, title, style, image_url, NULL::uuid AS specialist_id FROM app.portfolio_item WHERE site_id = $1 AND is_published = true ORDER BY sort_order, created_at';
 
     const portfolioResult = await client.query(portfolioQuery, [site.id]);
- 016eb84c5535207e708aad46b3b4bd68b33f8c94
 
-7dadb2db30bdc934d31e84aca9183137fe87996e:backend/server/siteRepository.mjs
     const specialistResult = await client.query(
       'SELECT id, name, specialty, description, image_url, experience, instagram, whatsapp FROM app.specialist WHERE site_id = $1 AND is_active = true ORDER BY sort_order, created_at',
       [site.id]
     );
-
 
     const specialists = specialistResult.rows.map((row) => ({
       id: row.id,
@@ -338,9 +336,8 @@ D
       whatsapp: row.whatsapp,
     }));
 
-      const fallbackSpecialistId = specialists[0]?.id ?? null;
+    const fallbackSpecialistId = specialists[0]?.id ?? null;
 
- 7dadb2db30bdc934d31e84aca9183137fe87996e:backend/server/siteRepository.mjs
     return {
       hero: {
         backgroundType: heroRow?.background_type || defaultSiteConfig.hero.backgroundType,
@@ -362,28 +359,11 @@ D
           title: row.title,
           style: row.style,
           image: row.image_url,
-
- 7dadb2db30bdc934d31e84aca9183137fe87996e:backend/server/siteRepository.mjs
-          specialistId: row.specialist_id,
-        })),
-      },
-      specialists: {
-        items: specialistResult.rows.map((row) => ({
-          id: row.id,
-          name: row.name,
-          specialty: row.specialty,
-          description: row.description,
-          image: row.image_url,
-          experience: row.experience,
-          instagram: row.instagram,
-          whatsapp: row.whatsapp,
-        })),
           specialistId: row.specialist_id || fallbackSpecialistId,
         })),
       },
       specialists: {
         items: specialists,
- 016eb84c5535207e708aad46b3b4bd68b33f8c94
       },
     };
   } finally {

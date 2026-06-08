@@ -5,6 +5,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { spawn } from 'node:child_process';
 import fs from 'node:fs/promises';
+import { createReadStream } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import multer from 'multer';
 import ffmpegPath from 'ffmpeg-static';
@@ -233,12 +234,11 @@ const ingestAdminMediaFiles = async () => {
     }
 
     const diskPath = path.join(adminMediaDir, filename);
-    const buffer = await fs.readFile(diskPath);
     const mimetype = detectMimeType(filename);
 
     await pool.query(
-      'INSERT INTO app.media_asset (site_id, filename, mimetype, data, disk_filename, disk_path) VALUES ($1, $2, $3, $4, $5, $6)',
-      [siteId, filename, mimetype, buffer, filename, diskPath]
+      'INSERT INTO app.media_asset (site_id, filename, mimetype, data, disk_filename, disk_path) VALUES ($1, $2, $3, NULL, $4, $5)',
+      [siteId, filename, mimetype, filename, diskPath]
     );
     inserted += 1;
   }
@@ -326,6 +326,9 @@ const ensureDatabaseSchema = async () => {
   await pool.query('ALTER TABLE app.media_asset ADD COLUMN IF NOT EXISTS disk_filename text');
   await pool.query('ALTER TABLE app.media_asset ADD COLUMN IF NOT EXISTS disk_path text');
   await pool.query('CREATE INDEX IF NOT EXISTS media_asset_disk_filename_idx ON app.media_asset (disk_filename)');
+  // Tornar data nullable e limpar binários já armazenados em disco (evita OOM no pg_dump)
+  await pool.query('ALTER TABLE app.media_asset ALTER COLUMN data DROP NOT NULL');
+  await pool.query("UPDATE app.media_asset SET data = NULL WHERE disk_path IS NOT NULL AND disk_path <> '' AND data IS NOT NULL");
 
   await pool.query(`
     DO $$
@@ -428,8 +431,8 @@ app.post('/api/uploads', (req, res) => {
 
       const siteId = await ensureSiteId();
       const insertResult = await pool.query(
-        'INSERT INTO app.media_asset (site_id, filename, mimetype, data, disk_filename, disk_path) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id',
-        [siteId, mediaFile.filename, mediaFile.mimetype, mediaFile.buffer, diskFilename, diskPath]
+        'INSERT INTO app.media_asset (site_id, filename, mimetype, data, disk_filename, disk_path) VALUES ($1, $2, $3, NULL, $4, $5) RETURNING id',
+        [siteId, mediaFile.filename, mediaFile.mimetype, diskFilename, diskPath]
       );
       const mediaId = insertResult.rows[0].id;
 
@@ -484,7 +487,7 @@ app.get('/api/uploads/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const result = await pool.query(
-      'SELECT filename, mimetype, data FROM app.media_asset WHERE id = $1',
+      'SELECT filename, mimetype, data, disk_path FROM app.media_asset WHERE id = $1',
       [id]
     );
 
@@ -498,7 +501,42 @@ app.get('/api/uploads/:id', async (req, res) => {
       .replace(/[^\x20-\x7E]/g, '_');
     res.setHeader('Content-Type', media.mimetype);
     res.setHeader('Content-Disposition', `inline; filename="${safeFilename}"`);
-    res.send(media.data);
+
+    // Arquivo armazenado no banco (legado)
+    if (media.data) {
+      return res.send(media.data);
+    }
+
+    // Arquivo em disco — streaming com suporte a range requests (necessário para vídeo)
+    if (media.disk_path) {
+      const filePath = path.resolve(media.disk_path);
+      try {
+        const stat = await fs.stat(filePath);
+        const fileSize = stat.size;
+        const range = req.headers.range;
+
+        if (range) {
+          const [startStr, endStr] = range.replace(/bytes=/, '').split('-');
+          const start = parseInt(startStr, 10);
+          const end = endStr ? parseInt(endStr, 10) : fileSize - 1;
+          const chunkSize = end - start + 1;
+
+          res.status(206);
+          res.setHeader('Content-Range', `bytes ${start}-${end}/${fileSize}`);
+          res.setHeader('Accept-Ranges', 'bytes');
+          res.setHeader('Content-Length', chunkSize);
+          return createReadStream(filePath, { start, end }).pipe(res);
+        }
+
+        res.setHeader('Accept-Ranges', 'bytes');
+        res.setHeader('Content-Length', fileSize);
+        return createReadStream(filePath).pipe(res);
+      } catch {
+        return res.status(404).json({ error: 'Arquivo não encontrado em disco' });
+      }
+    }
+
+    return res.status(404).json({ error: 'Conteúdo do arquivo não encontrado' });
   } catch (error) {
     console.error('Erro ao recuperar arquivo', error);
     res.status(500).json({ error: 'Falha ao recuperar arquivo' });

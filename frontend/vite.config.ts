@@ -22,6 +22,7 @@ function figmaAssetResolver() {
 }
 
 export default defineConfig({
+  root: path.resolve(__dirname, './'),
   plugins: [
     figmaAssetResolver(),
     // The React and Tailwind plugins are both required for Make, even if
@@ -44,12 +45,12 @@ export default defineConfig({
     proxy: {
       '/api': 'http://localhost:5175',
       '/uploads': 'http://localhost:5175',
+      '/admin-media': 'http://localhost:5175',
     },
   },
 
   // File types to support raw imports. Never add .css, .tsx, or .ts files to this.
   assetsInclude: ['**/*.svg', '**/*.csv'],
-<<<<<<< HEAD
   build: {
     rollupOptions: {
       input: {
@@ -60,6 +61,4 @@ export default defineConfig({
       },
     },
   },
-=======
->>>>>>> 0a6e776b4d71917b49947a7a446e8fd81d2de53b
 })

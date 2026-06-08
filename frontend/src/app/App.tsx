@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Navigation } from './components/Navigation';
 import { Hero } from './components/Hero';
-import { Contact } from './components/contatos';
 import { JewelryHighlights } from './components/JewelryHighlights';
 import { Specialists } from './components/Specialists';
 import { Course } from './components/curso';
 import { Reviews } from './components/Reviews';
-import { MapSection } from './components/localização';
+import { ContatoLocalizacao } from './components/ContatoLocalizacao';
 import { Footer } from './components/rodapé';
 import { LoadingScreen } from './components/LoadingScreen';
 
@@ -30,8 +29,7 @@ export default function App() {
       <JewelryHighlights />
       <Course />
       <Reviews />
-      <MapSection />
-      <Contact />
+      <ContatoLocalizacao />
       <Footer />
     </div>
   );
