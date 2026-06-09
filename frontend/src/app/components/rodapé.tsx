@@ -148,7 +148,7 @@ export function Footer() {
 
           {footerLinks.length > 0 ? (
             <div>
-              <h4 className="text-neutral-100 font-semibold mb-4">Links Rapidos</h4>
+              <h4 className="text-neutral-100 font-semibold mb-4">Links Rápidos</h4>
               <ul className="space-y-2 text-sm">
                 {footerLinks.map((link) => (
                   <li key={link.id}>
@@ -184,9 +184,12 @@ export function Footer() {
           ) : null}
         </div>
 
-        <div className="border-t border-neutral-800 pt-8 text-center text-sm">
+        <div className="border-t border-neutral-800 pt-8 text-center text-sm space-y-2">
           <p>
             © {currentYear} {site.name ? site.name : ''}
+          </p>
+          <p className="text-neutral-600 text-xs tracking-wider">
+            2026 Programer diamonds ✧
           </p>
         </div>
       </div>

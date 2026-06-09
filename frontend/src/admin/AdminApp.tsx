@@ -11,8 +11,6 @@ import { ChevronRight, Upload, Wand2, Gem } from 'lucide-react';
 import { uploadImageFile } from './uploadImage';
 import { ImageWithFallback } from '../app/components/figma/ImageWithFallback';
 
-const ADMIN_USER = 'admin';
-const ADMIN_PASS = 'Admin@tatto';
 const AUTH_KEY = 'admin-auth';
 
 const shellClassName = 'relative min-h-screen overflow-hidden bg-[#050505] text-white';
@@ -20,18 +18,32 @@ const panelClassName = 'border-white/10 bg-white/[0.04] text-white shadow-2xl sh
 const fieldClassName = 'border-white/10 bg-white/5 text-white placeholder:text-white/35';
 
 const AdminLogin = ({ onSuccess }: { onSuccess: () => void }) => {
-  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (event: React.FormEvent) => {
+  const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (username === ADMIN_USER && password === ADMIN_PASS) {
-      sessionStorage.setItem(AUTH_KEY, '1');
-      onSuccess();
-      return;
+    setLoading(true);
+    setError('');
+    try {
+      const res = await fetch('/api/admin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password, role: 'admin' }),
+      });
+      if (res.ok) {
+        const { token } = await res.json();
+        sessionStorage.setItem(AUTH_KEY, token);
+        onSuccess();
+      } else {
+        setError('Senha incorreta.');
+      }
+    } catch {
+      setError('Erro ao conectar com o servidor.');
+    } finally {
+      setLoading(false);
     }
-    setError('Nome ou senha incorretos.');
   };
 
   return (
@@ -39,15 +51,13 @@ const AdminLogin = ({ onSuccess }: { onSuccess: () => void }) => {
       <form onSubmit={handleSubmit} className="w-full max-w-md p-6">
         <h2 className="mb-4 text-xl font-semibold">Admin</h2>
         <div className="mb-3">
-          <label className="block mb-1 text-sm">Nome</label>
-          <input value={username} onChange={(e) => setUsername(e.target.value)} className={`${fieldClassName} w-full rounded px-3 py-2`} />
-        </div>
-        <div className="mb-3">
           <label className="block mb-1 text-sm">Senha</label>
           <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className={`${fieldClassName} w-full rounded px-3 py-2`} />
         </div>
         {error ? <p className="text-sm text-red-300 mb-2">{error}</p> : null}
-        <button type="submit" className="rounded-full bg-white px-4 py-2 text-black">Entrar</button>
+        <button type="submit" disabled={loading} className="rounded-full bg-white px-4 py-2 text-black disabled:opacity-60">
+          {loading ? 'Entrando...' : 'Entrar'}
+        </button>
       </form>
     </div>
   );
@@ -90,7 +100,7 @@ const AdminLogin = ({ onSuccess }: { onSuccess: () => void }) => {
     setError('');
     setIsUploadingHeroImage(true);
     try {
-      const backgroundUrl = await uploadImageFile(file);
+      const backgroundUrl = await uploadImageFile(file, sessionStorage.getItem(AUTH_KEY) || '');
       const updatedDraft = {
         ...draft,
         hero: {
@@ -103,7 +113,7 @@ const AdminLogin = ({ onSuccess }: { onSuccess: () => void }) => {
       setStatus('Mídia enviada. Salvando automaticamente...');
       try {
         setIsSaving(true);
-        await saveSiteConfig(updatedDraft);
+        await saveSiteConfig(updatedDraft, sessionStorage.getItem(AUTH_KEY) || '');
         setStatus('Atualizado com sucesso.');
         setTimeout(() => setStatus(''), 3000);
       } catch (saveErr) {
@@ -147,7 +157,7 @@ const AdminLogin = ({ onSuccess }: { onSuccess: () => void }) => {
       return;
     }
     try {
-      await saveSiteConfig(draft);
+      await saveSiteConfig(draft, sessionStorage.getItem(AUTH_KEY) || '');
       setStatus('Atualizado com sucesso.');
       setTimeout(() => setStatus(''), 3000);
     } catch (saveError) {
@@ -345,7 +355,7 @@ const AdminLogin = ({ onSuccess }: { onSuccess: () => void }) => {
 };
 
 export default function AdminApp() {
-  const [isAuthed, setIsAuthed] = useState(() => sessionStorage.getItem(AUTH_KEY) === '1');
+  const [isAuthed, setIsAuthed] = useState(() => Boolean(sessionStorage.getItem(AUTH_KEY)));
 
   if (!isAuthed) {
     return <AdminLogin onSuccess={() => setIsAuthed(true)} />;

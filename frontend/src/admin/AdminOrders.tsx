@@ -4,6 +4,7 @@ import { Badge } from '../app/components/ui/badge';
 import { Button } from '../app/components/ui/button';
 import { Input } from '../app/components/ui/input';
 import { Check, Clock, Package, Truck, X } from 'lucide-react';
+import { adminHeaders } from './adminAuth';
 
 const currency = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 
@@ -18,7 +19,7 @@ type Order = {
   city: string;
   state: string;
   notes: string;
-  status: 'new' | 'processing' | 'completed' | 'cancelled';
+  status: 'new' | 'in_progress' | 'done' | 'archived';
   shippingFee: number;
   total: number;
   submittedAt: string;
@@ -30,9 +31,9 @@ const inputCls = 'border-white/10 bg-white/5 text-white placeholder:text-white/3
 
 const statusConfig: Record<Order['status'], { label: string; color: string; icon: React.ReactNode }> = {
   new: { label: 'Novo', color: 'bg-blue-500/20 text-blue-300 border-blue-500/20', icon: <Clock className="h-3 w-3" /> },
-  processing: { label: 'Em andamento', color: 'bg-amber-500/20 text-amber-300 border-amber-500/20', icon: <Package className="h-3 w-3" /> },
-  completed: { label: 'Concluído', color: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/20', icon: <Check className="h-3 w-3" /> },
-  cancelled: { label: 'Cancelado', color: 'bg-red-500/20 text-red-300 border-red-500/20', icon: <X className="h-3 w-3" /> },
+  in_progress: { label: 'Em andamento', color: 'bg-amber-500/20 text-amber-300 border-amber-500/20', icon: <Package className="h-3 w-3" /> },
+  done: { label: 'Concluído', color: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/20', icon: <Check className="h-3 w-3" /> },
+  archived: { label: 'Arquivado', color: 'bg-red-500/20 text-red-300 border-red-500/20', icon: <X className="h-3 w-3" /> },
 };
 
 const StatusBadge = ({ status }: { status: Order['status'] }) => {
@@ -62,8 +63,9 @@ export function AdminOrders() {
   const loadData = async () => {
     setLoading(true);
     try {
+      const jwtHeaders = adminHeaders('joalheria');
       const [ordersRes, settingsRes] = await Promise.all([
-        fetch('/api/jewelry-orders'),
+        fetch('/api/jewelry-orders', { headers: jwtHeaders }),
         fetch('/api/site-settings?keys=jewelry_shipping_fee'),
       ]);
       const ordersData = ordersRes.ok ? await ordersRes.json() : [];
@@ -81,7 +83,7 @@ export function AdminOrders() {
     try {
       await fetch(`/api/jewelry-orders/${id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: adminHeaders('joalheria'),
         body: JSON.stringify({ status }),
       });
       setOrders((cur) => cur.map((o) => (o.id === id ? { ...o, status } : o)));
@@ -101,7 +103,7 @@ export function AdminOrders() {
       }
       await fetch('/api/site-settings', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: adminHeaders('joalheria'),
         body: JSON.stringify({ jewelry_shipping_fee: String(val) }),
       });
       setFeeStatus('Salvo!');
@@ -118,7 +120,7 @@ export function AdminOrders() {
   const counts = orders.reduce((acc, o) => {
     acc[o.status] = (acc[o.status] || 0) + 1;
     return acc;
-  }, {} as Record<string, number>);
+  }, {} as Record<Order['status'], number>);
 
   return (
     <div className="space-y-6">
@@ -158,7 +160,7 @@ export function AdminOrders() {
           <CardTitle className="text-white text-lg flex items-center justify-between">
             <span>Pedidos ({orders.length})</span>
             <div className="flex gap-1.5 flex-wrap">
-              {(['all', 'new', 'processing', 'completed', 'cancelled'] as const).map((s) => (
+              {(['all', 'new', 'in_progress', 'done', 'archived'] as const).map((s) => (
                 <button
                   key={s}
                   onClick={() => setFilter(s)}
@@ -250,7 +252,7 @@ export function AdminOrders() {
                     <div>
                       <p className="text-xs uppercase tracking-widest text-white/40 mb-2">Alterar status</p>
                       <div className="flex gap-2 flex-wrap">
-                        {(['new', 'processing', 'completed', 'cancelled'] as Order['status'][]).map((s) => (
+                        {(['new', 'in_progress', 'done', 'archived'] as Order['status'][]).map((s) => (
                           <button
                             key={s}
                             onClick={() => updateStatus(order.id, s)}

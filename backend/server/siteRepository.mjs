@@ -450,7 +450,7 @@ export const saveSiteConfig = async (config) => {
     await client.query('DELETE FROM app.portfolio_item WHERE site_id = $1', [site.id]);
     for (const [index, item] of safeConfig.portfolio.items.entries()) {
       await client.query(
-        'INSERT INTO app.portfolio_item (site_id, title, style, image_url, specialist_id, sort_order) VALUES ($1, $2, $3, $4, $5, $6)',
+        'INSERT INTO app.portfolio_item (site_id, title, style, image_url, specialist_id, sort_order, is_published) VALUES ($1, $2, $3, $4, $5, $6, true)',
         [
           site.id,
           normalizeString(item.title),
@@ -619,7 +619,7 @@ export const createPortfolioItem = async ({ title, style, imageUrl, specialistId
     const sortOrder = parseInt(countResult.rows[0].count);
 
     const result = await client.query(
-      'INSERT INTO app.portfolio_item (site_id, title, style, image_url, specialist_id, sort_order) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id',
+      'INSERT INTO app.portfolio_item (site_id, title, style, image_url, specialist_id, sort_order, is_published) VALUES ($1, $2, $3, $4, $5, $6, true) RETURNING id',
       [site.id, safeTitle, safeStyle, safeImageUrl, safeSpecialistId, sortOrder]
     );
 
@@ -1218,13 +1218,11 @@ export const updateJewelryOrderStatus = async (id, { status }) => {
   const client = await pool.connect();
   try {
     const site = await getOrCreateSite(client);
-    const allowed = ['new', 'processing', 'completed', 'cancelled'];
+    const allowed = ['new', 'in_progress', 'done', 'archived'];
     const safeStatus = allowed.includes(status) ? status : 'new';
 
-    const paidAt = safeStatus === 'completed' ? 'now()' : 'paid_at';
-
     await client.query(
-      `UPDATE app.jewelry_order SET status = $1, updated_at = now(), paid_at = ${safeStatus === 'completed' ? 'COALESCE(paid_at, now())' : 'paid_at'} WHERE id = $2 AND site_id = $3`,
+      `UPDATE app.jewelry_order SET status = $1, updated_at = now(), paid_at = ${safeStatus === 'done' ? 'COALESCE(paid_at, now())' : 'paid_at'} WHERE id = $2 AND site_id = $3`,
       [safeStatus, id, site.id]
     );
   } finally {
@@ -1283,7 +1281,7 @@ export const getJewelrySales = async ({ months = 12 } = {}) => {
        FROM app.jewelry_order o
        JOIN app.jewelry_order_item oi ON oi.order_id = o.id
        WHERE o.site_id = $1
-         AND o.status = 'completed'
+         AND o.status = 'done'
          AND o.paid_at >= now() - ($2 || ' months')::interval
        GROUP BY date_trunc('month', o.paid_at)
        ORDER BY month ASC`,
@@ -1296,7 +1294,7 @@ export const getJewelrySales = async ({ months = 12 } = {}) => {
               array_agg(oi.name || ' x' || oi.quantity) AS items_summary
        FROM app.jewelry_order o
        JOIN app.jewelry_order_item oi ON oi.order_id = o.id
-       WHERE o.site_id = $1 AND o.status = 'completed'
+       WHERE o.site_id = $1 AND o.status = 'done'
        GROUP BY o.id
        ORDER BY o.paid_at DESC
        LIMIT 50`,

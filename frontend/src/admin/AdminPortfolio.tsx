@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../app/components/ui/c
 import { Check, Edit2, Plus, Sparkles, Trash2, Upload, X } from 'lucide-react';
 import { uploadImageFile } from './uploadImage';
 import { ImageWithFallback } from '../app/components/figma/ImageWithFallback';
+import { adminHeaders, getAdminToken } from './adminAuth';
 
 type PortfolioItem = {
   id: number;
@@ -139,7 +140,7 @@ export function AdminPortfolio() {
 
         const response = await fetch('/api/portfolio', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: adminHeaders(),
           body: JSON.stringify(payload),
         });
 
@@ -183,7 +184,7 @@ export function AdminPortfolio() {
 
       setIsUploadingNewImage(true);
       try {
-        const imageUrl = await uploadImageFile(file);
+        const imageUrl = await uploadImageFile(file, getAdminToken());
         setNewItem((current) => {
           const nextUrls = [...current.imageUrls];
           nextUrls[index] = imageUrl;
@@ -233,7 +234,7 @@ export function AdminPortfolio() {
 
       setUploadingAlbumKey(album.key);
       try {
-        const imageUrl = await uploadImageFile(file);
+        const imageUrl = await uploadImageFile(file, getAdminToken());
 
         const reference = editingAlbumKey === album.key && editingDraft
           ? editingDraft
@@ -246,7 +247,7 @@ export function AdminPortfolio() {
 
         const response = await fetch('/api/portfolio', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: adminHeaders(),
           body: JSON.stringify({
             title: reference.title,
             style: reference.description,
@@ -274,7 +275,7 @@ export function AdminPortfolio() {
     try {
       const response = await fetch(`/api/portfolio/${id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: adminHeaders(),
         body: JSON.stringify(item),
       });
 
@@ -299,7 +300,7 @@ export function AdminPortfolio() {
     if (!confirm('Tem certeza?')) return;
 
     try {
-      await fetch(`/api/portfolio/${id}`, { method: 'DELETE' });
+      await fetch(`/api/portfolio/${id}`, { method: 'DELETE', headers: adminHeaders() });
       loadPortfolio();
       notifySiteConfigUpdated();
     } catch (error) {
@@ -348,7 +349,7 @@ export function AdminPortfolio() {
     if (!confirm('Excluir o álbum inteiro e todas as fotos?')) return;
 
     try {
-      await Promise.all(album.photos.map((photo) => fetch(`/api/portfolio/${photo.id}`, { method: 'DELETE' })));
+      await Promise.all(album.photos.map((photo) => fetch(`/api/portfolio/${photo.id}`, { method: 'DELETE', headers: adminHeaders() })));
       await loadPortfolio();
       notifySiteConfigUpdated();
       if (editingAlbumKey === album.key) {

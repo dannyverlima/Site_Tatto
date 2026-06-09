@@ -99,7 +99,7 @@ export function Hero() {
             whileTap={{ scale: 0.98 }}
             className="px-5 py-2 rounded-full border border-neutral-800 text-neutral-200 text-xs tracking-wide uppercase hover:border-neutral-500 transition-colors"
           >
-            Avaliacoes
+            Avaliações
           </motion.a>
           <motion.a
             href="/localizacao"
@@ -108,7 +108,7 @@ export function Hero() {
             whileTap={{ scale: 0.98 }}
             className="px-5 py-2 rounded-full border border-neutral-800 text-neutral-200 text-xs tracking-wide uppercase hover:border-neutral-500 transition-colors"
           >
-            Localizacao
+            Localização
           </motion.a>
         </motion.div>
       </motion.div>

@@ -284,7 +284,7 @@ export const loadSiteConfig = async (): Promise<SiteConfig> => {
   }
 };
 
-export const saveSiteConfig = async (config: SiteConfig): Promise<void> => {
+export const saveSiteConfig = async (config: SiteConfig, token?: string): Promise<void> => {
   if (typeof window === 'undefined') {
     return;
   }
@@ -293,6 +293,7 @@ export const saveSiteConfig = async (config: SiteConfig): Promise<void> => {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     body: JSON.stringify(config),
   });

@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../app/components/ui/c
 import { Check, Edit2, Plus, Trash2, Upload, X } from 'lucide-react';
 import { uploadImageFile } from './uploadImage';
 import { ImageWithFallback } from '../app/components/figma/ImageWithFallback';
+import { adminHeaders, getAdminToken } from './adminAuth';
 
 const cardClassName = 'border-white/10 bg-white/[0.04] text-white shadow-2xl shadow-black/30 backdrop-blur-xl';
 const inputClassName = 'border-white/10 bg-white/5 text-white placeholder:text-white/35';
@@ -98,7 +99,7 @@ export function AdminJewelry() {
     try {
       const response = await fetch('/api/jewelry', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: adminHeaders('joalheria'),
         body: JSON.stringify({
           name: newItem.name,
           description: newItem.description,
@@ -140,7 +141,7 @@ export function AdminJewelry() {
     try {
       const response = await fetch(`/api/jewelry/${id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: adminHeaders('joalheria'),
         body: JSON.stringify({
           name: editingItem.name,
           description: editingItem.description,
@@ -173,7 +174,7 @@ export function AdminJewelry() {
     }
 
     try {
-      await fetch(`/api/jewelry/${id}`, { method: 'DELETE' });
+      await fetch(`/api/jewelry/${id}`, { method: 'DELETE', headers: adminHeaders('joalheria') });
       loadItems();
     } catch (error) {
       console.error('Erro ao deletar joia:', error);
@@ -188,7 +189,7 @@ export function AdminJewelry() {
 
     setIsUploadingNewImage(true);
     try {
-      const imageUrl = await uploadImageFile(file);
+      const imageUrl = await uploadImageFile(file, getAdminToken('joalheria'));
       setNewItem((current) => {
         const nextUrls = [...current.imageUrls];
         nextUrls[index] = imageUrl;
@@ -211,7 +212,7 @@ export function AdminJewelry() {
 
     setUploadingItemId(editingId);
     try {
-      const imageUrl = await uploadImageFile(file);
+      const imageUrl = await uploadImageFile(file, getAdminToken('joalheria'));
       setEditingItem((current) => {
         if (!current) {
           return current;

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../app/components/ui/card';
+import { adminHeaders } from './adminAuth';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { TrendingUp, DollarSign, ShoppingBag } from 'lucide-react';
 
@@ -47,7 +48,7 @@ export function AdminRevenue() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/jewelry-sales?months=${period}`);
+      const res = await fetch(`/api/jewelry-sales?months=${period}`, { headers: adminHeaders('joalheria') });
       const data = res.ok ? await res.json() : {};
       setMonthly(Array.isArray(data.monthly) ? data.monthly : []);
       setRecentSales(Array.isArray(data.recentSales) ? data.recentSales : []);

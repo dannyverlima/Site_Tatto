@@ -1,8 +1,6 @@
-export async function uploadImageFile(file: File): Promise<string> {
+export async function uploadImageFile(file: File, token?: string): Promise<string> {
   const formData = new FormData();
   formData.append('file', file);
-
-
 
   const uploadServerHint =
     'Falha de rede: não foi possível contatar o servidor de upload. Inicie a API com "pnpm dev:server" (ou "pnpm dev:all").';
@@ -11,6 +9,7 @@ export async function uploadImageFile(file: File): Promise<string> {
     const response = await fetch('/api/uploads', {
       method: 'POST',
       body: formData,
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
     });
 
     if (!response.ok) {

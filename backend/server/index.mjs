@@ -11,6 +11,7 @@ import multer from 'multer';
 import ffmpegPath from 'ffmpeg-static';
 import bcryptjs from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import nodemailer from 'nodemailer';
 import { pool } from './db.mjs';
 import {
   getSiteConfig,
@@ -136,7 +137,14 @@ const upload = multer({
   },
 });
 
-app.use(cors());
+const allowedOrigins = (process.env.CORS_ORIGINS || 'http://localhost:5173').split(',').map((o) => o.trim());
+app.use(cors({
+  origin: (origin, cb) => {
+    if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
+    cb(new Error('CORS bloqueado'));
+  },
+  credentials: true,
+}));
 app.use(express.json({ limit: '1mb' }));
 app.use('/admin-media', express.static(adminMediaDir));
 
@@ -389,7 +397,7 @@ app.get('/api/site-config', async (_req, res) => {
   }
 });
 
-app.put('/api/site-config', async (req, res) => {
+app.put('/api/site-config', requireAdmin, async (req, res) => {
   try {
     await saveSiteConfig(req.body);
     const config = await getSiteConfig();
@@ -400,7 +408,7 @@ app.put('/api/site-config', async (req, res) => {
   }
 });
 
-app.post('/api/uploads', (req, res) => {
+app.post('/api/uploads', requireAdmin, (req, res) => {
   upload.single('file')(req, res, async (error) => {
     if (error) {
       const status = error.code === 'LIMIT_FILE_SIZE' ? 413 : 400;
@@ -606,8 +614,12 @@ app.get('/api/reviews', async (_req, res) => {
   }
 });
 
+const sanitize = (str) => String(str || '').replace(/<[^>]*>/g, '').trim();
+
 app.post('/api/reviews', async (req, res) => {
-  const { name, rating, comment } = req.body || {};
+  const name = sanitize(req.body?.name);
+  const comment = sanitize(req.body?.comment);
+  const { rating } = req.body || {};
   if (!name || !comment || typeof rating === 'undefined') {
     return badRequest(res, 'Dados invalidos');
   }
@@ -624,14 +636,43 @@ app.post('/api/reviews', async (req, res) => {
   }
 });
 
+const sendContactEmail = async ({ name, email, phone, message }) => {
+  const smtpUser = process.env.SMTP_USER;
+  const smtpPass = process.env.SMTP_PASS;
+  const contactEmail = process.env.CONTACT_EMAIL || 'dannyverlima@gmail.com';
+  if (!smtpUser || !smtpPass) {
+    console.warn('Email não configurado: defina SMTP_USER e SMTP_PASS no .env');
+    return;
+  }
+  const transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST || 'smtp.gmail.com',
+    port: Number(process.env.SMTP_PORT || 587),
+    secure: false,
+    auth: { user: smtpUser, pass: smtpPass },
+  });
+  await transporter.sendMail({
+    from: `"Studios Tatto" <${smtpUser}>`,
+    to: contactEmail,
+    replyTo: email,
+    subject: `Nova mensagem de contato — ${name}`,
+    text: `Nome: ${name}\nEmail: ${email}\nTelefone: ${phone || '—'}\n\n${message}`,
+    html: `<p><strong>Nome:</strong> ${name}</p><p><strong>Email:</strong> ${email}</p><p><strong>Telefone:</strong> ${phone || '—'}</p><p><strong>Mensagem:</strong></p><p>${message.replace(/\n/g, '<br>')}</p>`,
+  });
+};
+
 app.post('/api/contact-submissions', async (req, res) => {
-  const { name, email, phone, message } = req.body || {};
-  if (!name || !email || !message) {
-    return badRequest(res, 'Dados invalidos');
+  const name = sanitize(req.body?.name);
+  const message = sanitize(req.body?.message);
+  const { email, phone } = req.body || {};
+  if (!name || !email || !phone || !message) {
+    return badRequest(res, 'Todos os campos são obrigatórios');
   }
 
   try {
     await createContactSubmission({ name, email, phone, message });
+    sendContactEmail({ name, email, phone, message }).catch((err) => {
+      console.error('Falha ao enviar email de contato:', err.message);
+    });
     res.status(201).json({ ok: true });
   } catch (error) {
     console.error('Erro ao salvar contato', error);
@@ -665,7 +706,7 @@ app.get('/api/specialists', async (_req, res) => {
   }
 });
 
-app.post('/api/specialists', async (req, res) => {
+app.post('/api/specialists', requireAdmin, async (req, res) => {
   const { name, specialty, description, imageUrl, experience, instagram, whatsapp } = req.body || {};
   if (!name || !specialty || !imageUrl) {
     return badRequest(res, 'Nome, especialidade e imagem são obrigatórios');
@@ -680,7 +721,7 @@ app.post('/api/specialists', async (req, res) => {
   }
 });
 
-app.put('/api/specialists/:id', async (req, res) => {
+app.put('/api/specialists/:id', requireAdmin, async (req, res) => {
   const { id } = req.params;
   const { name, specialty, description, imageUrl, experience, instagram, whatsapp, sortOrder, isActive } = req.body || {};
 
@@ -693,7 +734,7 @@ app.put('/api/specialists/:id', async (req, res) => {
   }
 });
 
-app.delete('/api/specialists/:id', async (req, res) => {
+app.delete('/api/specialists/:id', requireAdmin, async (req, res) => {
   const { id } = req.params;
 
   try {
@@ -716,7 +757,7 @@ app.get('/api/portfolio', async (_req, res) => {
   }
 });
 
-app.post('/api/portfolio', async (req, res) => {
+app.post('/api/portfolio', requireAdmin, async (req, res) => {
   const { title, style, imageUrl, specialistId } = req.body || {};
   if (!title || !imageUrl) {
     return badRequest(res, 'Título e imagem são obrigatórios');
@@ -731,7 +772,7 @@ app.post('/api/portfolio', async (req, res) => {
   }
 });
 
-app.put('/api/portfolio/:id', async (req, res) => {
+app.put('/api/portfolio/:id', requireAdmin, async (req, res) => {
   const { id } = req.params;
   const { title, style, imageUrl, sortOrder, isPublished, specialistId } = req.body || {};
 
@@ -744,7 +785,7 @@ app.put('/api/portfolio/:id', async (req, res) => {
   }
 });
 
-app.delete('/api/portfolio/:id', async (req, res) => {
+app.delete('/api/portfolio/:id', requireAdmin, async (req, res) => {
   const { id } = req.params;
 
   try {
@@ -824,6 +865,34 @@ app.get('/api/auth/me', async (req, res) => {
 });
 // ---- End Auth ----
 
+// ============= ADMIN AUTH =============
+const ADMIN_JWT_SECRET = process.env.ADMIN_JWT_SECRET || process.env.JWT_SECRET || 'admin_change_me';
+
+function requireAdmin(req, res, next) {
+  const authHeader = req.headers.authorization;
+  const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : req.headers['x-admin-token'];
+  if (!token) return res.status(401).json({ error: 'Não autorizado' });
+  try {
+    req.adminPayload = jwt.verify(token, ADMIN_JWT_SECRET);
+    next();
+  } catch {
+    res.status(401).json({ error: 'Token inválido ou expirado' });
+  }
+}
+
+app.post('/api/admin/login', (req, res) => {
+  const { password, role } = req.body || {};
+  const expectedPass = role === 'joalheria'
+    ? (process.env.JOALHERIA_ADMIN_PASS || 'Admin@joia')
+    : (process.env.ADMIN_PASS || 'Admin@tatto');
+  if (!password || password !== expectedPass) {
+    return res.status(401).json({ error: 'Senha incorreta' });
+  }
+  const token = jwt.sign({ role: role || 'admin' }, ADMIN_JWT_SECRET, { expiresIn: '8h' });
+  res.json({ token });
+});
+// ============= END ADMIN AUTH =============
+
 app.get('/api/jewelry', async (req, res) => {
   try {
     const includeInactive = String(req.query.all || '') === '1';
@@ -837,7 +906,7 @@ app.get('/api/jewelry', async (req, res) => {
   }
 });
 
-app.post('/api/jewelry', async (req, res) => {
+app.post('/api/jewelry', requireAdmin, async (req, res) => {
   const { name, description, price, imageUrls, isActive, stock, discountPercent, isFeatured, category } = req.body || {};
   if (!name) {
     return badRequest(res, 'Nome é obrigatório');
@@ -852,7 +921,7 @@ app.post('/api/jewelry', async (req, res) => {
   }
 });
 
-app.put('/api/jewelry/:id', async (req, res) => {
+app.put('/api/jewelry/:id', requireAdmin, async (req, res) => {
   const { id } = req.params;
   const { name, description, price, imageUrls, isActive, stock, discountPercent, isFeatured, category } = req.body || {};
 
@@ -866,7 +935,7 @@ app.put('/api/jewelry/:id', async (req, res) => {
 });
 
 // ============= JEWELRY ORDERS ADMIN =============
-app.get('/api/jewelry-orders', async (_req, res) => {
+app.get('/api/jewelry-orders', requireAdmin, async (_req, res) => {
   try {
     const orders = await getJewelryOrders();
     res.json(orders);
@@ -876,7 +945,7 @@ app.get('/api/jewelry-orders', async (_req, res) => {
   }
 });
 
-app.put('/api/jewelry-orders/:id', async (req, res) => {
+app.put('/api/jewelry-orders/:id', requireAdmin, async (req, res) => {
   const { id } = req.params;
   const { status } = req.body || {};
   if (!status) {
@@ -903,7 +972,7 @@ app.get('/api/site-settings', async (req, res) => {
   }
 });
 
-app.put('/api/site-settings', async (req, res) => {
+app.put('/api/site-settings', requireAdmin, async (req, res) => {
   const body = req.body || {};
   try {
     for (const [key, value] of Object.entries(body)) {
@@ -918,7 +987,7 @@ app.put('/api/site-settings', async (req, res) => {
 });
 
 // ============= JEWELRY SALES / FATURAMENTO =============
-app.get('/api/jewelry-sales', async (req, res) => {
+app.get('/api/jewelry-sales', requireAdmin, async (req, res) => {
   try {
     const months = Math.min(36, Math.max(1, Number(req.query.months || 12)));
     const data = await getJewelrySales({ months });
@@ -940,7 +1009,7 @@ app.get('/api/course', async (_req, res) => {
   }
 });
 
-app.put('/api/course', async (req, res) => {
+app.put('/api/course', requireAdmin, async (req, res) => {
   const { title, description, nextClass, price, priceNote } = req.body || {};
 
   try {
@@ -959,7 +1028,7 @@ app.put('/api/course', async (req, res) => {
 });
 
 // ============= COURSE FEATURES ENDPOINTS =============
-app.post('/api/course/features', async (req, res) => {
+app.post('/api/course/features', requireAdmin, async (req, res) => {
   const { title, description } = req.body || {};
   if (!title || !description) {
     return badRequest(res, 'Título e descrição são obrigatórios');
@@ -979,7 +1048,7 @@ app.post('/api/course/features', async (req, res) => {
   }
 });
 
-app.put('/api/course/features/:id', async (req, res) => {
+app.put('/api/course/features/:id', requireAdmin, async (req, res) => {
   const { id } = req.params;
   const { title, description, sortOrder } = req.body || {};
 
@@ -992,7 +1061,7 @@ app.put('/api/course/features/:id', async (req, res) => {
   }
 });
 
-app.delete('/api/course/features/:id', async (req, res) => {
+app.delete('/api/course/features/:id', requireAdmin, async (req, res) => {
   const { id } = req.params;
 
   try {
@@ -1005,7 +1074,7 @@ app.delete('/api/course/features/:id', async (req, res) => {
 });
 
 // ============= COURSE HIGHLIGHTS ENDPOINTS =============
-app.post('/api/course/highlights', async (req, res) => {
+app.post('/api/course/highlights', requireAdmin, async (req, res) => {
   const { text } = req.body || {};
   if (!text) {
     return badRequest(res, 'Texto é obrigatório');
@@ -1025,7 +1094,7 @@ app.post('/api/course/highlights', async (req, res) => {
   }
 });
 
-app.put('/api/course/highlights/:id', async (req, res) => {
+app.put('/api/course/highlights/:id', requireAdmin, async (req, res) => {
   const { id } = req.params;
   const { text, sortOrder } = req.body || {};
 
@@ -1038,7 +1107,7 @@ app.put('/api/course/highlights/:id', async (req, res) => {
   }
 });
 
-app.delete('/api/course/highlights/:id', async (req, res) => {
+app.delete('/api/course/highlights/:id', requireAdmin, async (req, res) => {
   const { id } = req.params;
 
   try {
@@ -1051,7 +1120,7 @@ app.delete('/api/course/highlights/:id', async (req, res) => {
 });
 
 // ============= COURSE EXTRA INFO ENDPOINTS =============
-app.post('/api/course/extra-info', async (req, res) => {
+app.post('/api/course/extra-info', requireAdmin, async (req, res) => {
   const { text } = req.body || {};
   if (!text) {
     return badRequest(res, 'Texto é obrigatório');
@@ -1071,7 +1140,7 @@ app.post('/api/course/extra-info', async (req, res) => {
   }
 });
 
-app.put('/api/course/extra-info/:id', async (req, res) => {
+app.put('/api/course/extra-info/:id', requireAdmin, async (req, res) => {
   const { id } = req.params;
   const { text, sortOrder } = req.body || {};
 
@@ -1084,7 +1153,7 @@ app.put('/api/course/extra-info/:id', async (req, res) => {
   }
 });
 
-app.delete('/api/course/extra-info/:id', async (req, res) => {
+app.delete('/api/course/extra-info/:id', requireAdmin, async (req, res) => {
   const { id } = req.params;
 
   try {

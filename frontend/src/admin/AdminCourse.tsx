@@ -3,6 +3,7 @@ import { Button } from '../app/components/ui/button';
 import { Input } from '../app/components/ui/input';
 import { Textarea } from '../app/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '../app/components/ui/card';
+import { adminHeaders } from './adminAuth';
 import { Plus, Trash2, Edit2, Check, X } from 'lucide-react';
 
 const cardClassName = 'border-white/10 bg-white/[0.04] text-white shadow-2xl shadow-black/30 backdrop-blur-xl';
@@ -54,7 +55,7 @@ export function AdminCourse() {
     try {
       const response = await fetch('/api/course', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: adminHeaders(),
         body: JSON.stringify(courseForm),
       });
 
@@ -77,7 +78,7 @@ export function AdminCourse() {
     try {
       const response = await fetch('/api/course/features', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: adminHeaders(),
         body: JSON.stringify(newFeature),
       });
 
@@ -94,7 +95,7 @@ export function AdminCourse() {
     if (!confirm('Tem certeza?')) return;
 
     try {
-      await fetch(`/api/course/features/${id}`, { method: 'DELETE' });
+      await fetch(`/api/course/features/${id}`, { method: 'DELETE', headers: adminHeaders() });
       loadCourse();
     } catch (error) {
       console.error('Erro ao deletar:', error);
@@ -107,7 +108,7 @@ export function AdminCourse() {
     try {
       const response = await fetch('/api/course/highlights', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: adminHeaders(),
         body: JSON.stringify({ text: newHighlight }),
       });
 
@@ -124,7 +125,7 @@ export function AdminCourse() {
     if (!confirm('Tem certeza?')) return;
 
     try {
-      await fetch(`/api/course/highlights/${id}`, { method: 'DELETE' });
+      await fetch(`/api/course/highlights/${id}`, { method: 'DELETE', headers: adminHeaders() });
       loadCourse();
     } catch (error) {
       console.error('Erro ao deletar:', error);
@@ -137,7 +138,7 @@ export function AdminCourse() {
     try {
       const response = await fetch('/api/course/extra-info', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: adminHeaders(),
         body: JSON.stringify({ text: newExtraInfo }),
       });
 
@@ -154,7 +155,7 @@ export function AdminCourse() {
     if (!confirm('Tem certeza?')) return;
 
     try {
-      await fetch(`/api/course/extra-info/${id}`, { method: 'DELETE' });
+      await fetch(`/api/course/extra-info/${id}`, { method: 'DELETE', headers: adminHeaders() });
       loadCourse();
     } catch (error) {
       console.error('Erro ao deletar:', error);

@@ -6,6 +6,7 @@ import { Check, Edit2, ImagePlus, Plus, Sparkles, Trash2, Upload, X } from 'luci
 import { uploadImageFile } from './uploadImage';
 import { ImageWithFallback } from '../app/components/figma/ImageWithFallback';
 import { RichTextEditor } from './RichTextEditor';
+import { adminHeaders, getAdminToken } from './adminAuth';
 
 type SpecialistItem = {
   id: number;
@@ -90,7 +91,7 @@ export function AdminSpecialists() {
     try {
       const response = await fetch('/api/specialists', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: adminHeaders(),
         body: JSON.stringify(newSpecialist),
       });
 
@@ -114,7 +115,7 @@ export function AdminSpecialists() {
 
     setIsUploadingNewImage(true);
     try {
-      const imageUrl = await uploadImageFile(file);
+      const imageUrl = await uploadImageFile(file, getAdminToken());
       setNewSpecialist((current) => ({ ...current, imageUrl }));
     } catch (error) {
       console.error('Erro ao enviar imagem:', error);
@@ -133,7 +134,7 @@ export function AdminSpecialists() {
 
     setUploadingSpecialistId(specialistId);
     try {
-      const imageUrl = await uploadImageFile(file);
+      const imageUrl = await uploadImageFile(file, getAdminToken());
       setSpecialists((items) =>
         items.map((item) => (item.id === specialistId ? { ...item, imageUrl } : item))
       );
@@ -151,7 +152,7 @@ export function AdminSpecialists() {
     try {
       const response = await fetch(`/api/specialists/${id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: adminHeaders(),
         body: JSON.stringify(specialist),
       });
 
@@ -170,7 +171,7 @@ export function AdminSpecialists() {
     if (!confirm('Tem certeza?')) return;
 
     try {
-      await fetch(`/api/specialists/${id}`, { method: 'DELETE' });
+      await fetch(`/api/specialists/${id}`, { method: 'DELETE', headers: adminHeaders() });
       loadSpecialists();
       window.dispatchEvent(new Event('specialists-updated'));
     } catch (error) {

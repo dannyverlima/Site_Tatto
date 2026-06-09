@@ -116,9 +116,9 @@ export default function LocationInfoPage() {
 
         <header className="mb-10">
           <p className="text-xs uppercase tracking-[0.3em] text-neutral-400">Studios Tatto</p>
-          <h1 className="mt-3 text-3xl font-bold md:text-5xl">Localizacao e Informacoes da Loja</h1>
+          <h1 className="mt-3 text-3xl font-bold md:text-5xl">Localização e Informações da Loja</h1>
           <p className="mt-4 max-w-3xl text-neutral-300">
-            Aqui voce encontra endereco, mapa, horarios e canais oficiais para falar com o estudio.
+            Aqui você encontra endereço, mapa, horários e canais oficiais para falar com o estúdio.
           </p>
         </header>
 
@@ -126,13 +126,13 @@ export default function LocationInfoPage() {
           <article className="rounded-2xl border border-neutral-800 bg-neutral-900 p-6">
             <div className="mb-4 flex items-center gap-3">
               <MapPin className="text-neutral-100" size={22} />
-              <h2 className="text-xl font-semibold">Endereco da Loja</h2>
+              <h2 className="text-xl font-semibold">Endereço da Loja</h2>
             </div>
 
             {loading ? <p className="text-neutral-400">Carregando...</p> : null}
 
             {!loading && addressLines.length === 0 ? (
-              <p className="text-neutral-400">Endereco ainda nao cadastrado.</p>
+              <p className="text-neutral-400">Endereço ainda não cadastrado.</p>
             ) : null}
 
             {addressLines.length > 0 ? (
@@ -155,11 +155,11 @@ export default function LocationInfoPage() {
           <article className="rounded-2xl border border-neutral-800 bg-neutral-900 p-6">
             <div className="mb-4 flex items-center gap-3">
               <Clock3 className="text-neutral-100" size={22} />
-              <h2 className="text-xl font-semibold">Horarios</h2>
+              <h2 className="text-xl font-semibold">Horários</h2>
             </div>
 
             {(location?.openingHours || []).length === 0 ? (
-              <p className="text-neutral-400">Horarios ainda nao cadastrados.</p>
+              <p className="text-neutral-400">Horários ainda não cadastrados.</p>
             ) : (
               <div className="space-y-2">
                 {(location?.openingHours || []).map((item) => {

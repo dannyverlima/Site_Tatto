@@ -6,25 +6,38 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../app/components/ui/t
 import { Input } from '../app/components/ui/input';
 import { Gem, ArrowLeft } from 'lucide-react';
 
-const ADMIN_PASS = 'Admin@joia';
 const AUTH_KEY = 'joalheria-admin-auth';
 
 const shellClassName = 'relative min-h-screen overflow-hidden bg-[#050505] text-white';
 const fieldClassName = 'border-white/10 bg-white/5 text-white placeholder:text-white/35';
 
 function AdminJoalheriaLogin({ onSuccess }: { onSuccess: () => void }) {
-  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (username === 'admin' && password === ADMIN_PASS) {
-      sessionStorage.setItem(AUTH_KEY, '1');
-      onSuccess();
-      return;
+    setLoading(true);
+    setError('');
+    try {
+      const res = await fetch('/api/admin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password, role: 'joalheria' }),
+      });
+      if (res.ok) {
+        const { token } = await res.json();
+        sessionStorage.setItem(AUTH_KEY, token);
+        onSuccess();
+      } else {
+        setError('Senha incorreta.');
+      }
+    } catch {
+      setError('Erro ao conectar com o servidor.');
+    } finally {
+      setLoading(false);
     }
-    setError('Nome ou senha incorretos.');
   };
 
   return (
@@ -43,14 +56,6 @@ function AdminJoalheriaLogin({ onSuccess }: { onSuccess: () => void }) {
             <p className="text-xs text-white/40 mt-0.5">Painel de gestão</p>
           </div>
         </div>
-        <div className="mb-3">
-          <label className="block mb-1 text-sm text-white/65">Nome</label>
-          <input
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            className={`${fieldClassName} w-full rounded-xl px-3 py-2.5 outline-none ring-1 ring-inset ring-white/10 focus:ring-white/25 transition`}
-          />
-        </div>
         <div className="mb-4">
           <label className="block mb-1 text-sm text-white/65">Senha</label>
           <input
@@ -63,9 +68,10 @@ function AdminJoalheriaLogin({ onSuccess }: { onSuccess: () => void }) {
         {error && <p className="text-sm text-red-300 mb-3">{error}</p>}
         <button
           type="submit"
-          className="w-full rounded-full bg-white px-4 py-2.5 text-black font-semibold hover:bg-white/90 transition"
+          disabled={loading}
+          className="w-full rounded-full bg-white px-4 py-2.5 text-black font-semibold hover:bg-white/90 transition disabled:opacity-60"
         >
-          Entrar
+          {loading ? 'Entrando...' : 'Entrar'}
         </button>
         <p className="mt-4 text-center text-xs text-white/30">
           <a href="/" className="hover:text-white/60 transition">← Voltar ao site</a>
@@ -160,7 +166,7 @@ function AdminJoalheriaPanel() {
 }
 
 export default function AdminJoalheriaApp() {
-  const [isAuthed, setIsAuthed] = useState(() => sessionStorage.getItem(AUTH_KEY) === '1');
+  const [isAuthed, setIsAuthed] = useState(() => Boolean(sessionStorage.getItem(AUTH_KEY)));
 
   if (!isAuthed) {
     return <AdminJoalheriaLogin onSuccess={() => setIsAuthed(true)} />;

@@ -68,7 +68,7 @@ export function Portfolio({ specialistId }: { specialistId?: string | null } = {
               PORTFOLIO
             </h2>
             <p className="text-neutral-400 text-lg">
-              Conheca alguns dos nossos trabalhos mais marcantes
+              Conheça alguns dos nossos trabalhos mais marcantes
             </p>
           </motion.div>
         ) : null}
