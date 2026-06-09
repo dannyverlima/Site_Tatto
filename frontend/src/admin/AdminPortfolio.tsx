@@ -136,6 +136,7 @@ export function AdminPortfolio() {
           style: newItem.description,
           imageUrl,
           specialistId: newItem.specialistId,
+          isPublished: true,
         };
 
         const response = await fetch('/api/portfolio', {
@@ -192,7 +193,7 @@ export function AdminPortfolio() {
         });
       } catch (error) {
         console.error('Erro ao enviar imagem:', error);
-        alert('Não foi possível enviar a imagem');
+        alert(`Não foi possível enviar a imagem: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
       } finally {
         setIsUploadingNewImage(false);
         event.target.value = '';
@@ -264,7 +265,7 @@ export function AdminPortfolio() {
         notifySiteConfigUpdated();
       } catch (error) {
         console.error('Erro ao enviar imagem:', error);
-        alert('Não foi possível enviar a imagem');
+        alert(`Não foi possível enviar a imagem: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
       } finally {
         setUploadingAlbumKey(null);
         event.target.value = '';

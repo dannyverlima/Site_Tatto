@@ -113,12 +113,12 @@ export function Footer() {
   const contacts = contactInfo.filter((info) => ['phone', 'email', 'address', 'whatsapp'].includes(info.kind));
 
   return (
-    <footer className="bg-black text-neutral-400 py-12 px-4">
+    <footer className="bg-black text-neutral-400 py-10 sm:py-12 px-4">
       <div className="max-w-7xl mx-auto">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 md:gap-8 mb-6 md:mb-8">
           <div className="md:col-span-2">
             {site.name ? (
-              <h3 className="text-2xl font-bold text-neutral-100 mb-4 tracking-wider">
+              <h3 className="text-xl sm:text-2xl font-bold text-neutral-100 mb-4 tracking-wider">
                 {site.name.toUpperCase()}
               </h3>
             ) : null}

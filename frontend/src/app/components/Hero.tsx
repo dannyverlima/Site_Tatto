@@ -42,7 +42,7 @@ export function Hero() {
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 1, delay: 0.2 }}
-        className="relative z-10 text-center px-4 mt-32"
+        className="relative z-10 text-center px-4 mt-10 sm:mt-20 md:mt-32"
       >
         <motion.img
           src={logoImg}
@@ -50,14 +50,14 @@ export function Hero() {
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.8, delay: 0.5 }}
-          className="mx-auto mb-6 h-60 w-auto md:h-100"
+          className="mx-auto mb-4 sm:mb-6 h-40 sm:h-52 md:h-60 lg:h-80 w-auto"
           style={{ mixBlendMode: 'lighten' }}
         />
         <motion.p
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.8, delay: 0.8 }}
-          className="text-xl md:text-2xl text-neutral-300 tracking-wide"
+          className="text-base sm:text-xl md:text-2xl text-neutral-300 tracking-wide"
         >
           Arte na Pele, Memórias para a Vida
         </motion.p>
@@ -66,7 +66,7 @@ export function Hero() {
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 1.15 }}
-          className="mt-6 flex flex-wrap items-center justify-center gap-3"
+          className="mt-4 sm:mt-6 flex flex-wrap items-center justify-center gap-2 sm:gap-3"
         >
           <motion.a
             href="#especialistas"

@@ -51,7 +51,7 @@ export function Course() {
       </motion.div>
 
       {/* ── CONTEÚDO ── */}
-      <div ref={contentRef} className="relative z-10 px-4 py-24 md:py-32">
+      <div ref={contentRef} className="relative z-10 px-4 py-16 md:py-24 lg:py-32">
         <div className="mx-auto max-w-7xl">
 
           {/* TÍTULO IMPACTANTE */}
@@ -124,7 +124,7 @@ export function Course() {
               initial={{ opacity: 0, y: 40 }}
               animate={isInView ? { opacity: 1, y: 0 } : {}}
               transition={{ duration: 0.65, delay: 0.5 }}
-              className="grid gap-8 rounded-3xl border border-white/10 bg-black/50 p-8 backdrop-blur-xl md:grid-cols-2 md:p-12"
+              className="grid gap-6 md:gap-8 rounded-3xl border border-white/10 bg-black/50 p-5 sm:p-8 backdrop-blur-xl md:grid-cols-2 md:p-12"
             >
               {/* Destaques */}
               {hasHighlights && (
@@ -156,7 +156,7 @@ export function Course() {
                     Inscrições
                   </p>
                   {course.price && (
-                    <p className="mb-1 text-5xl font-black text-white">{course.price}</p>
+                    <p className="mb-1 text-3xl sm:text-4xl md:text-5xl font-black text-white">{course.price}</p>
                   )}
                   {course.priceNote && (
                     <p className="mb-1 text-sm text-white/50">{course.priceNote}</p>

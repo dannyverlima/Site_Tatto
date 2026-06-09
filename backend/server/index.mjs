@@ -245,7 +245,7 @@ const ingestAdminMediaFiles = async () => {
     const mimetype = detectMimeType(filename);
 
     await pool.query(
-      'INSERT INTO app.media_asset (site_id, filename, mimetype, data, disk_filename, disk_path) VALUES ($1, $2, $3, NULL, $4, $5)',
+      'INSERT INTO app.media_asset (site_id, filename, mimetype, disk_filename, disk_path) VALUES ($1, $2, $3, $4, $5)',
       [siteId, filename, mimetype, filename, diskPath]
     );
     inserted += 1;
@@ -412,6 +412,7 @@ app.post('/api/uploads', requireAdmin, (req, res) => {
   upload.single('file')(req, res, async (error) => {
     if (error) {
       const status = error.code === 'LIMIT_FILE_SIZE' ? 413 : 400;
+      console.error('Erro multer no upload:', error.message);
       return res.status(status).json({ error: error.message || 'Falha ao enviar arquivo' });
     }
 
@@ -435,14 +436,17 @@ app.post('/api/uploads', requireAdmin, (req, res) => {
       await ensureAdminMediaDir();
       const diskFilename = safeDiskFilename(mediaFile.filename, mediaFile.mimetype);
       const diskPath = path.join(adminMediaDir, diskFilename);
+      console.log('Upload: gravando arquivo em', diskPath);
       await fs.writeFile(diskPath, mediaFile.buffer);
 
       const siteId = await ensureSiteId();
+      console.log('Upload: inserindo no DB, siteId=', siteId, 'arquivo=', diskFilename);
       const insertResult = await pool.query(
-        'INSERT INTO app.media_asset (site_id, filename, mimetype, data, disk_filename, disk_path) VALUES ($1, $2, $3, NULL, $4, $5) RETURNING id',
+        'INSERT INTO app.media_asset (site_id, filename, mimetype, disk_filename, disk_path) VALUES ($1, $2, $3, $4, $5) RETURNING id',
         [siteId, mediaFile.filename, mediaFile.mimetype, diskFilename, diskPath]
       );
       const mediaId = insertResult.rows[0].id;
+      console.log('Upload: sucesso, id=', mediaId);
 
       res.status(201).json({
         url: `/api/uploads/${mediaId}`,

@@ -119,7 +119,7 @@ export function AdminSpecialists() {
       setNewSpecialist((current) => ({ ...current, imageUrl }));
     } catch (error) {
       console.error('Erro ao enviar imagem:', error);
-      alert('Não foi possível enviar a imagem');
+      alert(`Não foi possível enviar a imagem: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
     } finally {
       setIsUploadingNewImage(false);
       event.target.value = '';
@@ -141,7 +141,7 @@ export function AdminSpecialists() {
       setEditingSpecialist((current) => (current && current.id === specialistId ? { ...current, imageUrl } : current));
     } catch (error) {
       console.error('Erro ao enviar imagem:', error);
-      alert('Não foi possível enviar a imagem');
+      alert(`Não foi possível enviar a imagem: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
     } finally {
       setUploadingSpecialistId(null);
       event.target.value = '';

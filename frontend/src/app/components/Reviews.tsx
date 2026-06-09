@@ -67,16 +67,16 @@ export function Reviews({ showAll = false }: ReviewsProps) {
   const hasMore = !showAll && reviews.length > MAX_MAIN;
 
   return (
-    <section id="avaliacoes" ref={ref} className="py-20 px-4 bg-black">
+    <section id="avaliacoes" ref={ref} className="py-14 md:py-20 px-4 bg-black">
       <div className="max-w-7xl mx-auto">
 
         <motion.div
           initial={{ opacity: 0, y: 50 }}
           animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 50 }}
           transition={{ duration: 0.6 }}
-          className="text-center mb-16"
+          className="text-center mb-10 md:mb-16"
         >
-          <h2 className="text-4xl md:text-6xl font-bold text-neutral-100 mb-4 tracking-wide">
+          <h2 className="text-3xl sm:text-5xl md:text-6xl font-bold text-neutral-100 mb-4 tracking-wide">
             AVALIAÇÕES
           </h2>
           <p className="text-neutral-400 text-lg">
@@ -84,7 +84,7 @@ export function Reviews({ showAll = false }: ReviewsProps) {
           </p>
         </motion.div>
 
-        <div className="grid md:grid-cols-3 gap-8 mb-16">
+        <div className="grid md:grid-cols-3 gap-4 sm:gap-6 md:gap-8 mb-10 md:mb-16">
           {isLoading ? (
             <div className="md:col-span-3 text-center text-neutral-400">
               Carregando avaliações...
@@ -148,9 +148,9 @@ export function Reviews({ showAll = false }: ReviewsProps) {
           initial={{ opacity: 0, y: 50 }}
           animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 50 }}
           transition={{ duration: 0.6, delay: 0.4 }}
-          className="max-w-2xl mx-auto bg-neutral-900 border border-white/5 p-8 rounded-2xl"
+          className="max-w-2xl mx-auto bg-neutral-900 border border-white/5 p-5 sm:p-8 rounded-2xl"
         >
-          <h3 className="text-2xl font-bold text-neutral-100 mb-6 text-center">
+          <h3 className="text-xl md:text-2xl font-bold text-neutral-100 mb-5 sm:mb-6 text-center">
             Deixe sua Avaliação
           </h3>
 

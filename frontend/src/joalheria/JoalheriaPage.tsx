@@ -581,22 +581,20 @@ export default function JoalheriaPage() {
 
       {/* Header */}
       <header className="border-b border-gray-800 sticky top-0 backdrop-blur-sm z-50" style={{ backgroundColor: 'rgba(0,0,0,0.95)' }}>
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
+        <div className="container mx-auto px-3 sm:px-4 py-3 sm:py-4">
+          <div className="flex items-center gap-2 sm:gap-3">
+            {/* Back arrow */}
             <button onClick={() => (window.location.href = '/')}
-              className="flex items-center gap-2 text-xs text-gray-400 hover:text-white transition lg:hidden">
+              className="shrink-0 flex items-center gap-1.5 text-xs text-gray-400 hover:text-white transition">
               <ArrowLeft className="w-4 h-4" />
-            </button>
-            <button onClick={() => (window.location.href = '/')}
-              className="hidden lg:flex items-center gap-2 text-xs text-gray-400 hover:text-white transition">
-              <ArrowLeft className="w-4 h-4" /> Voltar ao site
+              <span className="hidden lg:inline">Voltar ao site</span>
             </button>
 
-            <h1 className="text-xl font-serif tracking-wider absolute left-1/2 -translate-x-1/2">JOALHERIA</h1>
+            {/* Title — centered via flex-1 */}
+            <h1 className="flex-1 text-center text-lg sm:text-xl font-serif tracking-wider">JOALHERIA</h1>
 
-            <nav className="hidden lg:flex gap-6 absolute left-1/2 -translate-x-1/2 mt-0" style={{ display: 'none' }} />
-
-            <div className="flex items-center gap-4 ml-auto">
+            {/* Right actions */}
+            <div className="shrink-0 flex items-center gap-2 sm:gap-3">
               <button className="hidden sm:block text-gray-400 hover:text-white transition">
                 <Search className="w-5 h-5" />
               </button>
@@ -615,12 +613,12 @@ export default function JoalheriaPage() {
                 <div className="relative">
                   <button
                     onClick={() => setUserMenuOpen((v) => !v)}
-                    className="group flex items-center gap-2 text-sm text-gray-300 hover:text-white transition-all duration-200">
-                    <div className="w-8 h-8 rounded-full bg-gray-800 border border-gray-700 group-hover:border-gray-500 flex items-center justify-center transition-all duration-200 group-hover:shadow-[0_0_12px_rgba(255,255,255,0.1)]">
-                      <User className="w-4 h-4" />
+                    className="group flex items-center gap-1.5 sm:gap-2 text-sm text-gray-300 hover:text-white transition-all duration-200">
+                    <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gray-800 border border-gray-700 group-hover:border-gray-500 flex items-center justify-center transition-all duration-200 group-hover:shadow-[0_0_12px_rgba(255,255,255,0.1)]">
+                      <User className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                     </div>
-                    <span className="hidden sm:block max-w-[120px] truncate">{user.name.split(' ')[0]}</span>
-                    <ChevronDown className="w-3 h-3 text-gray-500 transition-transform duration-200 group-hover:text-gray-300" style={{ transform: userMenuOpen ? 'rotate(180deg)' : 'rotate(0deg)' }} />
+                    <span className="hidden sm:block max-w-[100px] truncate">{user.name.split(' ')[0]}</span>
+                    <ChevronDown className="hidden sm:block w-3 h-3 text-gray-500 transition-transform duration-200 group-hover:text-gray-300" style={{ transform: userMenuOpen ? 'rotate(180deg)' : 'rotate(0deg)' }} />
                   </button>
                   <AnimatePresence>
                     {userMenuOpen && (
@@ -642,16 +640,16 @@ export default function JoalheriaPage() {
                   </AnimatePresence>
                 </div>
               ) : (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5">
                   <button
                     onClick={() => { setAuthTab('login'); setShowAuth(true); }}
-                    className="group relative overflow-hidden text-sm text-white/70 hover:text-white transition-all duration-300 px-4 py-1.5 rounded-full border border-white/30 hover:border-white/70 shadow-[0_0_6px_rgba(255,255,255,0.12),inset_0_0_6px_rgba(255,255,255,0.03)] hover:shadow-[0_0_12px_rgba(255,255,255,0.4),0_0_24px_rgba(255,255,255,0.12),inset_0_0_10px_rgba(255,255,255,0.05)]">
+                    className="group relative overflow-hidden text-xs sm:text-sm text-white/70 hover:text-white transition-all duration-300 px-3 sm:px-4 py-1.5 rounded-full border border-white/30 hover:border-white/70 shadow-[0_0_6px_rgba(255,255,255,0.12),inset_0_0_6px_rgba(255,255,255,0.03)] hover:shadow-[0_0_12px_rgba(255,255,255,0.4),0_0_24px_rgba(255,255,255,0.12),inset_0_0_10px_rgba(255,255,255,0.05)]">
                     <span className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-out bg-gradient-to-r from-transparent via-white/8 to-transparent skew-x-12" />
                     Entrar
                   </button>
                   <button
                     onClick={() => { setAuthTab('register'); setShowAuth(true); }}
-                    className="group relative overflow-hidden text-sm text-white px-4 py-1.5 rounded-full font-semibold border border-white/70 shadow-[0_0_10px_rgba(255,255,255,0.45),0_0_28px_rgba(255,255,255,0.16),inset_0_0_10px_rgba(255,255,255,0.05)] hover:shadow-[0_0_18px_rgba(255,255,255,0.7),0_0_42px_rgba(255,255,255,0.24),inset_0_0_14px_rgba(255,255,255,0.09)] transition-all duration-300">
+                    className="hidden sm:block group relative overflow-hidden text-sm text-white px-4 py-1.5 rounded-full font-semibold border border-white/70 shadow-[0_0_10px_rgba(255,255,255,0.45),0_0_28px_rgba(255,255,255,0.16),inset_0_0_10px_rgba(255,255,255,0.05)] hover:shadow-[0_0_18px_rgba(255,255,255,0.7),0_0_42px_rgba(255,255,255,0.24),inset_0_0_14px_rgba(255,255,255,0.09)] transition-all duration-300">
                     <span className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-out bg-gradient-to-r from-transparent via-white/12 to-transparent skew-x-12" />
                     Cadastrar
                   </button>
@@ -663,7 +661,7 @@ export default function JoalheriaPage() {
       </header>
 
       {/* Hero */}
-      <section className="relative h-[600px] flex items-center justify-center overflow-hidden">
+      <section className="relative h-[420px] sm:h-[520px] md:h-[600px] flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-gray-900/50 to-black/80 z-10" />
         <ImageWithFallback
           src="https://images.unsplash.com/photo-1605100804763-247f67b3557e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=1080"
@@ -677,7 +675,7 @@ export default function JoalheriaPage() {
           transition={{ duration: 0.8 }}
         >
           <motion.h2
-            className="text-5xl md:text-7xl font-serif mb-4"
+            className="text-3xl sm:text-5xl md:text-7xl font-serif mb-4"
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.1 }}
@@ -685,7 +683,7 @@ export default function JoalheriaPage() {
             Elegância Atemporal
           </motion.h2>
           <motion.p
-            className="text-xl md:text-2xl text-gray-300 mb-8"
+            className="text-base sm:text-xl md:text-2xl text-gray-300 mb-6 sm:mb-8"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.7, delay: 0.3 }}
@@ -708,10 +706,10 @@ export default function JoalheriaPage() {
       </section>
 
       {/* Categorias */}
-      <section className="py-16" style={{ backgroundColor: '#000000' }}>
+      <section className="py-10 md:py-16" style={{ backgroundColor: '#000000' }}>
         <div className="container mx-auto px-4">
           <motion.h3
-            className="text-3xl font-serif text-center mb-12"
+            className="text-2xl sm:text-3xl font-serif text-center mb-8 sm:mb-12"
             initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }} transition={{ duration: 0.6 }}
           >
@@ -743,14 +741,14 @@ export default function JoalheriaPage() {
 
       {/* Produtos em Destaque */}
       {featuredItems.length > 0 && (
-        <section id="destaques" className="py-16" style={{ backgroundColor: '#000000' }}>
+        <section id="destaques" className="py-10 md:py-16" style={{ backgroundColor: '#000000' }}>
           <div className="container mx-auto px-4">
             <motion.div
               className="flex justify-between items-center mb-12"
               initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }} transition={{ duration: 0.6 }}
             >
-              <h3 className="text-3xl font-serif">Produtos em Destaque</h3>
+              <h3 className="text-2xl sm:text-3xl font-serif">Produtos em Destaque</h3>
               <button
                 onClick={() => document.getElementById('catalog')?.scrollIntoView({ behavior: 'smooth' })}
                 className="text-gray-500 hover:text-white transition-colors text-sm tracking-wide border-b border-transparent hover:border-gray-400 pb-0.5"
@@ -769,7 +767,7 @@ export default function JoalheriaPage() {
       )}
 
       {/* Catálogo */}
-      <section id="catalog" className="py-16" style={{ backgroundColor: '#000000' }}>
+      <section id="catalog" className="py-10 md:py-16" style={{ backgroundColor: '#000000' }}>
         <div className="container mx-auto px-4">
           <motion.div
             className="text-center mb-12"
@@ -823,14 +821,14 @@ export default function JoalheriaPage() {
       </section>
 
       {/* Sobre */}
-      <section className="py-20" style={{ backgroundColor: '#000000' }}>
+      <section className="py-12 md:py-20" style={{ backgroundColor: '#000000' }}>
         <div className="container mx-auto px-4">
           <div className="grid md:grid-cols-2 gap-12 items-center">
             <motion.div
               initial={{ opacity: 0, x: -60 }} whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }} transition={{ duration: 0.8 }}
             >
-              <h3 className="text-4xl font-serif mb-6">Artesanato e Luxo</h3>
+              <h3 className="text-2xl sm:text-4xl font-serif mb-4 sm:mb-6">Artesanato e Luxo</h3>
               <p className="text-gray-400 text-lg mb-6">
                 Cada peça da nossa joalheria é criada com dedicação, combinando técnicas
                 tradicionais com design contemporâneo.
@@ -848,7 +846,7 @@ export default function JoalheriaPage() {
               </button>
             </motion.div>
             <motion.div
-              className="relative h-[400px] md:h-[500px] rounded-lg overflow-hidden"
+              className="relative h-[260px] sm:h-[360px] md:h-[500px] rounded-lg overflow-hidden"
               initial={{ opacity: 0, x: 60 }} whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }} transition={{ duration: 0.8 }}
             >

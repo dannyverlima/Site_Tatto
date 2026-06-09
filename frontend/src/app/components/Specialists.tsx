@@ -126,7 +126,7 @@ function SpecialistModal({
         </motion.button>
 
         {/* ── Foto ── */}
-        <div className="relative min-h-[280px] lg:min-h-[520px]">
+        <div className="relative min-h-[220px] sm:min-h-[280px] lg:min-h-[520px]">
           <ImageWithFallback
             src={specialist.image ?? specialist.imageUrl ?? ''}
             alt={specialist.name}
@@ -270,15 +270,15 @@ export function Specialists() {
       : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4';
 
   return (
-    <section id="especialistas" ref={ref} className="py-20 px-4 bg-black">
+    <section id="especialistas" ref={ref} className="py-14 md:py-20 px-4 bg-black">
       <div className="max-w-7xl mx-auto">
         <motion.div
           initial={{ opacity: 0, y: 40 }}
           animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 40 }}
           transition={{ duration: 0.6 }}
-          className="text-center mb-16"
+          className="text-center mb-10 md:mb-16"
         >
-          <h2 className="text-4xl md:text-6xl font-bold text-neutral-100 mb-4 tracking-wide">
+          <h2 className="text-3xl sm:text-5xl md:text-6xl font-bold text-neutral-100 mb-4 tracking-wide">
             ESPECIALISTAS
           </h2>
           <p className="text-neutral-400 text-lg">
@@ -286,7 +286,7 @@ export function Specialists() {
           </p>
         </motion.div>
 
-        <div className={`grid gap-6 ${colClass}`}>
+        <div className={`grid gap-4 sm:gap-6 ${colClass}`}>
           {specialists.map((specialist, index) => {
             const handle = extractInstagramHandle(specialist.instagram);
             return (
@@ -325,8 +325,8 @@ export function Specialists() {
                       <Sparkles size={11} />
                       Especialista
                     </p>
-                    <h3 className="text-lg font-bold leading-snug mb-0.5">{specialist.name}</h3>
-                    <p className="text-neutral-400 text-sm mb-1">{specialist.specialty}</p>
+                    <h3 className="text-lg font-bold leading-snug mb-0.5 line-clamp-2">{specialist.name}</h3>
+                    <p className="text-neutral-400 text-sm mb-1 line-clamp-1">{specialist.specialty}</p>
                     <p className="text-neutral-500 text-xs mb-3">{specialist.experience ?? ' '}</p>
                     {/* links rápidos nas cartas */}
                     <div className="flex items-center gap-2 mb-4 flex-wrap">

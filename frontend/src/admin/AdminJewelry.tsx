@@ -197,7 +197,7 @@ export function AdminJewelry() {
       });
     } catch (error) {
       console.error('Erro ao enviar imagem:', error);
-      alert('Nao foi possivel enviar a imagem');
+      alert(`Não foi possível enviar a imagem: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
     } finally {
       setIsUploadingNewImage(false);
       event.target.value = '';
@@ -223,7 +223,7 @@ export function AdminJewelry() {
       });
     } catch (error) {
       console.error('Erro ao enviar imagem:', error);
-      alert('Nao foi possivel enviar a imagem');
+      alert(`Não foi possível enviar a imagem: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
     } finally {
       setUploadingItemId(null);
       event.target.value = '';

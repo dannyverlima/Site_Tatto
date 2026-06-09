@@ -46,7 +46,7 @@ function AdminJoalheriaLogin({ onSuccess }: { onSuccess: () => void }) {
         <div className="absolute left-[-12%] top-[-10%] h-[26rem] w-[26rem] rounded-full bg-white/5 blur-3xl" />
         <div className="absolute right-[-8%] top-[18%] h-[32rem] w-[32rem] rounded-full bg-white/3 blur-3xl" />
       </div>
-      <form onSubmit={handleSubmit} className="relative w-full max-w-md rounded-3xl border border-white/10 bg-white/[0.03] p-8 backdrop-blur-xl">
+      <form onSubmit={handleSubmit} className="relative w-full max-w-md rounded-3xl border border-white/10 bg-white/[0.03] p-6 sm:p-8 backdrop-blur-xl">
         <div className="mb-6 flex items-center gap-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/8">
             <Gem className="h-5 w-5 text-white/70" />
@@ -91,18 +91,18 @@ function AdminJoalheriaPanel() {
       </div>
 
       <header className="relative border-b border-white/10 bg-black/40 backdrop-blur-2xl">
-        <div className="mx-auto max-w-7xl px-4 py-5 lg:px-8 flex items-center gap-4">
-          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/8">
-            <Gem className="h-5 w-5 text-white/70" />
+        <div className="mx-auto max-w-7xl px-4 py-4 sm:py-5 lg:px-8 flex items-center gap-3 sm:gap-4">
+          <div className="flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-2xl bg-white/8">
+            <Gem className="h-4 w-4 sm:h-5 sm:w-5 text-white/70" />
           </div>
-          <div>
-            <h1 className="text-xl font-semibold md:text-2xl">Admin Joalheria</h1>
-            <p className="text-xs text-white/40">Gestão da loja de joias</p>
+          <div className="min-w-0">
+            <h1 className="text-base sm:text-xl font-semibold md:text-2xl truncate">Admin Joalheria</h1>
+            <p className="text-xs text-white/40 hidden sm:block">Gestão da loja de joias</p>
           </div>
-          <div className="ml-auto flex items-center gap-3">
+          <div className="ml-auto flex items-center gap-2 sm:gap-3 shrink-0">
             <a
               href="/joalheria"
-              className="flex items-center gap-1.5 text-xs text-white/40 hover:text-white/70 transition"
+              className="hidden sm:flex items-center gap-1.5 text-xs text-white/40 hover:text-white/70 transition"
             >
               <ArrowLeft className="h-3.5 w-3.5" />
               Ver loja
@@ -117,25 +117,25 @@ function AdminJoalheriaPanel() {
         </div>
       </header>
 
-      <main className="relative mx-auto max-w-7xl px-4 py-8 lg:px-8">
+      <main className="relative mx-auto max-w-7xl px-4 py-6 sm:py-8 lg:px-8">
         <Tabs defaultValue="jewelry" className="w-full">
-          <div className="mb-7 flex justify-center">
-            <TabsList className="!h-auto grid w-full max-w-md grid-cols-3 gap-1.5 rounded-full border border-white/10 bg-[linear-gradient(120deg,rgba(255,255,255,0.07),rgba(255,255,255,0.01)_45%,rgba(0,0,0,0.22))] p-1.5 shadow-2xl shadow-black/35 backdrop-blur-2xl">
+          <div className="mb-7 overflow-x-auto pb-1 -mx-4 px-4 sm:mx-0 sm:px-0 flex justify-center">
+            <TabsList className="!h-auto flex min-w-max sm:grid sm:w-full sm:max-w-md sm:grid-cols-3 gap-1.5 rounded-full border border-white/10 bg-[linear-gradient(120deg,rgba(255,255,255,0.07),rgba(255,255,255,0.01)_45%,rgba(0,0,0,0.22))] p-1.5 shadow-2xl shadow-black/35 backdrop-blur-2xl">
               <TabsTrigger
                 value="jewelry"
-                className="!h-11 rounded-full text-sm font-medium text-white/70 transition-all duration-300 hover:bg-white/10 hover:text-white data-[state=active]:!border-white/20 data-[state=active]:!bg-white data-[state=active]:!text-black data-[state=active]:shadow-[0_8px_20px_rgba(255,255,255,0.18)]"
+                className="!h-10 sm:!h-11 px-5 sm:px-2 rounded-full text-xs sm:text-sm font-medium text-white/70 transition-all duration-300 hover:bg-white/10 hover:text-white data-[state=active]:!border-white/20 data-[state=active]:!bg-white data-[state=active]:!text-black data-[state=active]:shadow-[0_8px_20px_rgba(255,255,255,0.18)] whitespace-nowrap"
               >
                 Joalheria
               </TabsTrigger>
               <TabsTrigger
                 value="orders"
-                className="!h-11 rounded-full text-sm font-medium text-white/70 transition-all duration-300 hover:bg-white/10 hover:text-white data-[state=active]:!border-white/20 data-[state=active]:!bg-white data-[state=active]:!text-black data-[state=active]:shadow-[0_8px_20px_rgba(255,255,255,0.18)]"
+                className="!h-10 sm:!h-11 px-5 sm:px-2 rounded-full text-xs sm:text-sm font-medium text-white/70 transition-all duration-300 hover:bg-white/10 hover:text-white data-[state=active]:!border-white/20 data-[state=active]:!bg-white data-[state=active]:!text-black data-[state=active]:shadow-[0_8px_20px_rgba(255,255,255,0.18)] whitespace-nowrap"
               >
                 Encomendas
               </TabsTrigger>
               <TabsTrigger
                 value="revenue"
-                className="!h-11 rounded-full text-sm font-medium text-white/70 transition-all duration-300 hover:bg-white/10 hover:text-white data-[state=active]:!border-white/20 data-[state=active]:!bg-white data-[state=active]:!text-black data-[state=active]:shadow-[0_8px_20px_rgba(255,255,255,0.18)]"
+                className="!h-10 sm:!h-11 px-5 sm:px-2 rounded-full text-xs sm:text-sm font-medium text-white/70 transition-all duration-300 hover:bg-white/10 hover:text-white data-[state=active]:!border-white/20 data-[state=active]:!bg-white data-[state=active]:!text-black data-[state=active]:shadow-[0_8px_20px_rgba(255,255,255,0.18)] whitespace-nowrap"
               >
                 Faturamento
               </TabsTrigger>
@@ -143,19 +143,19 @@ function AdminJoalheriaPanel() {
           </div>
 
           <TabsContent value="jewelry" className="space-y-10">
-            <div className="rounded-[28px] border border-white/10 bg-white/[0.03] p-4 backdrop-blur-xl">
+            <div className="rounded-[28px] border border-white/10 bg-white/[0.03] p-3 sm:p-4 backdrop-blur-xl">
               <AdminJewelry />
             </div>
           </TabsContent>
 
           <TabsContent value="orders" className="space-y-10">
-            <div className="rounded-[28px] border border-white/10 bg-white/[0.03] p-4 backdrop-blur-xl">
+            <div className="rounded-[28px] border border-white/10 bg-white/[0.03] p-3 sm:p-4 backdrop-blur-xl">
               <AdminOrders />
             </div>
           </TabsContent>
 
           <TabsContent value="revenue" className="space-y-10">
-            <div className="rounded-[28px] border border-white/10 bg-white/[0.03] p-4 backdrop-blur-xl">
+            <div className="rounded-[28px] border border-white/10 bg-white/[0.03] p-3 sm:p-4 backdrop-blur-xl">
               <AdminRevenue />
             </div>
           </TabsContent>
