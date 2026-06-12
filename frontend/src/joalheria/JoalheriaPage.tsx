@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, ChevronDown, Gem, Heart, LogOut, Minus, Package, Plus, Search, ShoppingBag, ShoppingCart, Star, User, X } from 'lucide-react';
 import { ImageWithFallback } from '../app/components/figma/ImageWithFallback';
-import { useAuth } from './AuthContext';
+import { useAuth, type JewelryUser } from './AuthContext';
 import { AuthModal } from './AuthModal';
 
 const currency = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -27,23 +27,6 @@ type CartItem = {
   imageUrl: string;
   quantity: number;
 };
-
-type CheckoutForm = {
-  name: string;
-  email: string;
-  phone: string;
-  addressLine1: string;
-  addressLine2: string;
-  city: string;
-  state: string;
-  postalCode: string;
-  notes: string;
-};
-
-const emptyCheckout = (): CheckoutForm => ({
-  name: '', email: '', phone: '',
-  addressLine1: '', addressLine2: '', city: '', state: '', postalCode: '', notes: '',
-});
 
 // CartSidebar
 function CartSidebar({
@@ -143,55 +126,153 @@ function CartSidebar({
   );
 }
 
-// CheckoutModal — Buscar na loja (retirada)
-function CheckoutModal({
-  cart, form, setForm,
-  onClose, onSubmit, submitting, submitError, submitted,
-}: {
+// NewCheckoutModal — Finalizar compra (retirada ou entrega, com escolha de pagamento)
+function NewCheckoutModal({ cart, user, onClose, onDone }: {
   cart: CartItem[];
-  form: CheckoutForm;
-  setForm: (f: CheckoutForm) => void;
+  user: JewelryUser;
   onClose: () => void;
-  onSubmit: (e: React.FormEvent) => void;
-  submitting: boolean;
-  submitError: string;
-  submitted: boolean;
+  onDone: () => void;
 }) {
+  const [delivery, setDelivery] = useState<'pickup' | 'delivery'>('pickup');
+  const [payment, setPayment] = useState<'dinheiro' | 'cartao'>('dinheiro');
+  const [phone, setPhone] = useState('');
+  const [addressLine1, setAddressLine1] = useState('');
+  const [city, setCity] = useState('');
+  const [addrState, setAddrState] = useState('');
+  const [notes, setNotes] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+  const [done, setDone] = useState(false);
+  const [donePayment, setDonePayment] = useState<'dinheiro' | 'cartao'>('dinheiro');
+  const [doneDelivery, setDoneDelivery] = useState<'pickup' | 'delivery'>('pickup');
+
   const subtotal = cart.reduce((s, i) => s + i.price * i.quantity, 0);
+
+  const handleDeliveryChange = (d: 'pickup' | 'delivery') => {
+    setDelivery(d);
+    if (d === 'delivery') setPayment('cartao');
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setError('');
+    try {
+      const payload = {
+        customerName: user.name,
+        email: user.email,
+        phone,
+        deliveryMethod: delivery === 'pickup' ? 'pickup' : 'delivery',
+        addressLine1: delivery === 'delivery' ? addressLine1 : undefined,
+        city: delivery === 'delivery' ? city : undefined,
+        state: delivery === 'delivery' ? addrState : undefined,
+        notes,
+        items: cart.map((c) => ({ id: c.id, quantity: c.quantity })),
+        paymentMethod: payment,
+      };
+      if (payment === 'dinheiro') {
+        const res = await fetch('/api/jewelry-orders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) throw new Error('Não foi possível finalizar o pedido');
+      } else {
+        const res = await fetch('/api/jewelry-checkout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) throw new Error('Não foi possível processar o pagamento');
+        const data = await res.json();
+        if (data.paymentUrl) {
+          window.location.href = data.paymentUrl;
+          return;
+        }
+      }
+      setDonePayment(payment);
+      setDoneDelivery(delivery);
+      setDone(true);
+      onDone();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Erro ao processar pedido');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const inp = 'w-full rounded-xl bg-white/5 border border-white/10 px-3.5 py-2.5 text-sm text-white placeholder:text-white/25 focus:outline-none focus:border-white/30 transition';
+
   return (
     <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/70 backdrop-blur-md">
       <motion.div initial={{ y: 60, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 60, opacity: 0 }}
         transition={{ type: 'spring', stiffness: 340, damping: 32 }}
-        className="w-full max-w-lg bg-black border border-white/10 rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-y-auto max-h-[95vh] sm:max-h-[88vh]">
-        {submitted ? (
+        className="w-full max-w-lg bg-black border border-white/10 rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-y-auto max-h-[95vh] sm:max-h-[90vh]">
+        {done ? (
           <div className="p-12 text-center">
             <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-white/8">
               <Gem className="h-7 w-7 text-neutral-200" />
             </div>
-            <h3 className="text-xl font-semibold mb-2">Retirada confirmada!</h3>
-            <p className="text-neutral-400 text-sm leading-relaxed">Entraremos em contato para combinar a retirada na loja.</p>
+            <h3 className="text-xl font-semibold mb-2">
+              {donePayment === 'cartao' ? 'Pagamento confirmado!' : 'Pedido confirmado!'}
+            </h3>
+            <p className="text-neutral-400 text-sm leading-relaxed">
+              {donePayment === 'dinheiro' && doneDelivery === 'pickup' && 'Entraremos em contato para combinar a retirada na loja.'}
+              {donePayment === 'dinheiro' && doneDelivery === 'delivery' && 'Entraremos em contato para combinar a entrega e o pagamento.'}
+              {donePayment === 'cartao' && doneDelivery === 'pickup' && 'Pode retirar na loja quando quiser.'}
+              {donePayment === 'cartao' && doneDelivery === 'delivery' && 'Entraremos em contato para combinar a entrega.'}
+            </p>
             <button onClick={onClose} className="group relative overflow-hidden mt-7 px-8 py-2.5 rounded-full bg-white text-black text-sm font-semibold hover:shadow-[0_0_24px_rgba(255,255,255,0.3)] transition-all duration-300">
               <span className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-out bg-gradient-to-r from-transparent via-black/10 to-transparent skew-x-12" />
               Continuar
             </button>
           </div>
         ) : (
-          <form onSubmit={onSubmit} className="p-6 space-y-4">
+          <form onSubmit={handleSubmit} className="p-6 space-y-4">
             <div className="flex items-center justify-between pb-1">
               <div>
-                <h3 className="text-base font-semibold">Retirada na loja</h3>
-                <p className="text-xs text-white/40 mt-0.5">Informe seus dados para combinarmos</p>
+                <h3 className="text-base font-semibold">Finalizar pedido</h3>
+                <p className="text-xs text-white/40 mt-0.5">Olá, {user.name}</p>
               </div>
               <button type="button" onClick={onClose} className="p-1.5 rounded-full hover:bg-white/8 transition"><X className="h-4 w-4 text-white/50" /></button>
             </div>
-            <input className={inp} placeholder="Nome completo *" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-            <div className="grid grid-cols-2 gap-3">
-              <input className={inp} placeholder="WhatsApp *" required value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-              <input className={inp} placeholder="Email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+            <input className={inp} placeholder="WhatsApp *" required value={phone} onChange={(e) => setPhone(e.target.value)} />
+            <div>
+              <p className="text-xs text-white/40 uppercase tracking-widest mb-2">Como deseja receber?</p>
+              <div className="flex gap-2">
+                {(['pickup', 'delivery'] as const).map((d) => (
+                  <button key={d} type="button" onClick={() => handleDeliveryChange(d)}
+                    className={`flex-1 py-2 rounded-full text-xs font-medium border transition ${delivery === d ? 'bg-white text-black border-white' : 'border-white/10 text-white/60 hover:bg-white/5'}`}>
+                    {d === 'pickup' ? 'Buscar na loja' : 'Entrega'}
+                  </button>
+                ))}
+              </div>
             </div>
-            <textarea className={`${inp} resize-none`} rows={2} placeholder="Observações (opcional)"
-              value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+            {delivery === 'delivery' && (
+              <div className="space-y-3">
+                <input className={inp} placeholder="Endereço *" required value={addressLine1} onChange={(e) => setAddressLine1(e.target.value)} />
+                <div className="grid grid-cols-2 gap-3">
+                  <input className={inp} placeholder="Cidade *" required value={city} onChange={(e) => setCity(e.target.value)} />
+                  <input className={inp} placeholder="Estado *" required value={addrState} onChange={(e) => setAddrState(e.target.value)} />
+                </div>
+              </div>
+            )}
+            <div>
+              <p className="text-xs text-white/40 uppercase tracking-widest mb-2">Pagamento</p>
+              <div className="flex gap-2">
+                <button type="button" onClick={() => setPayment('dinheiro')} disabled={delivery === 'delivery'}
+                  className={`flex-1 py-2 rounded-full text-xs font-medium border transition ${payment === 'dinheiro' ? 'bg-white text-black border-white' : 'border-white/10 text-white/60 hover:bg-white/5'} disabled:opacity-30 disabled:cursor-not-allowed`}>
+                  Pagar na loja
+                </button>
+                <button type="button" onClick={() => setPayment('cartao')}
+                  className={`flex-1 py-2 rounded-full text-xs font-medium border transition ${payment === 'cartao' ? 'bg-white text-black border-white' : 'border-white/10 text-white/60 hover:bg-white/5'}`}>
+                  Cartão online
+                </button>
+              </div>
+              {delivery === 'delivery' && (
+                <p className="text-xs text-white/30 mt-1.5">Entrega requer pagamento com cartão</p>
+              )}
+            </div>
             <div className="rounded-2xl border border-white/8 bg-white/[0.02] p-4 space-y-1.5 text-sm">
               {cart.map((item) => (
                 <div key={item.id} className="flex justify-between text-white/60">
@@ -203,11 +284,12 @@ function CheckoutModal({
                 <span>Total</span><span>{currency.format(subtotal)}</span>
               </div>
             </div>
-            {submitError && <p className="text-red-400/90 text-xs bg-red-400/8 rounded-xl px-3 py-2">{submitError}</p>}
+            <textarea className={`${inp} resize-none`} rows={2} placeholder="Observações (opcional)" value={notes} onChange={(e) => setNotes(e.target.value)} />
+            {error && <p className="text-red-400/90 text-xs bg-red-400/8 rounded-xl px-3 py-2">{error}</p>}
             <button type="submit" disabled={submitting}
               className="group relative overflow-hidden w-full py-3.5 rounded-full bg-white text-black font-semibold text-sm hover:shadow-[0_0_30px_rgba(255,255,255,0.3)] transition-all duration-300 disabled:opacity-40">
               <span className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-out bg-gradient-to-r from-transparent via-black/10 to-transparent skew-x-12" />
-              {submitting ? 'Enviando...' : 'Confirmar retirada'}
+              {submitting ? 'Processando...' : payment === 'cartao' ? 'Pagar com cartão' : 'Confirmar pedido'}
             </button>
           </form>
         )}
@@ -501,10 +583,6 @@ export default function JoalheriaPage() {
   const [showCheckout, setShowCheckout] = useState(false);
   const [showEncomenda, setShowEncomenda] = useState(false);
   const [selectedItem, setSelectedItem] = useState<JewelryItem | null>(null);
-  const [checkoutForm, setCheckoutForm] = useState<CheckoutForm>(emptyCheckout());
-  const [submitting, setSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState('');
-  const [submitted, setSubmitted] = useState(false);
   const [filter, setFilter] = useState<'all' | 'featured' | 'discounted'>('all');
   const [categoryFilter, setCategoryFilter] = useState<'geral' | 'homem' | 'mulher' | 'crianca'>('geral');
 
@@ -542,32 +620,6 @@ export default function JoalheriaPage() {
   const updateQuantity = (id: string, delta: number) =>
     setCart((cur) => cur.map((c) => c.id === id ? { ...c, quantity: Math.max(0, c.quantity + delta) } : c).filter((c) => c.quantity > 0));
   const removeFromCart = (id: string) => setCart((cur) => cur.filter((c) => c.id !== id));
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!cart.length) return;
-    setSubmitting(true);
-    setSubmitError('');
-    try {
-      const res = await fetch('/api/jewelry-orders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          customerName: checkoutForm.name,
-          email: checkoutForm.email,
-          phone: checkoutForm.phone,
-          deliveryMethod: 'pickup',
-          notes: checkoutForm.notes,
-          items: cart.map((c) => ({ id: c.id, quantity: c.quantity })),
-        }),
-      });
-      if (!res.ok) throw new Error();
-      setSubmitted(true);
-      setCart([]);
-      setCheckoutForm(emptyCheckout());
-    } catch { setSubmitError('Não foi possível finalizar o pedido. Tente novamente.'); }
-    finally { setSubmitting(false); }
-  };
 
   const cartCount = cart.reduce((s, c) => s + c.quantity, 0);
   const effectivePrice = (item: JewelryItem) =>
@@ -934,17 +986,16 @@ export default function JoalheriaPage() {
         cart={cart} shippingFee={shippingFee} deliveryMethod={deliveryMethod}
         setDeliveryMethod={setDeliveryMethod} updateQuantity={updateQuantity}
         removeFromCart={removeFromCart}
-        onCheckout={() => { setCartOpen(false); setShowCheckout(true); }}
+        onCheckout={() => { setCartOpen(false); if (!user) { setAuthTab('login'); setShowAuth(true); } else setShowCheckout(true); }}
         onEncomenda={() => { setCartOpen(false); setShowEncomenda(true); }}
         open={cartOpen} onClose={() => setCartOpen(false)}
       />
 
       <AnimatePresence>
-        {showCheckout && (
-          <CheckoutModal key="checkout" cart={cart}
-            form={checkoutForm} setForm={setCheckoutForm}
-            onClose={() => { setShowCheckout(false); setSubmitted(false); }}
-            onSubmit={handleSubmit} submitting={submitting} submitError={submitError} submitted={submitted} />
+        {showCheckout && user && (
+          <NewCheckoutModal key="checkout" cart={cart} user={user}
+            onClose={() => setShowCheckout(false)}
+            onDone={() => setCart([])} />
         )}
         {showEncomenda && <EncomendaModal key="encomenda" onClose={() => setShowEncomenda(false)} cartItems={deliveryMethod === 'encomendar' ? cart : undefined} />}
         {selectedItem && (

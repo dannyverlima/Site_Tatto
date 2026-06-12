@@ -4,10 +4,11 @@ import { useSiteConfig } from '../app/hooks/useSiteConfig';
 import { AdminSpecialists } from './AdminSpecialists';
 import { AdminCourse } from './AdminCourse';
 import { AdminPortfolio } from './AdminPortfolio';
+import { AdminUrls } from './AdminUrls';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../app/components/ui/tabs';
 import { Button } from '../app/components/ui/button';
 import { Input } from '../app/components/ui/input';
-import { ChevronRight, Upload, Wand2, Gem } from 'lucide-react';
+import { ChevronRight, Upload, Wand2, Gem, Link2 } from 'lucide-react';
 import { uploadImageFile } from './uploadImage';
 import { ImageWithFallback } from '../app/components/figma/ImageWithFallback';
 
@@ -215,11 +216,12 @@ const AdminLogin = ({ onSuccess }: { onSuccess: () => void }) => {
       <main className="relative mx-auto max-w-7xl px-4 py-6 sm:py-8 lg:px-8">
         <Tabs defaultValue="hero" className="w-full">
           <div className="mb-7 overflow-x-auto pb-1 -mx-4 px-4 sm:mx-0 sm:px-0 flex justify-center">
-            <TabsList className="!h-auto flex min-w-max sm:grid sm:w-full sm:max-w-3xl sm:grid-cols-5 gap-1.5 rounded-full border border-white/10 bg-[linear-gradient(120deg,rgba(255,255,255,0.07),rgba(255,255,255,0.01)_45%,rgba(0,0,0,0.22))] p-1.5 shadow-2xl shadow-black/35 backdrop-blur-2xl">
+            <TabsList className="!h-auto flex min-w-max sm:grid sm:w-full sm:max-w-4xl sm:grid-cols-6 gap-1.5 rounded-full border border-white/10 bg-[linear-gradient(120deg,rgba(255,255,255,0.07),rgba(255,255,255,0.01)_45%,rgba(0,0,0,0.22))] p-1.5 shadow-2xl shadow-black/35 backdrop-blur-2xl">
               <TabsTrigger value="hero" className="!h-10 sm:!h-11 px-4 sm:px-2 rounded-full text-xs sm:text-sm font-medium text-white/70 transition-all duration-300 hover:bg-white/10 hover:text-white data-[state=active]:!border-white/20 data-[state=active]:!bg-white data-[state=active]:!text-black data-[state=active]:shadow-[0_8px_20px_rgba(255,255,255,0.18)] whitespace-nowrap">Início</TabsTrigger>
               <TabsTrigger value="course" className="!h-10 sm:!h-11 px-4 sm:px-2 rounded-full text-xs sm:text-sm font-medium text-white/70 transition-all duration-300 hover:bg-white/10 hover:text-white data-[state=active]:!border-white/20 data-[state=active]:!bg-white data-[state=active]:!text-black data-[state=active]:shadow-[0_8px_20px_rgba(255,255,255,0.18)] whitespace-nowrap">Curso</TabsTrigger>
               <TabsTrigger value="specialists" className="!h-10 sm:!h-11 px-4 sm:px-2 rounded-full text-xs sm:text-sm font-medium text-white/70 transition-all duration-300 hover:bg-white/10 hover:text-white data-[state=active]:!border-white/20 data-[state=active]:!bg-white data-[state=active]:!text-black data-[state=active]:shadow-[0_8px_20px_rgba(255,255,255,0.18)] whitespace-nowrap">Especialistas</TabsTrigger>
               <TabsTrigger value="portfolio" className="!h-10 sm:!h-11 px-4 sm:px-2 rounded-full text-xs sm:text-sm font-medium text-white/70 transition-all duration-300 hover:bg-white/10 hover:text-white data-[state=active]:!border-white/20 data-[state=active]:!bg-white data-[state=active]:!text-black data-[state=active]:shadow-[0_8px_20px_rgba(255,255,255,0.18)] whitespace-nowrap">Portfólio</TabsTrigger>
+              <TabsTrigger value="urls" className="!h-10 sm:!h-11 px-4 sm:px-2 rounded-full text-xs sm:text-sm font-medium text-white/70 transition-all duration-300 hover:bg-white/10 hover:text-white data-[state=active]:!border-white/20 data-[state=active]:!bg-white data-[state=active]:!text-black data-[state=active]:shadow-[0_8px_20px_rgba(255,255,255,0.18)] whitespace-nowrap inline-flex items-center gap-1.5"><Link2 className="h-3.5 w-3.5" />URLs</TabsTrigger>
               <TabsTrigger value="config" className="!h-10 sm:!h-11 px-4 sm:px-2 rounded-full text-xs sm:text-sm font-medium text-white/70 transition-all duration-300 hover:bg-white/10 hover:text-white data-[state=active]:!border-white/20 data-[state=active]:!bg-white data-[state=active]:!text-black data-[state=active]:shadow-[0_8px_20px_rgba(255,255,255,0.18)] whitespace-nowrap">Config</TabsTrigger>
             </TabsList>
           </div>
@@ -347,6 +349,21 @@ const AdminLogin = ({ onSuccess }: { onSuccess: () => void }) => {
             <div className="rounded-[28px] border border-white/10 bg-white/[0.03] p-3 sm:p-4 backdrop-blur-xl">
               <AdminPortfolio />
             </div>
+          </TabsContent>
+
+          <TabsContent value="urls" className="space-y-10">
+            <section className={`rounded-[28px] border border-white/10 p-6 ${panelClassName}`}>
+              <div className="mb-6 flex items-center gap-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 text-white/80">
+                  <Link2 className="h-5 w-5" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-semibold">URLs</h2>
+                  <p className="text-sm text-white/55">WhatsApp e Instagram do site e de cada especialista</p>
+                </div>
+              </div>
+              <AdminUrls />
+            </section>
           </TabsContent>
 
           <TabsContent value="config" className="space-y-10">

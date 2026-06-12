@@ -58,6 +58,7 @@ export function Contact() {
   });
   const [submitted, setSubmitted] = useState(false);
   const [contactInfo, setContactInfo] = useState<ContactInfoItem[]>([]);
+  const [mainWhatsapp, setMainWhatsapp] = useState('');
   const [infoError, setInfoError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
@@ -67,13 +68,20 @@ export function Contact() {
 
     const loadContactInfo = async () => {
       try {
-        const response = await fetch('/api/contact-info');
-        if (!response.ok) {
+        const [contactRes, settingsRes] = await Promise.all([
+          fetch('/api/contact-info'),
+          fetch('/api/site-settings?keys=main_whatsapp'),
+        ]);
+        if (!contactRes.ok) {
           throw new Error('Falha ao carregar contatos');
         }
-        const data = (await response.json()) as ContactInfoItem[];
+        const data = (await contactRes.json()) as ContactInfoItem[];
         if (isMounted) {
           setContactInfo(data);
+        }
+        if (settingsRes.ok) {
+          const settings = await settingsRes.json() as Record<string, string>;
+          if (isMounted && settings.main_whatsapp) setMainWhatsapp(settings.main_whatsapp);
         }
       } catch (error) {
         console.error('Erro ao carregar contatos', error);
@@ -120,7 +128,9 @@ export function Contact() {
     }
   };
 
-  const infoItems = contactInfo.filter((info) => info.kind !== 'other');
+  const infoItems = contactInfo
+    .filter((info) => info.kind !== 'other')
+    .map((info) => info.kind === 'whatsapp' && mainWhatsapp ? { ...info, linkUrl: mainWhatsapp } : info);
   const infoExtras = contactInfo.filter((info) => info.kind === 'other');
 
   return (

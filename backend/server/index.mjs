@@ -51,6 +51,9 @@ import {
   createJewelryOrder,
   getJewelryOrders,
   updateJewelryOrderStatus,
+  deleteJewelryOrder,
+  createManualSale,
+  getJewelryItemsByIds,
   getSiteSettings,
   setSiteSetting,
   getJewelrySales,
@@ -938,6 +941,45 @@ app.put('/api/jewelry/:id', requireAdmin, async (req, res) => {
   }
 });
 
+app.delete('/api/jewelry/:id', requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  try {
+    await deleteJewelryItem(id);
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Erro ao excluir joia', error);
+    res.status(500).json({ error: 'Falha ao excluir joia' });
+  }
+});
+
+// ============= JEWELRY ORDERS =============
+app.post('/api/jewelry-orders', async (req, res) => {
+  const {
+    customerName, email, phone, deliveryMethod,
+    addressLine1, addressLine2, city, state, postalCode,
+    notes, items, paymentMethod,
+  } = req.body || {};
+  if (!customerName || !customerName.trim()) {
+    return badRequest(res, 'Nome é obrigatório');
+  }
+  const safePayment = ['pix', 'cartao'].includes(paymentMethod) ? paymentMethod : 'dinheiro';
+  try {
+    const orderId = await createJewelryOrder({
+      customerName, email, phone, deliveryMethod,
+      addressLine1, addressLine2, city, state, postalCode,
+      notes, items: items || [], paymentMethod: safePayment,
+    });
+    sendOrderEmail({
+      orderId, customerName, email, phone, deliveryMethod,
+      paymentMethod: safePayment, items: items || [], total: '—', pixKey: null,
+    }).catch((err) => console.error('Falha ao enviar email de pedido:', err.message));
+    res.status(201).json({ ok: true, orderId });
+  } catch (error) {
+    console.error('Erro ao criar pedido de joia', error);
+    res.status(500).json({ error: error.message || 'Falha ao criar pedido' });
+  }
+});
+
 // ============= JEWELRY ORDERS ADMIN =============
 app.get('/api/jewelry-orders', requireAdmin, async (_req, res) => {
   try {
@@ -961,6 +1003,99 @@ app.put('/api/jewelry-orders/:id', requireAdmin, async (req, res) => {
   } catch (error) {
     console.error('Erro ao atualizar pedido', error);
     res.status(500).json({ error: error.message || 'Falha ao atualizar pedido' });
+  }
+});
+
+app.delete('/api/jewelry-orders/:id', requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  try {
+    await deleteJewelryOrder(id);
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Erro ao excluir pedido', error);
+    res.status(500).json({ error: 'Falha ao excluir pedido' });
+  }
+});
+
+// ============= JEWELRY CHECKOUT (InfinitePay) =============
+app.post('/api/jewelry-checkout', async (req, res) => {
+  const { customerName, email, phone, deliveryMethod, addressLine1, city, state, notes, items } = req.body || {};
+  if (!customerName || !Array.isArray(items) || !items.length) {
+    return badRequest(res, 'Dados inválidos');
+  }
+  try {
+    const ids = items.map((i) => i.id).filter(Boolean);
+    const jewelryItems = await getJewelryItemsByIds(ids);
+    const itemMap = new Map(jewelryItems.map((i) => [i.id, i]));
+
+    const cartWithPrices = items.map((item) => {
+      const ji = itemMap.get(item.id);
+      if (!ji) return null;
+      const discount = ji.discountPercent;
+      const price = discount > 0 ? parseFloat((ji.price * (1 - discount / 100)).toFixed(2)) : ji.price;
+      return { id: item.id, name: ji.name, price, quantity: Number(item.quantity) || 1 };
+    }).filter(Boolean);
+
+    if (!cartWithPrices.length) return badRequest(res, 'Nenhum item válido');
+
+    const safeDelivery = deliveryMethod === 'delivery' ? 'delivery' : 'pickup';
+
+    const orderId = await createJewelryOrder({
+      customerName, email, phone,
+      deliveryMethod: safeDelivery,
+      addressLine1, addressLine2: '', city, state, postalCode: '',
+      notes, items, paymentMethod: 'cartao',
+    });
+
+    const clientId = process.env.INFINITEPAY_CLIENT_ID;
+    const clientSecret = process.env.INFINITEPAY_CLIENT_SECRET;
+
+    if (clientId && clientSecret) {
+      try {
+        const tokenRes = await fetch('https://api.infinitepay.io/v2/oauth/token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            grant_type: 'client_credentials',
+            client_id: clientId,
+            client_secret: clientSecret,
+            scope: 'checkout',
+          }),
+        });
+        if (!tokenRes.ok) throw new Error('InfinitePay auth failed');
+        const { access_token } = await tokenRes.json();
+
+        const ipRes = await fetch('https://api.checkout.infinitepay.io/links', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${access_token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            handle: 'studiomarkintattoo',
+            order_nsu: orderId,
+            items: cartWithPrices.map((i) => ({
+              description: i.name,
+              quantity: i.quantity,
+              amount: Math.round(i.price * 100),
+            })),
+            redirect_url: `${process.env.CORS_ORIGINS || 'http://localhost:5173'}/joalheria?pedido=${orderId}`,
+          }),
+        });
+        if (ipRes.ok) {
+          const ipData = await ipRes.json();
+          const paymentUrl = ipData.url || ipData.payment_url || ipData.link;
+          if (paymentUrl) return res.json({ ok: true, orderId, paymentUrl });
+        } else {
+          const errBody = await ipRes.text();
+          console.error('InfinitePay response:', ipRes.status, errBody);
+        }
+      } catch (ipErr) {
+        console.error('InfinitePay error:', ipErr.message);
+      }
+    }
+
+    res.json({ ok: true, orderId, fallback: true });
+  } catch (error) {
+    console.error('Erro no checkout', error);
+    res.status(500).json({ error: 'Falha ao processar checkout' });
   }
 });
 
@@ -999,6 +1134,30 @@ app.get('/api/jewelry-sales', requireAdmin, async (req, res) => {
   } catch (error) {
     console.error('Erro ao carregar faturamento', error);
     res.status(500).json({ error: 'Falha ao carregar faturamento' });
+  }
+});
+
+app.post('/api/jewelry-sales/manual', requireAdmin, async (req, res) => {
+  const { customerName, description, total, paidAt } = req.body || {};
+  if (!total || isNaN(Number(total))) return badRequest(res, 'Valor inválido');
+  try {
+    const id = await createManualSale({ customerName, description, total: Number(total), paidAt });
+    res.status(201).json({ ok: true, id });
+  } catch (error) {
+    console.error('Erro ao lançar venda manual', error);
+    res.status(500).json({ error: 'Falha ao lançar venda' });
+  }
+});
+
+app.get('/api/course-enrollments', requireAdmin, async (_req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT id, name, email, phone, message, created_at FROM app.course_enrollment ORDER BY created_at DESC'
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Erro ao carregar inscrições', error);
+    res.status(500).json({ error: 'Falha ao carregar inscrições' });
   }
 });
 

@@ -59,17 +59,19 @@ export function Footer() {
   const [socialLinks, setSocialLinks] = useState<SocialLink[]>([]);
   const [contactInfo, setContactInfo] = useState<ContactInfoItem[]>([]);
   const [footerLinks, setFooterLinks] = useState<SiteLink[]>([]);
+  const [mainWhatsapp, setMainWhatsapp] = useState('');
 
   useEffect(() => {
     let isMounted = true;
 
     const loadFooterData = async () => {
       try {
-        const [siteResponse, socialResponse, contactResponse, linkResponse] = await Promise.all([
+        const [siteResponse, socialResponse, contactResponse, linkResponse, settingsResponse] = await Promise.all([
           fetch('/api/site'),
           fetch('/api/social-links'),
           fetch('/api/contact-info'),
           fetch('/api/site-links?placement=footer'),
+          fetch('/api/site-settings?keys=main_whatsapp'),
         ]);
 
         if (siteResponse.ok) {
@@ -99,6 +101,13 @@ export function Footer() {
             setFooterLinks(data);
           }
         }
+
+        if (settingsResponse.ok) {
+          const data = await settingsResponse.json() as Record<string, string>;
+          if (isMounted && data.main_whatsapp) {
+            setMainWhatsapp(data.main_whatsapp);
+          }
+        }
       } catch (error) {
         console.error('Erro ao carregar dados do rodape', error);
       }
@@ -110,7 +119,9 @@ export function Footer() {
     };
   }, []);
 
-  const contacts = contactInfo.filter((info) => ['phone', 'email', 'address', 'whatsapp'].includes(info.kind));
+  const contacts = contactInfo
+    .filter((info) => ['phone', 'email', 'address', 'whatsapp'].includes(info.kind))
+    .map((info) => info.kind === 'whatsapp' && mainWhatsapp ? { ...info, linkUrl: mainWhatsapp } : info);
 
   return (
     <footer className="bg-black text-neutral-400 py-10 sm:py-12 px-4">

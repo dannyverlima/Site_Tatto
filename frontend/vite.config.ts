@@ -44,8 +44,9 @@ export default defineConfig({
     strictPort: true,
     proxy: {
       '/api': 'http://localhost:5175',
+      '/media': 'http://localhost:5175',
+      '/admin-media': 'http://localhost:5175', // alias de compatibilidade
       '/uploads': 'http://localhost:5175',
-      '/admin-media': 'http://localhost:5175',
     },
   },
 

@@ -2,7 +2,7 @@ import { motion, useScroll, useTransform, useInView } from 'framer-motion';
 import { useRef } from 'react';
 import { GraduationCap, Clock, Users, Award, ArrowRight } from 'lucide-react';
 import { useSiteConfig } from '../hooks/useSiteConfig';
-import cursoBg from '../../imports/curso-bg.png';
+const cursoBg = '/media/curso-bg.png';
 
 const featureIcons = [Clock, Users, Award, GraduationCap];
 

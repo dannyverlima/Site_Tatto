@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../app/components/ui/card';
 import { adminHeaders } from './adminAuth';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
-import { TrendingUp, DollarSign, ShoppingBag } from 'lucide-react';
+import { TrendingUp, DollarSign, ShoppingBag, Plus } from 'lucide-react';
+import { Button } from '../app/components/ui/button';
+import { Input } from '../app/components/ui/input';
 
 const currency = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const fmt = (d: string) => new Date(d).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' });
@@ -41,6 +43,10 @@ export function AdminRevenue() {
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState(12);
 
+  const [manualForm, setManualForm] = useState({ customerName: '', description: '', total: '', paidAt: '' });
+  const [manualSaving, setManualSaving] = useState(false);
+  const [manualStatus, setManualStatus] = useState('');
+
   useEffect(() => {
     loadData();
   }, [period]);
@@ -56,6 +62,40 @@ export function AdminRevenue() {
       console.error('Erro ao carregar faturamento:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const saveManual = async () => {
+    if (!manualForm.total || isNaN(Number(manualForm.total.replace(',', '.')))) {
+      setManualStatus('Informe um valor válido');
+      return;
+    }
+    setManualSaving(true);
+    setManualStatus('');
+    try {
+      const res = await fetch('/api/jewelry-sales/manual', {
+        method: 'POST',
+        headers: adminHeaders('joalheria'),
+        body: JSON.stringify({
+          customerName: manualForm.customerName || 'Venda manual',
+          description: manualForm.description || 'Lançamento manual',
+          total: Number(manualForm.total.replace(',', '.')),
+          paidAt: manualForm.paidAt || undefined,
+        }),
+      });
+      if (res.ok) {
+        setManualForm({ customerName: '', description: '', total: '', paidAt: '' });
+        setManualStatus('Lançado com sucesso!');
+        loadData();
+        setTimeout(() => setManualStatus(''), 3000);
+      } else {
+        const err = await res.json();
+        setManualStatus(err.error || 'Erro ao lançar');
+      }
+    } catch {
+      setManualStatus('Erro ao lançar');
+    } finally {
+      setManualSaving(false);
     }
   };
 
@@ -126,6 +166,60 @@ export function AdminRevenue() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Manual sale entry */}
+      <Card className={cardCls}>
+        <CardHeader>
+          <CardTitle className="text-white text-lg flex items-center gap-2">
+            <Plus className="h-5 w-5 text-amber-300" />
+            Lançar venda manual
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-xs text-white/45">Para vendas feitas fora do sistema (dinheiro, presencial, etc.).</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Input
+              placeholder="Nome do cliente (opcional)"
+              value={manualForm.customerName}
+              onChange={(e) => setManualForm({ ...manualForm, customerName: e.target.value })}
+              className="border-white/10 bg-white/5 text-white placeholder:text-white/35"
+            />
+            <Input
+              placeholder="Descrição (ex: Anel de ouro)"
+              value={manualForm.description}
+              onChange={(e) => setManualForm({ ...manualForm, description: e.target.value })}
+              className="border-white/10 bg-white/5 text-white placeholder:text-white/35"
+            />
+            <div className="flex items-center gap-2">
+              <div className="flex items-center rounded-xl border border-white/10 bg-white/5 px-3 h-10 text-white/50 text-sm whitespace-nowrap">R$</div>
+              <Input
+                placeholder="Valor (ex: 350,00)"
+                value={manualForm.total}
+                onChange={(e) => setManualForm({ ...manualForm, total: e.target.value })}
+                className="border-white/10 bg-white/5 text-white placeholder:text-white/35"
+              />
+            </div>
+            <Input
+              type="date"
+              value={manualForm.paidAt}
+              onChange={(e) => setManualForm({ ...manualForm, paidAt: e.target.value })}
+              className="border-white/10 bg-white/5 text-white placeholder:text-white/35"
+            />
+          </div>
+          <Button
+            onClick={saveManual}
+            disabled={manualSaving}
+            className="rounded-full border border-white/10 bg-white px-6 text-black hover:bg-white/90 disabled:opacity-50"
+          >
+            {manualSaving ? 'Salvando...' : 'Lançar venda'}
+          </Button>
+          {manualStatus && (
+            <p className={`text-xs ${manualStatus.includes('sucesso') ? 'text-emerald-400' : 'text-red-400'}`}>
+              {manualStatus}
+            </p>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Monthly revenue chart */}
       <Card className={cardCls}>

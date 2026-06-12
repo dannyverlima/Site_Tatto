@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Navigation } from './components/Navigation';
 import { Hero } from './components/Hero';
-import { JewelryHighlights } from './components/JewelryHighlights';
 import { Specialists } from './components/Specialists';
 import { Course } from './components/curso';
 import { Reviews } from './components/Reviews';
@@ -26,7 +25,6 @@ export default function App() {
       <Navigation />
       <Hero />
       <Specialists />
-      <JewelryHighlights />
       <Course />
       <Reviews />
       <ContatoLocalizacao />

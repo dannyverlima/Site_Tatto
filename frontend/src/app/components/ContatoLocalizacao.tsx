@@ -74,6 +74,7 @@ export function ContatoLocalizacao() {
 
   /* — dados contato — */
   const [contactInfo, setContactInfo] = useState<ContactInfoItem[]>([]);
+  const [mainWhatsapp, setMainWhatsapp] = useState('');
   const [formData, setFormData] = useState({ name: '', email: '', phone: '', message: '' });
   const [submitted, setSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -93,6 +94,11 @@ export function ContatoLocalizacao() {
     fetch('/api/location')
       .then((r) => r.json())
       .then((d) => { if (mounted) setLocation(d as LocationInfo | null); })
+      .catch(() => {});
+
+    fetch('/api/site-settings?keys=main_whatsapp')
+      .then((r) => r.json())
+      .then((d) => { if (mounted && d.main_whatsapp) setMainWhatsapp(d.main_whatsapp); })
       .catch(() => {});
 
     return () => { mounted = false; };
@@ -121,7 +127,9 @@ export function ContatoLocalizacao() {
     }
   };
 
-  const infoItems = contactInfo.filter((i) => i.kind !== 'other');
+  const infoItems = contactInfo
+    .filter((i) => i.kind !== 'other')
+    .map((i) => i.kind === 'whatsapp' && mainWhatsapp ? { ...i, linkUrl: mainWhatsapp } : i);
   const addressLines = location ? formatAddress(location) : [];
   const openingHours = location?.openingHours ?? [];
 

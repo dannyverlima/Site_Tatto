@@ -3,6 +3,12 @@ import { defaultSiteConfig } from './defaultConfig.mjs';
 
 const normalizeString = (value) => (typeof value === 'string' ? value.trim() : '');
 const normalizeArray = (value) => (Array.isArray(value) ? value : []);
+const normalizePrice = (value) => {
+  if (typeof value === 'number') return value;
+  const cleaned = String(value ?? '').replace(/[R$\s]/g, '').replace(',', '.');
+  const n = parseFloat(cleaned);
+  return Number.isFinite(n) ? n : NaN;
+};
 
 const hasTableColumn = async (client, table, column) => {
   const res = await client.query(
@@ -1048,6 +1054,7 @@ export const createJewelryOrder = async ({
   postalCode,
   notes,
   items,
+  paymentMethod,
 }) => {
   const client = await pool.connect();
   try {
@@ -1056,6 +1063,7 @@ export const createJewelryOrder = async ({
     const safeEmail = normalizeString(email);
     const safePhone = normalizeString(phone);
     const safeDelivery = deliveryMethod === 'pickup' ? 'pickup' : 'delivery';
+    const safePaymentMethod = ['pix', 'cartao'].includes(paymentMethod) ? paymentMethod : 'dinheiro';
     const safeAddressLine1 = normalizeString(addressLine1);
     const safeAddressLine2 = normalizeString(addressLine2);
     const safeCity = normalizeString(city);
@@ -1074,32 +1082,26 @@ export const createJewelryOrder = async ({
       throw new Error('Nome é obrigatório');
     }
 
-    if (safeItems.length === 0) {
-      throw new Error('Itens inválidos');
+    // Items can be empty for custom/encomenda orders (no catalog items selected)
+    let productMap = new Map();
+    if (safeItems.length > 0) {
+      const uniqueIds = Array.from(new Set(safeItems.map((item) => item.id)));
+      const productResult = await client.query(
+        'SELECT id, name, price FROM app.jewelry_item WHERE site_id = $1 AND id = ANY($2::uuid[]) AND is_active = true',
+        [site.id, uniqueIds]
+      );
+      if (productResult.rowCount !== uniqueIds.length) {
+        throw new Error('Uma ou mais joias nao foram encontradas');
+      }
+      productMap = new Map(productResult.rows.map((row) => [row.id, row]));
     }
-
-    if (safeDelivery === 'delivery' && (!safeAddressLine1 || !safeCity || !safeState)) {
-      throw new Error('Endereco incompleto para entrega');
-    }
-
-    const uniqueIds = Array.from(new Set(safeItems.map((item) => item.id)));
-    const productResult = await client.query(
-      'SELECT id, name, price FROM app.jewelry_item WHERE site_id = $1 AND id = ANY($2::uuid[]) AND is_active = true',
-      [site.id, uniqueIds]
-    );
-
-    if (productResult.rowCount !== uniqueIds.length) {
-      throw new Error('Uma ou mais joias nao foram encontradas');
-    }
-
-    const productMap = new Map(productResult.rows.map((row) => [row.id, row]));
 
     await client.query('BEGIN');
     const orderResult = await client.query(
       `
         INSERT INTO app.jewelry_order
-          (site_id, customer_name, email, phone, delivery_method, address_line1, address_line2, city, state, postal_code, notes)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+          (site_id, customer_name, email, phone, delivery_method, address_line1, address_line2, city, state, postal_code, notes, payment_method)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
         RETURNING id
       `,
       [
@@ -1114,6 +1116,7 @@ export const createJewelryOrder = async ({
         safeState,
         safePostalCode,
         safeNotes,
+        safePaymentMethod,
       ]
     );
 
@@ -1230,6 +1233,54 @@ export const updateJewelryOrderStatus = async (id, { status }) => {
   }
 };
 
+export const deleteJewelryOrder = async (id) => {
+  const client = await pool.connect();
+  try {
+    const site = await getOrCreateSite(client);
+    await client.query('BEGIN');
+    await client.query('DELETE FROM app.jewelry_order_item WHERE order_id = $1', [id]);
+    await client.query('DELETE FROM app.jewelry_order WHERE id = $1 AND site_id = $2', [id, site.id]);
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+};
+
+export const createManualSale = async ({ customerName, description, total, paidAt }) => {
+  const client = await pool.connect();
+  try {
+    const site = await getOrCreateSite(client);
+    await client.query('BEGIN');
+    const safeTotal = Math.max(0, Number(total) || 0);
+    const safeName = String(customerName || 'Venda manual').slice(0, 200);
+    const safeDesc = String(description || 'Lançamento manual').slice(0, 200);
+    const safePaidAt = paidAt ? new Date(paidAt) : new Date();
+
+    const { rows } = await client.query(
+      `INSERT INTO app.jewelry_order
+         (site_id, customer_name, email, phone, delivery_method, payment_method, status, total, submitted_at, paid_at, updated_at)
+       VALUES ($1, $2, '', '', 'pickup', 'dinheiro', 'done', $3, $4, $4, $4)
+       RETURNING id`,
+      [site.id, safeName, safeTotal, safePaidAt]
+    );
+    const orderId = rows[0].id;
+    await client.query(
+      'INSERT INTO app.jewelry_order_item (order_id, jewelry_item_id, name, price, quantity) VALUES ($1, NULL, $2, $3, 1)',
+      [orderId, safeDesc, safeTotal]
+    );
+    await client.query('COMMIT');
+    return orderId;
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+};
+
 // ============= SITE SETTINGS =============
 export const getSiteSettings = async (keys = []) => {
   const client = await pool.connect();
@@ -1261,6 +1312,25 @@ export const setSiteSetting = async (key, value) => {
       'INSERT INTO app.site_setting (site_id, key, value) VALUES ($1, $2, $3) ON CONFLICT (site_id, key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()',
       [site.id, safeKey, safeValue]
     );
+  } finally {
+    client.release();
+  }
+};
+
+export const getJewelryItemsByIds = async (ids) => {
+  if (!ids || !ids.length) return [];
+  const client = await pool.connect();
+  try {
+    const { rows } = await client.query(
+      'SELECT id, name, price, discount_percent FROM app.jewelry_item WHERE id = ANY($1::uuid[])',
+      [ids]
+    );
+    return rows.map((r) => ({
+      id: r.id,
+      name: r.name,
+      price: Number(r.price),
+      discountPercent: Number(r.discount_percent) || 0,
+    }));
   } finally {
     client.release();
   }

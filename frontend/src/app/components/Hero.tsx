@@ -1,5 +1,5 @@
 import { motion, useScroll, useTransform } from 'framer-motion';
-import logoImg from '../../imports/Logo.png';
+const logoImg = '/media/Logo.png';
 import { HeroBackground } from './HeroBackground';
 import { useSiteConfig } from '../hooks/useSiteConfig';
 

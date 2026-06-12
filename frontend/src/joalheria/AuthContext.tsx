@@ -36,14 +36,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const login = async (email: string, password: string) => {
-    const res = await fetch('/api/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
-    });
+    let res: Response;
+    try {
+      res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+    } catch {
+      throw new Error('Servidor indisponível. Verifique se o sistema está rodando.');
+    }
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || 'Email ou senha inválidos');
+      throw new Error(err.error || `Erro ${res.status} ao entrar`);
     }
     const { token: t, user: u } = await res.json();
     localStorage.setItem(TOKEN_KEY, t);
@@ -52,14 +57,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const register = async (name: string, email: string, password: string) => {
-    const res = await fetch('/api/auth/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, email, password }),
-    });
+    let res: Response;
+    try {
+      res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, password }),
+      });
+    } catch {
+      throw new Error('Servidor indisponível. Verifique se o sistema está rodando.');
+    }
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || 'Erro ao criar conta');
+      throw new Error(err.error || `Erro ${res.status} ao criar conta`);
     }
     const { token: t, user: u } = await res.json();
     localStorage.setItem(TOKEN_KEY, t);

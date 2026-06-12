@@ -64,10 +64,28 @@ export function AdminJewelry() {
   const [newItem, setNewItem] = useState<JewelryDraft>(emptyDraft());
   const [isUploadingNewImage, setIsUploadingNewImage] = useState(false);
   const [uploadingItemId, setUploadingItemId] = useState<string | null>(null);
+  const [shippingFee, setShippingFee] = useState('');
+  const [shippingStatus, setShippingStatus] = useState('');
 
   useEffect(() => {
     loadItems();
+    fetch('/api/site-settings?keys=jewelry_shipping_fee')
+      .then((r) => r.json())
+      .then((d) => { if (d.jewelry_shipping_fee) setShippingFee(d.jewelry_shipping_fee); })
+      .catch(() => {});
   }, []);
+
+  const saveShippingFee = async () => {
+    try {
+      await fetch('/api/site-settings', {
+        method: 'PUT',
+        headers: adminHeaders('joalheria'),
+        body: JSON.stringify({ jewelry_shipping_fee: shippingFee }),
+      });
+      setShippingStatus('Salvo!');
+      setTimeout(() => setShippingStatus(''), 2500);
+    } catch { setShippingStatus('Erro ao salvar'); }
+  };
 
   const loadItems = async () => {
     try {
@@ -275,6 +293,35 @@ export function AdminJewelry() {
 
   return (
     <div className="space-y-6">
+      {/* Taxa de entrega (encomenda) */}
+      <Card className={cardClassName}>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-white text-base">Taxa de entrega (encomenda)</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex gap-3 items-center">
+            <Input
+              placeholder="Ex: 15.00"
+              value={shippingFee}
+              onChange={(e) => setShippingFee(e.target.value)}
+              className={`${inputClassName} max-w-[180px]`}
+              type="number"
+              min="0"
+              step="0.01"
+            />
+            <Button
+              type="button"
+              onClick={saveShippingFee}
+              className="rounded-full border border-white/10 bg-white text-black hover:bg-white/90"
+            >
+              Salvar
+            </Button>
+            {shippingStatus && <span className="text-xs text-emerald-400">{shippingStatus}</span>}
+          </div>
+          <p className="mt-2 text-xs text-white/35">Valor cobrado ao cliente quando escolher "Encomendar" no carrinho</p>
+        </CardContent>
+      </Card>
+
       <Card className={cardClassName}>
         <CardHeader className="pb-4">
           <CardTitle className="text-white text-xl">Adicionar joia</CardTitle>
@@ -332,21 +379,9 @@ export function AdminJewelry() {
             {newItem.imageUrls.map((url, index) => (
               <div key={`new-image-${index}`} className="rounded-2xl border border-dashed border-white/15 bg-black/20 p-4">
                 <div className="flex flex-wrap items-center gap-3">
-                  <Input
-                    placeholder="URL da imagem"
-                    value={url}
-                    onChange={(e) =>
-                      setNewItem((current) => {
-                        const nextUrls = [...current.imageUrls];
-                        nextUrls[index] = e.target.value;
-                        return { ...current, imageUrls: nextUrls };
-                      })
-                    }
-                    className={inputClassName}
-                  />
-                  <label className="flex cursor-pointer items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs text-white/70">
+                  <label className="flex cursor-pointer items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs text-white/70 hover:bg-white/10 transition">
                     <Upload size={14} />
-                    Enviar
+                    {url ? 'Trocar imagem' : 'Selecionar imagem'}
                     <Input type="file" accept="image/*" onChange={(event) => handleNewImageChange(index, event)} className="hidden" />
                   </label>
                   <Button

@@ -1,6 +1,6 @@
 
 import { motion } from 'framer-motion';
-import logoImg from '../../imports/Logo.png';
+const logoImg = '/media/Logo.png';
 
 type LoadingScreenProps = {
   message?: string;

@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../app/components/ui/card';
-import { Badge } from '../app/components/ui/badge';
 import { Button } from '../app/components/ui/button';
 import { Input } from '../app/components/ui/input';
-import { Check, Clock, Package, Truck, X } from 'lucide-react';
+import { Check, Clock, Package, Truck, X, Trash2 } from 'lucide-react';
 import { adminHeaders } from './adminAuth';
 
 const currency = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -89,6 +88,20 @@ export function AdminOrders() {
       setOrders((cur) => cur.map((o) => (o.id === id ? { ...o, status } : o)));
     } catch (err) {
       alert('Erro ao atualizar status');
+    }
+  };
+
+  const deleteOrder = async (id: string) => {
+    if (!confirm('Excluir este pedido permanentemente?')) return;
+    try {
+      await fetch(`/api/jewelry-orders/${id}`, {
+        method: 'DELETE',
+        headers: adminHeaders('joalheria'),
+      });
+      setOrders((cur) => cur.filter((o) => o.id !== id));
+      if (expandedId === id) setExpandedId(null);
+    } catch {
+      alert('Erro ao excluir pedido');
     }
   };
 
@@ -267,6 +280,17 @@ export function AdminOrders() {
                           </button>
                         ))}
                       </div>
+                    </div>
+
+                    {/* Delete */}
+                    <div className="pt-1 border-t border-white/8">
+                      <button
+                        onClick={() => deleteOrder(order.id)}
+                        className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs border border-red-500/30 text-red-400 hover:bg-red-500/10 transition"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                        Excluir pedido
+                      </button>
                     </div>
                   </div>
                 )}
