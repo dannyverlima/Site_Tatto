@@ -1,0 +1,378 @@
+================================================================================
+  RELATÓRIO COMPLETO — SITE STUDIO TATTO
+  Data: 15/06/2026
+  Repositório: dannyverlima/Site_Tatto  |  Branch: tudo
+================================================================================
+
+
+════════════════════════════════════════════════════════════════════════════════
+1. VISÃO GERAL DO PROJETO
+════════════════════════════════════════════════════════════════════════════════
+
+Nome do projeto  : Site Studio Tatto
+Tipo             : Site comercial de estúdio de tatuagem + loja de joalheria
+Estrutura        : Monorepo (pnpm workspaces)
+Diretório raiz   : c:\Users\User\Documents\GitHub\Site_Tatto
+
+STACK TECNOLÓGICO
+─────────────────
+  Frontend   : React 18 + TypeScript + Vite 5 + Tailwind CSS v4
+  Animações  : Framer Motion 12 + Three.js (anel 3D interativo)
+  UI Library : shadcn/ui (38 componentes Radix UI)
+  Backend    : Node.js + Express 4 (ESM)
+  Base dados : PostgreSQL (pool de 10 conexões)
+  Email      : Nodemailer via SMTP Gmail
+  Uploads    : Multer + ffmpeg-static (transcodificação de vídeo)
+  Pagamentos : InfinitePay (integração via OAuth2)
+  Auth       : JWT (clientes via httpOnly cookie | admins via sessionStorage)
+
+
+════════════════════════════════════════════════════════════════════════════════
+2. PÁGINAS DO SITE
+════════════════════════════════════════════════════════════════════════════════
+
+PÁGINAS PÚBLICAS
+─────────────────
+  /                   → Página principal (scroll único com todas as secções)
+  /joalheria          → Loja de joias (catálogo, carrinho, checkout, conta)
+  /curso.html         → Página do curso de tatuagem
+  /localizacao        → Mapa e dados de contacto
+  /Avaliação          → Formulário e lista de avaliações
+  /especialista/:slug → Perfil individual de cada especialista
+  /portifolio/:slug   → Álbum de fotos do portfolio do especialista
+  /joias.html         → Página alternativa de joias
+
+PÁGINAS DE ADMINISTRAÇÃO (protegidas por senha)
+─────────────────────────────────────────────────
+  /Admin@tatto       → Painel principal (Hero, Especialistas, Portfolio, Curso, Links)
+  /Admin@joalheria   → Painel da joalheria (Joias, Encomendas, Faturamento)
+
+
+════════════════════════════════════════════════════════════════════════════════
+3. LAYOUT E ANIMAÇÕES
+════════════════════════════════════════════════════════════════════════════════
+
+SECÇÕES DA PÁGINA PRINCIPAL (de cima para baixo)
+──────────────────────────────────────────────────
+  1. Navigation        — Cabeçalho fixo com logótipo
+  2. Hero              — Logótipo + tagline + 5 botões de navegação
+                         Animação: parallax ao scroll (useScroll/useTransform)
+  3. Specialists       — Grelha de cartões com entrada staggered (whileInView)
+                         Modal com foto, bio, links Instagram/WhatsApp/Portfolio
+  4. RingSection       — Anel 3D interativo (Three.js canvas + @react-three/fiber)
+  5. JewelryHighlights — Peças de joalheria em destaque
+  6. Curso             — Informação sobre o curso de tatuagem
+  7. Reviews           — Formulário de avaliação + lista com animações de entrada
+  8. ContatoLocalizacao— Mapa + WhatsApp + morada
+  9. Footer (Rodapé)
+
+BIBLIOTECA DE ANIMAÇÕES
+─────────────────────────
+  Framer Motion  : whileInView, AnimatePresence, motion.div — em quase todos os componentes
+  Three.js       : Canvas 3D interativo para o anel de joalheria
+  LoadingScreen  : Ecrã de carregamento de 1.1 segundos ao abrir o site
+
+
+════════════════════════════════════════════════════════════════════════════════
+4. FUNCIONALIDADES
+════════════════════════════════════════════════════════════════════════════════
+
+LOJA DE JOALHERIA (/joalheria)
+────────────────────────────────
+  - Catálogo com filtros: todos / destaque / desconto / por categoria
+  - Carrinho lateral com controlo de quantidades e total em tempo real
+  - Modal de peça com galeria de imagens em carousel
+  - Checkout: levantamento (data) ou entrega (morada completa)
+  - Encomenda personalizada de joias
+  - Conta de cliente: registo e login (email + senha)
+  - Sessão via cookie httpOnly (seguro contra XSS)
+  - Integração InfinitePay para pagamentos por cartão
+
+PAINEL DE ADMINISTRAÇÃO PRINCIPAL (/Admin@tatto)
+──────────────────────────────────────────────────
+  - Upload de imagem ou vídeo de fundo para o Hero
+  - CRUD completo de Especialistas (nome, foto, bio, Instagram, WhatsApp)
+  - CRUD completo de Portfolio (fotos por especialista)
+  - Edição de conteúdo do Curso (título, descrição, highlights, features)
+  - Gestão de links do site (WhatsApp, Instagram)
+  - Sincronização entre abas via BroadcastChannel
+
+PAINEL DE ADMINISTRAÇÃO DA JOALHERIA (/Admin@joalheria)
+──────────────────────────────────────────────────────────
+  - CRUD de peças (nome, preço, desconto %, stock, categorias, fotos)
+  - Gestão de encomendas + mudança de estado (pendente/confirmado/enviado)
+  - Dashboard de faturamento e receitas com gráficos (Recharts)
+  - Registo manual de vendas
+
+OUTRAS FUNCIONALIDADES
+───────────────────────
+  - Formulário de avaliações público (com proteção rate limit)
+  - Inscrições no curso de tatuagem
+  - Formulário de contacto com envio de email automático
+  - Perfis individuais de especialistas com portfolio próprio
+  - Mapas e informação de localização
+
+
+════════════════════════════════════════════════════════════════════════════════
+5. ENDPOINTS DA API — ESTADO ATUAL
+════════════════════════════════════════════════════════════════════════════════
+
+ENDPOINTS PÚBLICOS
+───────────────────
+  GET  /api/health                → Health check
+  GET  /api/site                  → Resumo do site
+  GET  /api/site-config           → Configuração do site
+  GET  /api/contact-info          → Dados de contacto
+  GET  /api/location              → Localização
+  GET  /api/social-links          → Redes sociais
+  GET  /api/site-links            → Links do site
+  GET  /api/reviews               → Listar avaliações publicadas
+  POST /api/reviews               → Criar avaliação [rate limit: 20/hora]
+  POST /api/contact-submissions   → Enviar mensagem [rate limit: 20/hora]
+  POST /api/course-enrollments    → Inscrição no curso [rate limit: 20/hora]
+  GET  /api/specialists           → Listar especialistas
+  GET  /api/portfolio             → Listar portfolio
+  GET  /api/jewelry               → Listar joias (com filtros)
+  GET  /api/course                → Informação do curso
+  GET  /api/site-settings         → Configurações públicas
+
+AUTH DE CLIENTES (cookie httpOnly)
+────────────────────────────────────
+  POST /api/auth/register         → Registo [rate limit: 10/15min]
+  POST /api/auth/login            → Login [rate limit: 10/15min]
+  GET  /api/auth/me               → Utilizador atual (via cookie)
+  POST /api/auth/logout           → Terminar sessão (limpa cookie)
+
+AUTH DE ADMIN
+──────────────
+  POST /api/admin/login           → Login de admin [rate limit: 10/15min]
+
+ENDPOINTS ADMIN (requerem token de admin)
+──────────────────────────────────────────
+  PUT    /api/site-config         → Guardar configuração
+  POST   /api/uploads             → Fazer upload de ficheiro
+  GET    /api/uploads             → Listar uploads
+  POST   /api/admin-media/ingest  → Ingerir media do disco [protegido]
+  POST   /api/specialists         → Criar especialista
+  PUT    /api/specialists/:id     → Atualizar especialista
+  DELETE /api/specialists/:id     → Apagar especialista
+  POST   /api/portfolio           → Criar item de portfolio
+  PUT    /api/portfolio/:id       → Atualizar item
+  DELETE /api/portfolio/:id       → Apagar item
+  POST   /api/jewelry             → Criar joia
+  PUT    /api/jewelry/:id         → Atualizar joia
+  DELETE /api/jewelry/:id         → Apagar joia
+  GET    /api/jewelry-orders      → Listar encomendas
+  PUT    /api/jewelry-orders/:id  → Atualizar estado de encomenda
+  DELETE /api/jewelry-orders/:id  → Apagar encomenda
+  GET    /api/jewelry-sales       → Dashboard de faturamento
+  POST   /api/jewelry-sales/manual→ Lançar venda manual
+  DELETE /api/jewelry-sales/:id   → Apagar registo de venda
+  PUT    /api/jewelry-sales/:id/status → Atualizar estado de venda
+  GET    /api/course-enrollments  → Listar inscrições no curso
+  PUT    /api/course              → Atualizar curso
+  POST/PUT/DELETE /api/course/features    → CRUD de features do curso
+  POST/PUT/DELETE /api/course/highlights  → CRUD de destaques do curso
+  POST/PUT/DELETE /api/course/extra-info  → CRUD de info extra do curso
+  PUT    /api/site-settings       → Atualizar configurações
+
+CHECKOUT (InfinitePay)
+───────────────────────
+  POST /api/jewelry-checkout      → Processar pagamento InfinitePay
+
+
+════════════════════════════════════════════════════════════════════════════════
+6. AUDITORIA DE SEGURANÇA — ESTADO FINAL (15/06/2026)
+════════════════════════════════════════════════════════════════════════════════
+
+CORREÇÕES APLICADAS NESTA SESSÃO
+──────────────────────────────────
+
+  [BACKEND — siteRepository.mjs]
+  ✅ SQL Injection no filtro 'category' das joias
+     Antes : concatenação de string ` AND category = '${category}'`
+     Depois: query parametrizada com $2
+
+  [BACKEND — index.mjs]
+  ✅ Endpoint /api/admin-media/ingest sem autenticação
+     Adicionado middleware requireAdmin
+
+  ✅ Limite de upload 1GB → 50MB
+     Reduzido de 1GB para 50MB (proteção contra DoS)
+
+  ✅ JWT_SECRET e ADMIN_JWT_SECRET com valores padrão fracos
+     Servidor recusa iniciar se variáveis não definidas no .env
+
+  ✅ JWT de cliente válido 30 dias → 7 dias
+
+  ✅ Sem headers de segurança
+     Adicionado helmet() — X-Frame-Options, X-Content-Type-Options, etc.
+
+  ✅ Sem rate limiting nos endpoints de autenticação
+     Adicionado: 10 tentativas por 15 minutos por IP
+
+  ✅ Sem rate limiting nos formulários públicos
+     Adicionado: 20 envios por hora por IP
+     Afeta: /api/reviews, /api/contact-submissions, /api/course-enrollments
+
+  ✅ Senha de clientes: mínimo 6 caracteres → mínimo 8 + maiúscula + número
+
+  ✅ Preços calculados apenas no browser (vulnerável a manipulação)
+     Servidor agora vai buscar preços reais à base de dados ao criar encomenda
+
+  ✅ Senhas de admin hardcoded no código (fallback)
+     Removido o fallback — servidor recusa login sem variável definida no .env
+
+  ✅ Email sem validação de formato
+     Adicionada validação regex em /api/contact-submissions e /api/course-enrollments
+
+  ✅ Token JWT de cliente no localStorage (vulnerável a XSS)
+     Migrado para cookie httpOnly — não acessível por JavaScript
+     Novo endpoint POST /api/auth/logout para limpar a sessão
+     Frontend atualizado: credentials:'include' em todos os pedidos de auth
+
+  [FRONTEND — html.ts]
+  ✅ XSS via dangerouslySetInnerHTML (sanitização incompleta)
+     Substituído normalizeHtml caseiro por DOMPurify com lista branca de tags
+
+  [FRONTEND — Specialists.tsx]
+  ✅ Keys em listas usando name+index
+     Corrigido para usar specialist.id como chave principal
+
+ESTADO DE SEGURANÇA ATUAL
+───────────────────────────
+
+  CRÍTICO   : 0 problemas  ✅
+  GRAVE     : 0 problemas  ✅
+  MÉDIO     : 0 problemas  ✅
+  BAIXO     : 0 problemas  ✅
+
+  Nota: Sem problemas de segurança conhecidos e não corrigidos.
+
+
+════════════════════════════════════════════════════════════════════════════════
+7. BASE DE DADOS
+════════════════════════════════════════════════════════════════════════════════
+
+  Motor        : PostgreSQL
+  Schema       : app
+  Pool         : 10 conexões máx.
+  Migrações    : Automáticas ao iniciar o servidor (ensureDatabaseSchema)
+
+TABELAS PRINCIPAIS
+───────────────────
+  app.site                  → Dados gerais do site
+  app.site_config           → Configuração JSON do site
+  app.specialist            → Especialistas
+  app.portfolio_item        → Items de portfolio
+  app.media_asset           → Ficheiros de media (imagens/vídeos)
+  app.review                → Avaliações dos clientes
+  app.contact_submission    → Mensagens de contacto
+  app.course                → Informação do curso
+  app.course_enrollment     → Inscrições no curso
+  app.course_feature        → Funcionalidades do curso
+  app.course_highlight      → Destaques do curso
+  app.course_extra_info     → Informação extra do curso
+  app.jewelry_item          → Peças de joalheria
+  app.jewelry_photo         → Fotos das peças
+  app.jewelry_order         → Encomendas
+  app.jewelry_customer      → Contas de clientes da joalheria
+  app.jewelry_manual_sale   → Vendas manuais
+  app.site_settings         → Configurações diversas (chave/valor)
+
+BOAS PRÁTICAS EM USO
+──────────────────────
+  ✅ Queries parametrizadas em todos os endpoints
+  ✅ Transações (BEGIN/COMMIT/ROLLBACK) em operações críticas
+  ✅ UUIDs como chaves primárias (gen_random_uuid())
+  ✅ Índices nas colunas mais consultadas
+  ✅ Prevenção de duplicados com IF NOT EXISTS nas migrações
+
+
+════════════════════════════════════════════════════════════════════════════════
+8. FICHEIROS MODIFICADOS NESTA SESSÃO
+════════════════════════════════════════════════════════════════════════════════
+
+  backend/server/index.mjs              → Segurança: helmet, rate limit, cookies,
+                                          validações, preços, admin passwords
+  backend/server/siteRepository.mjs    → Fix SQL injection no filtro category
+  frontend/src/app/utils/html.ts       → DOMPurify em vez de normalizeHtml caseiro
+  frontend/src/app/components/Specialists.tsx → Keys com specialist.id
+  frontend/src/joalheria/AuthContext.tsx → Migração para httpOnly cookie
+  package.json / node_modules          → Novas dependências:
+                                          helmet, express-rate-limit,
+                                          dompurify, @types/dompurify,
+                                          cookie-parser, @types/cookie-parser
+
+
+════════════════════════════════════════════════════════════════════════════════
+9. VARIÁVEIS DE AMBIENTE NECESSÁRIAS (.env)
+════════════════════════════════════════════════════════════════════════════════
+
+  PGHOST                   → Host da base de dados (ex: localhost)
+  PGPORT                   → Porta PostgreSQL (ex: 5432)
+  PGUSER                   → Utilizador PostgreSQL
+  PGPASSWORD               → Password PostgreSQL
+  PGDATABASE               → Nome da base de dados
+
+  PORT                     → Porta do servidor (padrão: 5175)
+
+  SMTP_HOST                → Host SMTP (ex: smtp.gmail.com)
+  SMTP_PORT                → Porta SMTP (ex: 587)
+  SMTP_USER                → Email de envio
+  SMTP_PASS                → App Password do Gmail
+  CONTACT_EMAIL            → Email de destino das mensagens
+
+  ADMIN_PASS               → Senha do painel /Admin@tatto      [OBRIGATÓRIO]
+  JOALHERIA_ADMIN_PASS     → Senha do painel /Admin@joalheria  [OBRIGATÓRIO]
+  ADMIN_JWT_SECRET         → Chave secreta JWT de admin        [OBRIGATÓRIO]
+  JWT_SECRET               → Chave secreta JWT de clientes     [OBRIGATÓRIO]
+
+  CORS_ORIGINS             → Origens permitidas (ex: https://seusite.com)
+
+  INFINITEPAY_CLIENT_ID    → Credencial InfinitePay (opcional)
+  INFINITEPAY_CLIENT_SECRET→ Credencial InfinitePay (opcional)
+
+  NODE_ENV                 → 'production' ativa cookies secure (HTTPS)
+
+  ATENÇÃO: O ficheiro .env está no .gitignore — nunca deve ser enviado ao git.
+
+
+════════════════════════════════════════════════════════════════════════════════
+10. PARA COLOCAR EM PRODUÇÃO
+════════════════════════════════════════════════════════════════════════════════
+
+  1. Definir NODE_ENV=production no servidor de produção
+  2. Atualizar CORS_ORIGINS com o domínio real (ex: https://seusite.com)
+  3. Usar HTTPS (os cookies httpOnly ficam 'secure' automaticamente em produção)
+  4. Executar o build do frontend:
+       npm run build   ou   npx vite build --config frontend/vite.config.ts
+  5. Iniciar o servidor:
+       node backend/server/index.mjs
+  6. O servidor serve o frontend compilado a partir de frontend/dist/
+  7. Certificar que todas as variáveis de ambiente estão definidas
+     (o servidor recusa iniciar sem JWT_SECRET e ADMIN_JWT_SECRET)
+
+
+════════════════════════════════════════════════════════════════════════════════
+11. RESULTADO DO BUILD FINAL
+════════════════════════════════════════════════════════════════════════════════
+
+  Frontend build : ✅ Sucesso — 2781 módulos transformados em ~10s
+  Backend syntax : ✅ Sem erros de sintaxe
+  Dependências   : ✅ Todas instaladas corretamente
+
+  Bundles gerados:
+    index.html              (site principal)
+    curso.html              (página do curso)
+    joalheria.html          (loja de joalheria)
+    joias.html              (página de joias)
+    assets/index-*.js       (270 kB | gzip: 87 kB)
+    assets/main-*.js        (145 kB | gzip: 37 kB)
+    assets/joalheria-*.js   (53 kB  | gzip: 12 kB)
+    assets/index-*.css      (167 kB | gzip: 24 kB)
+
+
+================================================================================
+  FIM DO RELATÓRIO
+================================================================================

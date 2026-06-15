@@ -7,6 +7,8 @@ import { adminHeaders } from './adminAuth';
 
 const currency = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 
+type OrderStatus = 'nulo' | 'pago' | 'encomendado_pago' | 'entregue' | 'pegar_na_loja';
+
 type OrderItem = { name: string; price: number; quantity: number };
 type Order = {
   id: string;
@@ -18,25 +20,27 @@ type Order = {
   city: string;
   state: string;
   notes: string;
-  status: 'new' | 'in_progress' | 'done' | 'archived';
+  status: OrderStatus;
   shippingFee: number;
   total: number;
   submittedAt: string;
   items: OrderItem[];
+  pickupDate?: string;
 };
 
 const cardCls = 'border-white/10 bg-white/[0.04] text-white shadow-2xl shadow-black/30 backdrop-blur-xl';
 const inputCls = 'border-white/10 bg-white/5 text-white placeholder:text-white/35';
 
-const statusConfig: Record<Order['status'], { label: string; color: string; icon: React.ReactNode }> = {
-  new: { label: 'Novo', color: 'bg-blue-500/20 text-blue-300 border-blue-500/20', icon: <Clock className="h-3 w-3" /> },
-  in_progress: { label: 'Em andamento', color: 'bg-amber-500/20 text-amber-300 border-amber-500/20', icon: <Package className="h-3 w-3" /> },
-  done: { label: 'Concluído', color: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/20', icon: <Check className="h-3 w-3" /> },
-  archived: { label: 'Arquivado', color: 'bg-red-500/20 text-red-300 border-red-500/20', icon: <X className="h-3 w-3" /> },
+const statusConfig: Record<OrderStatus, { label: string; color: string; icon: React.ReactNode }> = {
+  nulo:            { label: 'Aguardando',        color: 'bg-white/10 text-white/60 border-white/10',          icon: <Clock className="h-3 w-3" /> },
+  pago:            { label: 'Pago',              color: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/20', icon: <Check className="h-3 w-3" /> },
+  encomendado_pago:{ label: 'Encomendado (Pago)',color: 'bg-blue-500/20 text-blue-300 border-blue-500/20',    icon: <Package className="h-3 w-3" /> },
+  entregue:        { label: 'Entregue',          color: 'bg-amber-500/20 text-amber-300 border-amber-500/20', icon: <Truck className="h-3 w-3" /> },
+  pegar_na_loja:   { label: 'Pegar na loja',     color: 'bg-purple-500/20 text-purple-300 border-purple-500/20', icon: <Package className="h-3 w-3" /> },
 };
 
-const StatusBadge = ({ status }: { status: Order['status'] }) => {
-  const cfg = statusConfig[status] || statusConfig.new;
+const StatusBadge = ({ status }: { status: OrderStatus }) => {
+  const cfg = statusConfig[status] ?? statusConfig.nulo;
   return (
     <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium ${cfg.color}`}>
       {cfg.icon}{cfg.label}
@@ -45,6 +49,7 @@ const StatusBadge = ({ status }: { status: Order['status'] }) => {
 };
 
 const fmt = (d: string) => new Date(d).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+const fmtDate = (d: string) => new Date(d + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
 export function AdminOrders() {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -53,7 +58,7 @@ export function AdminOrders() {
   const [feeStatus, setFeeStatus] = useState('');
   const [savingFee, setSavingFee] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [filter, setFilter] = useState<Order['status'] | 'all'>('all');
+  const [filter, setFilter] = useState<OrderStatus | 'all'>('all');
 
   useEffect(() => {
     loadData();
@@ -78,7 +83,7 @@ export function AdminOrders() {
     }
   };
 
-  const updateStatus = async (id: string, status: Order['status']) => {
+  const updateStatus = async (id: string, status: OrderStatus) => {
     try {
       await fetch(`/api/jewelry-orders/${id}`, {
         method: 'PUT',
@@ -86,7 +91,7 @@ export function AdminOrders() {
         body: JSON.stringify({ status }),
       });
       setOrders((cur) => cur.map((o) => (o.id === id ? { ...o, status } : o)));
-    } catch (err) {
+    } catch {
       alert('Erro ao atualizar status');
     }
   };
@@ -110,10 +115,7 @@ export function AdminOrders() {
     setFeeStatus('');
     try {
       const val = Number(shippingFee.replace(',', '.'));
-      if (isNaN(val) || val < 0) {
-        setFeeStatus('Valor inválido');
-        return;
-      }
+      if (isNaN(val) || val < 0) { setFeeStatus('Valor inválido'); return; }
       await fetch('/api/site-settings', {
         method: 'PUT',
         headers: adminHeaders('joalheria'),
@@ -133,7 +135,9 @@ export function AdminOrders() {
   const counts = orders.reduce((acc, o) => {
     acc[o.status] = (acc[o.status] || 0) + 1;
     return acc;
-  }, {} as Record<Order['status'], number>);
+  }, {} as Record<OrderStatus, number>);
+
+  const allStatuses: OrderStatus[] = ['nulo', 'pago', 'encomendado_pago', 'entregue', 'pegar_na_loja'];
 
   return (
     <div className="space-y-6">
@@ -149,17 +153,9 @@ export function AdminOrders() {
           <p className="text-sm text-white/55">Valor cobrado por entrega (deixe 0 para "a combinar").</p>
           <div className="flex gap-3 items-center max-w-xs">
             <div className="flex items-center rounded-xl border border-white/10 bg-white/5 px-3 text-white/50 text-sm">R$</div>
-            <Input
-              value={shippingFee}
-              onChange={(e) => setShippingFee(e.target.value)}
-              placeholder="0,00"
-              className={inputCls}
-            />
-            <Button
-              onClick={saveFee}
-              disabled={savingFee}
-              className="rounded-full border border-white/10 bg-white px-4 text-black hover:bg-white/90 disabled:opacity-50 whitespace-nowrap"
-            >
+            <Input value={shippingFee} onChange={(e) => setShippingFee(e.target.value)} placeholder="0,00" className={inputCls} />
+            <Button onClick={saveFee} disabled={savingFee}
+              className="rounded-full border border-white/10 bg-white px-4 text-black hover:bg-white/90 disabled:opacity-50 whitespace-nowrap">
               {savingFee ? 'Salvando...' : 'Salvar'}
             </Button>
           </div>
@@ -170,20 +166,17 @@ export function AdminOrders() {
       {/* Orders list */}
       <Card className={cardCls}>
         <CardHeader>
-          <CardTitle className="text-white text-lg flex items-center justify-between">
-            <span>Pedidos ({orders.length})</span>
+          <CardTitle className="text-white text-lg flex items-center justify-between flex-wrap gap-3">
+            <span>Encomendas ({orders.length})</span>
             <div className="flex gap-1.5 flex-wrap">
-              {(['all', 'new', 'in_progress', 'done', 'archived'] as const).map((s) => (
-                <button
-                  key={s}
-                  onClick={() => setFilter(s)}
-                  className={`px-3 py-1 rounded-full text-xs border transition ${
-                    filter === s
-                      ? 'bg-white text-black border-white'
-                      : 'border-white/15 text-white/60 hover:bg-white/5'
-                  }`}
-                >
-                  {s === 'all' ? `Todos (${orders.length})` : `${statusConfig[s].label} (${counts[s] || 0})`}
+              <button onClick={() => setFilter('all')}
+                className={`px-3 py-1 rounded-full text-xs border transition ${filter === 'all' ? 'bg-white text-black border-white' : 'border-white/15 text-white/60 hover:bg-white/5'}`}>
+                Todos ({orders.length})
+              </button>
+              {allStatuses.map((s) => (
+                <button key={s} onClick={() => setFilter(s)}
+                  className={`px-3 py-1 rounded-full text-xs border transition ${filter === s ? 'bg-white text-black border-white' : 'border-white/15 text-white/60 hover:bg-white/5'}`}>
+                  {statusConfig[s].label} ({counts[s] || 0})
                 </button>
               ))}
             </div>
@@ -196,26 +189,24 @@ export function AdminOrders() {
           )}
           <div className="space-y-3">
             {filtered.map((order) => (
-              <div
-                key={order.id}
-                className="rounded-2xl border border-white/10 bg-white/[0.03] overflow-hidden"
-              >
-                <div
-                  className="flex items-center justify-between p-4 cursor-pointer hover:bg-white/[0.02] transition"
-                  onClick={() => setExpandedId(expandedId === order.id ? null : order.id)}
-                >
+              <div key={order.id} className="rounded-2xl border border-white/10 bg-white/[0.03] overflow-hidden">
+                <div className="flex items-center justify-between p-4 cursor-pointer hover:bg-white/[0.02] transition"
+                  onClick={() => setExpandedId(expandedId === order.id ? null : order.id)}>
                   <div className="space-y-1">
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 flex-wrap">
                       <span className="font-medium text-white">{order.customerName}</span>
                       <StatusBadge status={order.status} />
                     </div>
-                    <div className="flex items-center gap-3 text-xs text-white/45">
+                    <div className="flex items-center gap-3 text-xs text-white/45 flex-wrap">
                       <span>{fmt(order.submittedAt)}</span>
                       {order.phone && <span>· {order.phone}</span>}
                       <span className="flex items-center gap-1">
                         {order.deliveryMethod === 'delivery' ? <Truck className="h-3 w-3" /> : <Package className="h-3 w-3" />}
                         {order.deliveryMethod === 'delivery' ? 'Entrega' : 'Retirada'}
                       </span>
+                      {order.pickupDate && (
+                        <span className="text-purple-300/80">· Busca: {fmtDate(order.pickupDate)}</span>
+                      )}
                     </div>
                   </div>
                   <div className="text-right">
@@ -245,10 +236,18 @@ export function AdminOrders() {
                       </div>
                     </div>
 
+                    {/* Pickup date */}
+                    {order.deliveryMethod === 'pickup' && order.pickupDate && (
+                      <div>
+                        <p className="text-xs uppercase tracking-widest text-white/40 mb-1">Data de retirada</p>
+                        <p className="text-sm text-purple-300">{fmtDate(order.pickupDate)}</p>
+                      </div>
+                    )}
+
                     {/* Address */}
                     {order.deliveryMethod === 'delivery' && order.addressLine1 && (
                       <div>
-                        <p className="text-xs uppercase tracking-widest text-white/40 mb-1">Endereço</p>
+                        <p className="text-xs uppercase tracking-widest text-white/40 mb-1">Endereço de entrega</p>
                         <p className="text-sm text-white/70">{order.addressLine1}, {order.city} — {order.state}</p>
                       </div>
                     )}
@@ -265,17 +264,13 @@ export function AdminOrders() {
                     <div>
                       <p className="text-xs uppercase tracking-widest text-white/40 mb-2">Alterar status</p>
                       <div className="flex gap-2 flex-wrap">
-                        {(['new', 'in_progress', 'done', 'archived'] as Order['status'][]).map((s) => (
-                          <button
-                            key={s}
-                            onClick={() => updateStatus(order.id, s)}
-                            disabled={order.status === s}
+                        {allStatuses.map((s) => (
+                          <button key={s} onClick={() => updateStatus(order.id, s)} disabled={order.status === s}
                             className={`px-3 py-1.5 rounded-full text-xs border transition ${
                               order.status === s
                                 ? 'bg-white/15 border-white/20 text-white font-medium'
                                 : 'border-white/10 text-white/50 hover:bg-white/5'
-                            }`}
-                          >
+                            }`}>
                             {statusConfig[s].label}
                           </button>
                         ))}
@@ -284,10 +279,8 @@ export function AdminOrders() {
 
                     {/* Delete */}
                     <div className="pt-1 border-t border-white/8">
-                      <button
-                        onClick={() => deleteOrder(order.id)}
-                        className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs border border-red-500/30 text-red-400 hover:bg-red-500/10 transition"
-                      >
+                      <button onClick={() => deleteOrder(order.id)}
+                        className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs border border-red-500/30 text-red-400 hover:bg-red-500/10 transition">
                         <Trash2 className="h-3 w-3" />
                         Excluir pedido
                       </button>

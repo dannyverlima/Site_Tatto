@@ -59,7 +59,7 @@ export function Hero() {
           transition={{ duration: 0.8, delay: 0.8 }}
           className="text-base sm:text-xl md:text-2xl text-neutral-300 tracking-wide"
         >
-          Arte na Pele, Memórias para a Vida
+          A qualidade e elegância que seu corpo merece
         </motion.p>
 
         <motion.div

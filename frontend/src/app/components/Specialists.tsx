@@ -291,7 +291,7 @@ export function Specialists() {
             const handle = extractInstagramHandle(specialist.instagram);
             return (
               <motion.div
-                key={`${specialist.name}-${index}`}
+                key={specialist.id ?? `${specialist.name}-${index}`}
                 initial={{ opacity: 0, y: 40 }}
                 animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 40 }}
                 transition={{ duration: 0.55, delay: index * 0.12 }}

@@ -1,27 +1,11 @@
-export const normalizeHtml = (value: string) => {
-  if (typeof window === 'undefined') {
-    return value;
-  }
+import DOMPurify from 'dompurify';
 
-  const decoder = document.createElement('textarea');
-  decoder.innerHTML = value;
+export const normalizeHtml = (value: string): string => {
+  if (typeof window === 'undefined') return value;
 
-  const parser = new DOMParser();
-  const documentFragment = parser.parseFromString(decoder.value, 'text/html');
-
-  // Remover quaisquer atributos `data-*` que editores como Slate possam deixar
-  documentFragment.querySelectorAll('*').forEach((el) => {
-    // coletar nomes para evitar live-collection mutation issues
-    const attrs = Array.from(el.attributes).map((a) => a.name);
-    attrs.forEach((name) => {
-      if (name.startsWith('data-')) {
-        el.removeAttribute(name);
-      }
-    });
+  return DOMPurify.sanitize(value, {
+    ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'u', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'span'],
+    ALLOWED_ATTR: ['style', 'class'],
+    FORBID_ATTR: ['onerror', 'onclick', 'onload', 'onmouseover'],
   });
-
-  // Remover scripts e estilos por segurança
-  documentFragment.querySelectorAll('script, style').forEach((element) => element.remove());
-
-  return documentFragment.body.innerHTML;
 };

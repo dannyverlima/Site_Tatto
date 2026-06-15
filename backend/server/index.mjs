@@ -1,5 +1,8 @@
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
+import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
 import path from 'node:path';
 import os from 'node:os';
@@ -66,7 +69,7 @@ dotenv.config({ path: envPath });
 const app = express();
 const port = Number(process.env.PORT || 5175);
 const projectRoot = path.resolve(__dirname, '..');
-const adminMediaDir = path.join(projectRoot, 'imagens', 'videos admin');
+const adminMediaDir = path.join(projectRoot, 'media');
 
 const storage = multer.memoryStorage();
 
@@ -128,7 +131,7 @@ const transcodeVideoBuffer = async (file) => {
 const upload = multer({
   storage,
   limits: {
-    fileSize: 1024 * 1024 * 1024,
+    fileSize: 50 * 1024 * 1024, // 50MB
   },
   fileFilter: (_req, file, callback) => {
     if (file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/')) {
@@ -141,6 +144,10 @@ const upload = multer({
 });
 
 const allowedOrigins = (process.env.CORS_ORIGINS || 'http://localhost:5173').split(',').map((o) => o.trim());
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+  contentSecurityPolicy: false, // frontend usa inline styles/scripts via Vite
+}));
 app.use(cors({
   origin: (origin, cb) => {
     if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
@@ -149,6 +156,26 @@ app.use(cors({
   credentials: true,
 }));
 app.use(express.json({ limit: '1mb' }));
+app.use(cookieParser());
+
+// Rate limiting para endpoints de autenticação (máx 10 tentativas por 15 min por IP)
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Demasiadas tentativas. Tente novamente em 15 minutos.' },
+});
+
+// Rate limiting para formulários públicos (máx 20 por hora por IP)
+const formLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Limite de envios atingido. Tente mais tarde.' },
+});
+app.use('/media', express.static(adminMediaDir));
 app.use('/admin-media', express.static(adminMediaDir));
 
 const badRequest = (res, message) => res.status(400).json({ error: message });
@@ -253,6 +280,26 @@ const ingestAdminMediaFiles = async () => {
     );
     inserted += 1;
   }
+
+  // Reparar disk_path de entradas que apontam para o diretório antigo
+  const toRepair = await pool.query(
+    'SELECT id, disk_filename, disk_path FROM app.media_asset WHERE disk_filename IS NOT NULL'
+  );
+  let repaired = 0;
+  for (const row of toRepair.rows) {
+    const correctPath = path.join(adminMediaDir, row.disk_filename);
+    const alreadyCorrect = row.disk_path && path.resolve(row.disk_path) === path.resolve(correctPath);
+    if (!alreadyCorrect) {
+      try {
+        await fs.stat(correctPath);
+        await pool.query('UPDATE app.media_asset SET disk_path = $1 WHERE id = $2', [correctPath, row.id]);
+        repaired += 1;
+      } catch {
+        // arquivo não existe no novo local, mantém o caminho atual
+      }
+    }
+  }
+  if (repaired > 0) console.log(`✅ Reparados ${repaired} caminhos de arquivo no banco.`);
 
   return { inserted, skipped };
 };
@@ -368,12 +415,58 @@ const ensureDatabaseSchema = async () => {
     END
     $$;
   `);
+
+  // Inscrições no curso
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS app.course_enrollment (
+      id serial PRIMARY KEY,
+      course_id uuid REFERENCES app.course(id) ON DELETE SET NULL,
+      name text NOT NULL,
+      email text NOT NULL,
+      phone text NOT NULL DEFAULT '',
+      message text NOT NULL DEFAULT '',
+      created_at timestamptz NOT NULL DEFAULT now()
+    )
+  `);
+
+  // Vendas manuais de joalheria
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS app.jewelry_manual_sale (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      site_id uuid NOT NULL REFERENCES app.site(id) ON DELETE CASCADE,
+      customer_name text NOT NULL DEFAULT 'Venda manual',
+      description text NOT NULL DEFAULT '',
+      total numeric(12,2) NOT NULL DEFAULT 0,
+      paid_at timestamptz NOT NULL DEFAULT now(),
+      created_at timestamptz NOT NULL DEFAULT now()
+    )
+  `);
+
+  // Adiciona colunas em falta na jewelry_order
+  await pool.query(`ALTER TABLE app.jewelry_order ADD COLUMN IF NOT EXISTS pickup_date text`);
+  await pool.query(`ALTER TABLE app.jewelry_order ADD COLUMN IF NOT EXISTS payment_method text NOT NULL DEFAULT 'dinheiro'`);
+
+  // Converte status de ENUM para text (para suportar novos estados: nulo, pago, etc.)
+  await pool.query(`
+    DO $$
+    BEGIN
+      IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'app' AND table_name = 'jewelry_order'
+          AND column_name = 'status' AND udt_name = 'submission_status'
+      ) THEN
+        ALTER TABLE app.jewelry_order ALTER COLUMN status TYPE text USING status::text;
+        ALTER TABLE app.jewelry_order ALTER COLUMN status SET DEFAULT 'nulo';
+      END IF;
+    END
+    $$;
+  `);
 };
 
 const bootstrapAdminMedia = async () => {
-  await ensureAdminMediaDir();
-  await exportDatabaseMediaToDisk();
-  await ingestAdminMediaFiles();
+  try { await ensureAdminMediaDir(); } catch (e) { console.warn('ensureAdminMediaDir falhou:', e.message); }
+  try { await exportDatabaseMediaToDisk(); } catch (e) { console.warn('exportDatabaseMediaToDisk falhou:', e.message); }
+  try { await ingestAdminMediaFiles(); } catch (e) { console.warn('ingestAdminMediaFiles falhou:', e.message); }
 };
 
 app.get('/api/health', (_req, res) => {
@@ -488,7 +581,7 @@ app.get('/api/uploads', async (_req, res) => {
   }
 });
 
-app.post('/api/admin-media/ingest', async (_req, res) => {
+app.post('/api/admin-media/ingest', requireAdmin, async (_req, res) => {
   try {
     const result = await ingestAdminMediaFiles();
     res.json({ ok: true, ...result });
@@ -524,31 +617,37 @@ app.get('/api/uploads/:id', async (req, res) => {
 
     // Arquivo em disco — streaming com suporte a range requests (necessário para vídeo)
     if (media.disk_path) {
-      const filePath = path.resolve(media.disk_path);
-      try {
-        const stat = await fs.stat(filePath);
-        const fileSize = stat.size;
-        const range = req.headers.range;
-
-        if (range) {
-          const [startStr, endStr] = range.replace(/bytes=/, '').split('-');
-          const start = parseInt(startStr, 10);
-          const end = endStr ? parseInt(endStr, 10) : fileSize - 1;
-          const chunkSize = end - start + 1;
-
-          res.status(206);
-          res.setHeader('Content-Range', `bytes ${start}-${end}/${fileSize}`);
-          res.setHeader('Accept-Ranges', 'bytes');
-          res.setHeader('Content-Length', chunkSize);
-          return createReadStream(filePath, { start, end }).pipe(res);
-        }
-
-        res.setHeader('Accept-Ranges', 'bytes');
-        res.setHeader('Content-Length', fileSize);
-        return createReadStream(filePath).pipe(res);
-      } catch {
+      const candidates = [
+        path.resolve(media.disk_path),
+        path.join(adminMediaDir, path.basename(media.disk_path)),
+      ];
+      let filePath = null;
+      for (const candidate of candidates) {
+        try { await fs.stat(candidate); filePath = candidate; break; } catch { /* try next */ }
+      }
+      if (!filePath) {
         return res.status(404).json({ error: 'Arquivo não encontrado em disco' });
       }
+      const stat = await fs.stat(filePath);
+      const fileSize = stat.size;
+      const range = req.headers.range;
+
+      if (range) {
+        const [startStr, endStr] = range.replace(/bytes=/, '').split('-');
+        const start = parseInt(startStr, 10);
+        const end = endStr ? parseInt(endStr, 10) : fileSize - 1;
+        const chunkSize = end - start + 1;
+
+        res.status(206);
+        res.setHeader('Content-Range', `bytes ${start}-${end}/${fileSize}`);
+        res.setHeader('Accept-Ranges', 'bytes');
+        res.setHeader('Content-Length', chunkSize);
+        return createReadStream(filePath, { start, end }).pipe(res);
+      }
+
+      res.setHeader('Accept-Ranges', 'bytes');
+      res.setHeader('Content-Length', fileSize);
+      return createReadStream(filePath).pipe(res);
     }
 
     return res.status(404).json({ error: 'Conteúdo do arquivo não encontrado' });
@@ -623,7 +722,7 @@ app.get('/api/reviews', async (_req, res) => {
 
 const sanitize = (str) => String(str || '').replace(/<[^>]*>/g, '').trim();
 
-app.post('/api/reviews', async (req, res) => {
+app.post('/api/reviews', formLimiter, async (req, res) => {
   const name = sanitize(req.body?.name);
   const comment = sanitize(req.body?.comment);
   const { rating } = req.body || {};
@@ -667,12 +766,17 @@ const sendContactEmail = async ({ name, email, phone, message }) => {
   });
 };
 
-app.post('/api/contact-submissions', async (req, res) => {
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+app.post('/api/contact-submissions', formLimiter, async (req, res) => {
   const name = sanitize(req.body?.name);
   const message = sanitize(req.body?.message);
   const { email, phone } = req.body || {};
   if (!name || !email || !phone || !message) {
     return badRequest(res, 'Todos os campos são obrigatórios');
+  }
+  if (!emailRegex.test(String(email))) {
+    return badRequest(res, 'Email inválido');
   }
 
   try {
@@ -687,10 +791,19 @@ app.post('/api/contact-submissions', async (req, res) => {
   }
 });
 
-app.post('/api/course-enrollments', async (req, res) => {
-  const { name, email, phone, message } = req.body || {};
+app.post('/api/course-enrollments', formLimiter, async (req, res) => {
+  const body = req.body || {};
+  // Aceita tanto o formato novo (nome/whatsapp/cidade/experiencia) como o antigo (name/phone/message)
+  const name = sanitize(body.nome || body.name);
+  const email = String(body.email || '').toLowerCase().trim();
+  const phone = sanitize(body.whatsapp || body.phone);
+  const message = sanitize(body.experiencia || body.message || body.cidade || '');
+
   if (!name || !email) {
-    return badRequest(res, 'Dados invalidos');
+    return badRequest(res, 'Nome e email são obrigatórios');
+  }
+  if (!emailRegex.test(email)) {
+    return badRequest(res, 'Email inválido');
   }
 
   try {
@@ -808,18 +921,32 @@ app.delete('/api/portfolio/:id', requireAdmin, async (req, res) => {
 
 // ---- Auth ----
 
-const JWT_SECRET = process.env.JWT_SECRET || 'jewelry_secret_change_me_in_production';
-const JWT_EXPIRES = '30d';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  console.error('FATAL: JWT_SECRET não definido no .env');
+  process.exit(1);
+}
+const JWT_EXPIRES = '7d';
+const SESSION_COOKIE = 'jewelry_session';
+const cookieOpts = {
+  httpOnly: true,
+  sameSite: 'lax',
+  secure: process.env.NODE_ENV === 'production',
+  maxAge: 7 * 24 * 60 * 60 * 1000, // 7 dias
+  path: '/',
+};
 
 function signToken(user) {
   return jwt.sign({ id: user.id, email: user.email, name: user.name }, JWT_SECRET, { expiresIn: JWT_EXPIRES });
 }
 
-app.post('/api/auth/register', async (req, res) => {
+app.post('/api/auth/register', authLimiter, async (req, res) => {
   try {
     const { name, email, password } = req.body || {};
     if (!name || !email || !password) return res.status(400).json({ error: 'Preencha todos os campos' });
-    if (password.length < 6) return res.status(400).json({ error: 'Senha deve ter pelo menos 6 caracteres' });
+    if (password.length < 8) return res.status(400).json({ error: 'Senha deve ter pelo menos 8 caracteres' });
+    if (!/[A-Z]/.test(password)) return res.status(400).json({ error: 'Senha deve conter pelo menos uma letra maiúscula' });
+    if (!/[0-9]/.test(password)) return res.status(400).json({ error: 'Senha deve conter pelo menos um número' });
     const existing = await pool.query('SELECT id FROM app.jewelry_customer WHERE email = $1', [email.toLowerCase()]);
     if (existing.rows.length > 0) return res.status(409).json({ error: 'Este email já está cadastrado' });
     const hash = await bcryptjs.hash(password, 12);
@@ -828,14 +955,15 @@ app.post('/api/auth/register', async (req, res) => {
       [name.trim(), email.toLowerCase().trim(), hash]
     );
     const user = result.rows[0];
-    res.status(201).json({ token: signToken(user), user });
+    res.cookie(SESSION_COOKIE, signToken(user), cookieOpts);
+    res.status(201).json({ user });
   } catch (err) {
     console.error('Erro no cadastro:', err);
     res.status(500).json({ error: 'Erro interno ao criar conta' });
   }
 });
 
-app.post('/api/auth/login', async (req, res) => {
+app.post('/api/auth/login', authLimiter, async (req, res) => {
   try {
     const { email, password } = req.body || {};
     if (!email || !password) return res.status(400).json({ error: 'Preencha email e senha' });
@@ -847,7 +975,8 @@ app.post('/api/auth/login', async (req, res) => {
     const user = result.rows[0];
     const valid = await bcryptjs.compare(password, user.password_hash);
     if (!valid) return res.status(401).json({ error: 'Email ou senha inválidos' });
-    res.json({ token: signToken(user), user: { id: user.id, name: user.name, email: user.email } });
+    res.cookie(SESSION_COOKIE, signToken(user), cookieOpts);
+    res.json({ user: { id: user.id, name: user.name, email: user.email } });
   } catch (err) {
     console.error('Erro no login:', err);
     res.status(500).json({ error: 'Erro interno ao autenticar' });
@@ -856,9 +985,8 @@ app.post('/api/auth/login', async (req, res) => {
 
 app.get('/api/auth/me', async (req, res) => {
   try {
-    const auth = req.headers.authorization;
-    if (!auth?.startsWith('Bearer ')) return res.status(401).json({ error: 'Não autorizado' });
-    const token = auth.slice(7);
+    const token = req.cookies?.[SESSION_COOKIE];
+    if (!token) return res.status(401).json({ error: 'Não autorizado' });
     const payload = jwt.verify(token, JWT_SECRET);
     const result = await pool.query(
       'SELECT id, name, email FROM app.jewelry_customer WHERE id = $1',
@@ -866,14 +994,23 @@ app.get('/api/auth/me', async (req, res) => {
     );
     if (result.rows.length === 0) return res.status(404).json({ error: 'Usuário não encontrado' });
     res.json(result.rows[0]);
-  } catch (err) {
-    res.status(401).json({ error: 'Token inválido ou expirado' });
+  } catch {
+    res.status(401).json({ error: 'Sessão inválida ou expirada' });
   }
+});
+
+app.post('/api/auth/logout', (req, res) => {
+  res.clearCookie(SESSION_COOKIE, { path: '/' });
+  res.json({ ok: true });
 });
 // ---- End Auth ----
 
 // ============= ADMIN AUTH =============
-const ADMIN_JWT_SECRET = process.env.ADMIN_JWT_SECRET || process.env.JWT_SECRET || 'admin_change_me';
+const ADMIN_JWT_SECRET = process.env.ADMIN_JWT_SECRET || process.env.JWT_SECRET;
+if (!ADMIN_JWT_SECRET) {
+  console.error('FATAL: ADMIN_JWT_SECRET não definido no .env');
+  process.exit(1);
+}
 
 function requireAdmin(req, res, next) {
   const authHeader = req.headers.authorization;
@@ -887,11 +1024,15 @@ function requireAdmin(req, res, next) {
   }
 }
 
-app.post('/api/admin/login', (req, res) => {
+app.post('/api/admin/login', authLimiter, (req, res) => {
   const { password, role } = req.body || {};
   const expectedPass = role === 'joalheria'
-    ? (process.env.JOALHERIA_ADMIN_PASS || 'Admin@joia')
-    : (process.env.ADMIN_PASS || 'Admin@tatto');
+    ? process.env.JOALHERIA_ADMIN_PASS
+    : process.env.ADMIN_PASS;
+  if (!expectedPass) {
+    console.error('FATAL: ADMIN_PASS ou JOALHERIA_ADMIN_PASS não definido no .env');
+    return res.status(500).json({ error: 'Configuração do servidor inválida' });
+  }
   if (!password || password !== expectedPass) {
     return res.status(401).json({ error: 'Senha incorreta' });
   }
@@ -957,26 +1098,44 @@ app.post('/api/jewelry-orders', async (req, res) => {
   const {
     customerName, email, phone, deliveryMethod,
     addressLine1, addressLine2, city, state, postalCode,
-    notes, items, paymentMethod,
+    notes, items, paymentMethod, pickupDate, initialStatus,
   } = req.body || {};
   if (!customerName || !customerName.trim()) {
     return badRequest(res, 'Nome é obrigatório');
   }
+  if (!Array.isArray(items) || items.length === 0) {
+    return badRequest(res, 'Pedido sem itens');
+  }
   const safePayment = ['pix', 'cartao'].includes(paymentMethod) ? paymentMethod : 'dinheiro';
+  const allowedStatuses = ['nulo', 'pago', 'encomendado_pago', 'entregue', 'pegar_na_loja'];
+  const safeInitialStatus = allowedStatuses.includes(initialStatus) ? initialStatus : 'nulo';
   try {
+    // Validar preços e stock no servidor — nunca confiar nos preços enviados pelo cliente
+    const ids = items.map((i) => i.id).filter(Boolean);
+    const dbItems = await getJewelryItemsByIds(ids);
+    const itemMap = new Map(dbItems.map((i) => [i.id, i]));
+    const validatedItems = items.map((item) => {
+      const dbItem = itemMap.get(item.id);
+      if (!dbItem) return null;
+      const discount = dbItem.discountPercent || 0;
+      const serverPrice = discount > 0
+        ? parseFloat((dbItem.price * (1 - discount / 100)).toFixed(2))
+        : Number(dbItem.price);
+      return { ...item, price: serverPrice, name: dbItem.name };
+    }).filter(Boolean);
+    if (validatedItems.length === 0) {
+      return badRequest(res, 'Nenhum item válido no pedido');
+    }
     const orderId = await createJewelryOrder({
       customerName, email, phone, deliveryMethod,
       addressLine1, addressLine2, city, state, postalCode,
-      notes, items: items || [], paymentMethod: safePayment,
+      notes, items: validatedItems, paymentMethod: safePayment,
+      pickupDate, initialStatus: safeInitialStatus,
     });
-    sendOrderEmail({
-      orderId, customerName, email, phone, deliveryMethod,
-      paymentMethod: safePayment, items: items || [], total: '—', pixKey: null,
-    }).catch((err) => console.error('Falha ao enviar email de pedido:', err.message));
     res.status(201).json({ ok: true, orderId });
   } catch (error) {
     console.error('Erro ao criar pedido de joia', error);
-    res.status(500).json({ error: error.message || 'Falha ao criar pedido' });
+    res.status(500).json({ error: 'Falha ao criar pedido' });
   }
 });
 
@@ -1128,8 +1287,8 @@ app.put('/api/site-settings', requireAdmin, async (req, res) => {
 // ============= JEWELRY SALES / FATURAMENTO =============
 app.get('/api/jewelry-sales', requireAdmin, async (req, res) => {
   try {
-    const months = Math.min(36, Math.max(1, Number(req.query.months || 12)));
-    const data = await getJewelrySales({ months });
+    const year = req.query.year ? Number(req.query.year) : new Date().getFullYear();
+    const data = await getJewelrySales({ year });
     res.json(data);
   } catch (error) {
     console.error('Erro ao carregar faturamento', error);
@@ -1146,6 +1305,48 @@ app.post('/api/jewelry-sales/manual', requireAdmin, async (req, res) => {
   } catch (error) {
     console.error('Erro ao lançar venda manual', error);
     res.status(500).json({ error: 'Falha ao lançar venda' });
+  }
+});
+
+// Deletar venda (order concluída ou manual)
+app.delete('/api/jewelry-sales/:id', requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  try {
+    // Tenta deletar da tabela de orders (vendas de pedidos)
+    const orderDel = await pool.query(
+      "DELETE FROM app.jewelry_order WHERE id = $1 AND status = 'done' RETURNING id",
+      [id]
+    );
+    if (orderDel.rowCount > 0) return res.json({ ok: true });
+    // Tenta deletar da tabela de vendas manuais
+    const manualDel = await pool.query(
+      'DELETE FROM app.jewelry_manual_sale WHERE id = $1 RETURNING id',
+      [id]
+    );
+    if (manualDel.rowCount > 0) return res.json({ ok: true });
+    res.status(404).json({ error: 'Venda não encontrada' });
+  } catch (error) {
+    console.error('Erro ao deletar venda', error);
+    res.status(500).json({ error: 'Falha ao deletar venda' });
+  }
+});
+
+// Editar status de pedido de joias
+app.put('/api/jewelry-sales/:id/status', requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body || {};
+  const validStatuses = ['pending', 'confirmed', 'done', 'cancelled'];
+  if (!validStatuses.includes(status)) return badRequest(res, 'Status inválido');
+  try {
+    const result = await pool.query(
+      'UPDATE app.jewelry_order SET status = $1, updated_at = now() WHERE id = $2 RETURNING id',
+      [status, id]
+    );
+    if (result.rowCount === 0) return res.status(404).json({ error: 'Pedido não encontrado' });
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Erro ao atualizar status', error);
+    res.status(500).json({ error: 'Falha ao atualizar status' });
   }
 });
 
@@ -1328,11 +1529,25 @@ app.delete('/api/course/extra-info/:id', requireAdmin, async (req, res) => {
   }
 });
 
+// Serve frontend/dist em produção (quando Vite dev server não está rodando)
+const frontendDist = path.resolve(__dirname, '..', '..', 'frontend', 'dist');
+app.use(express.static(frontendDist));
+// Catch-all: devolve index.html para rotas SPA que não são /api nem /media
+app.get('*', (req, res, next) => {
+  if (req.path.startsWith('/api') || req.path.startsWith('/media') || req.path.startsWith('/admin-media') || req.path.startsWith('/uploads')) {
+    return next();
+  }
+  const indexHtml = path.join(frontendDist, 'index.html');
+  res.sendFile(indexHtml, (err) => {
+    if (err) next();
+  });
+});
+
 const startServer = async () => {
   try {
     await ensureDatabaseSchema();
     app.listen(port, () => {
-      console.log(`API rodando em http://localhost:${port}`);
+      console.log(`✅ API rodando em http://localhost:${port}`);
     });
     bootstrapAdminMedia().catch((error) => {
       console.error('Falha ao sincronizar midias do admin', error);
@@ -1343,4 +1558,7 @@ const startServer = async () => {
   }
 };
 
-startServer();
+startServer().catch((err) => {
+  console.error('Erro fatal ao iniciar servidor:', err);
+  process.exit(1);
+});

@@ -366,12 +366,12 @@ export function AdminJewelry() {
             <select
               value={newItem.category}
               onChange={(e) => setNewItem({ ...newItem, category: e.target.value })}
-              className="h-10 rounded-md border border-white/10 bg-white/5 px-3 text-sm text-white"
+              className="h-10 rounded-md border border-white/10 bg-black px-3 text-sm text-white"
             >
-              <option value="geral">Geral</option>
-              <option value="homem">Homem</option>
-              <option value="mulher">Mulher</option>
-              <option value="crianca">Criança</option>
+              <option value="geral" className="bg-black text-white">Geral</option>
+              <option value="homem" className="bg-black text-white">Homem</option>
+              <option value="mulher" className="bg-black text-white">Mulher</option>
+              <option value="crianca" className="bg-black text-white">Criança</option>
             </select>
           </div>
 
@@ -489,12 +489,12 @@ export function AdminJewelry() {
                     <select
                       value={editingItem.category}
                       onChange={(e) => setEditingItem({ ...editingItem, category: e.target.value })}
-                      className="h-10 w-full rounded-md border border-white/10 bg-white/5 px-3 text-sm text-white"
+                      className="h-10 w-full rounded-md border border-white/10 bg-black px-3 text-sm text-white"
                     >
-                      <option value="geral">Geral</option>
-                      <option value="homem">Homem</option>
-                      <option value="mulher">Mulher</option>
-                      <option value="crianca">Criança</option>
+                      <option value="geral" className="bg-black text-white">Geral</option>
+                      <option value="homem" className="bg-black text-white">Homem</option>
+                      <option value="mulher" className="bg-black text-white">Mulher</option>
+                      <option value="crianca" className="bg-black text-white">Criança</option>
                     </select>
 
                     <div className="space-y-3">

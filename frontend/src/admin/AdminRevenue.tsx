@@ -2,17 +2,14 @@ import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../app/components/ui/card';
 import { adminHeaders } from './adminAuth';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
-import { TrendingUp, DollarSign, ShoppingBag, Plus } from 'lucide-react';
+import { TrendingUp, DollarSign, ShoppingBag, Plus, ChevronDown, Trash2 } from 'lucide-react';
 import { Button } from '../app/components/ui/button';
 import { Input } from '../app/components/ui/input';
 
 const currency = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const fmt = (d: string) => new Date(d).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' });
 
-const monthName = (isoDate: string) => {
-  const d = new Date(isoDate);
-  return d.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' });
-};
+const MONTH_LABELS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
 type MonthlyStat = { month: string; ordersCount: number; revenue: number };
 type RecentSale = {
@@ -37,24 +34,29 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   );
 };
 
+const currentYear = new Date().getFullYear();
+const YEAR_OPTIONS = Array.from({ length: 5 }, (_, i) => currentYear - i);
+
 export function AdminRevenue() {
   const [monthly, setMonthly] = useState<MonthlyStat[]>([]);
   const [recentSales, setRecentSales] = useState<RecentSale[]>([]);
   const [loading, setLoading] = useState(true);
-  const [period, setPeriod] = useState(12);
+  const [selectedYear, setSelectedYear] = useState(currentYear);
 
   const [manualForm, setManualForm] = useState({ customerName: '', description: '', total: '', paidAt: '' });
   const [manualSaving, setManualSaving] = useState(false);
   const [manualStatus, setManualStatus] = useState('');
+  const [editingStatusId, setEditingStatusId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
     loadData();
-  }, [period]);
+  }, [selectedYear]);
 
   const loadData = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/jewelry-sales?months=${period}`, { headers: adminHeaders('joalheria') });
+      const res = await fetch(`/api/jewelry-sales?year=${selectedYear}`, { headers: adminHeaders('joalheria') });
       const data = res.ok ? await res.json() : {};
       setMonthly(Array.isArray(data.monthly) ? data.monthly : []);
       setRecentSales(Array.isArray(data.recentSales) ? data.recentSales : []);
@@ -99,35 +101,43 @@ export function AdminRevenue() {
     }
   };
 
+  const handleDeleteSale = async (id: string) => {
+    if (!confirm('Excluir esta venda?')) return;
+    setDeletingId(id);
+    try {
+      await fetch(`/api/jewelry-sales/${id}`, { method: 'DELETE', headers: adminHeaders('joalheria') });
+      loadData();
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const handleStatusChange = async (id: string, status: string) => {
+    setEditingStatusId(id);
+    try {
+      await fetch(`/api/jewelry-sales/${id}/status`, {
+        method: 'PUT',
+        headers: { ...adminHeaders('joalheria'), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      });
+      loadData();
+    } finally {
+      setEditingStatusId(null);
+    }
+  };
+
   const totalRevenue = monthly.reduce((s, m) => s + m.revenue, 0);
   const totalOrders = monthly.reduce((s, m) => s + m.ordersCount, 0);
   const avgRevenue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
 
-  const chartData = monthly.map((m) => ({
-    month: monthName(m.month),
+  const chartData = monthly.map((m, i) => ({
+    month: MONTH_LABELS[i] ?? MONTH_LABELS[new Date(m.month).getMonth()],
     revenue: Number(m.revenue.toFixed(2)),
     ordersCount: m.ordersCount,
   }));
 
   return (
     <div className="space-y-6">
-      {/* Period selector */}
-      <div className="flex gap-2">
-        {[3, 6, 12].map((m) => (
-          <button
-            key={m}
-            onClick={() => setPeriod(m)}
-            className={`px-4 py-1.5 rounded-full text-xs border transition ${
-              period === m
-                ? 'bg-white text-black border-white font-medium'
-                : 'border-white/15 text-white/60 hover:bg-white/5'
-            }`}
-          >
-            {m} meses
-          </button>
-        ))}
-      </div>
-
       {/* Summary cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card className={cardCls}>
@@ -224,25 +234,38 @@ export function AdminRevenue() {
       {/* Monthly revenue chart */}
       <Card className={cardCls}>
         <CardHeader>
-          <CardTitle className="text-white text-lg flex items-center gap-2">
-            <TrendingUp className="h-5 w-5 text-amber-300" />
-            Faturamento mensal
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-white text-lg flex items-center gap-2">
+              <TrendingUp className="h-5 w-5 text-amber-300" />
+              Faturamento mensal
+            </CardTitle>
+            <div className="relative">
+              <select
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(Number(e.target.value))}
+                className="appearance-none rounded-full border border-white/15 bg-white/5 px-4 py-1.5 pr-8 text-sm text-white/80 hover:bg-white/10 transition cursor-pointer outline-none"
+              >
+                {YEAR_OPTIONS.map((y) => (
+                  <option key={y} value={y} className="bg-[#111] text-white">
+                    {y}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-white/40" />
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           {loading && <p className="text-white/40 text-sm text-center py-10">Carregando...</p>}
-          {!loading && chartData.length === 0 && (
-            <p className="text-white/40 text-sm text-center py-10">
-              Nenhuma venda concluída neste período.
-              <br />
-              <span className="text-xs mt-1 block text-white/30">
-                Altere o status de pedidos para "Concluído" para registrar o faturamento.
-              </span>
-            </p>
-          )}
-          {!loading && chartData.length > 0 && (
-            <ResponsiveContainer width="100%" height={260}>
+          {!loading && (
+            <ResponsiveContainer width="100%" height={280}>
               <BarChart data={chartData} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
+                <defs>
+                  <linearGradient id="goldGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#f59e0b" stopOpacity={0.9} />
+                    <stop offset="100%" stopColor="#d97706" stopOpacity={0.5} />
+                  </linearGradient>
+                </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
                 <XAxis
                   dataKey="month"
@@ -254,7 +277,8 @@ export function AdminRevenue() {
                   tick={{ fill: 'rgba(255,255,255,0.4)', fontSize: 11 }}
                   axisLine={false}
                   tickLine={false}
-                  tickFormatter={(v) => `R$${(v / 1000).toFixed(0)}k`}
+                  tickFormatter={(v) => v === 0 ? 'R$0' : `R$${(v / 1000).toFixed(0)}k`}
+                  label={{ value: 'Valor faturado', angle: -90, position: 'insideLeft', offset: -2, style: { fill: 'rgba(255,255,255,0.25)', fontSize: 10 } }}
                 />
                 <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
                 <Bar
@@ -262,12 +286,6 @@ export function AdminRevenue() {
                   radius={[8, 8, 0, 0]}
                   fill="url(#goldGradient)"
                 />
-                <defs>
-                  <linearGradient id="goldGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#f59e0b" stopOpacity={0.9} />
-                    <stop offset="100%" stopColor="#d97706" stopOpacity={0.5} />
-                  </linearGradient>
-                </defs>
               </BarChart>
             </ResponsiveContainer>
           )}
@@ -293,14 +311,16 @@ export function AdminRevenue() {
                     <th className="text-left py-2 pr-4">Itens</th>
                     <th className="text-left py-2 pr-4">Entrega</th>
                     <th className="text-left py-2 pr-4">Data</th>
-                    <th className="text-right py-2">Total</th>
+                    <th className="text-left py-2 pr-4">Status</th>
+                    <th className="text-right py-2 pr-4">Total</th>
+                    <th className="py-2"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
                   {recentSales.map((sale) => (
                     <tr key={sale.id} className="text-white/70 hover:text-white transition">
                       <td className="py-3 pr-4 font-medium">{sale.customerName}</td>
-                      <td className="py-3 pr-4 text-white/50 text-xs max-w-[200px]">
+                      <td className="py-3 pr-4 text-white/50 text-xs max-w-[160px]">
                         {sale.itemsSummary.slice(0, 2).join(', ')}
                         {sale.itemsSummary.length > 2 && ` +${sale.itemsSummary.length - 2}`}
                       </td>
@@ -314,8 +334,31 @@ export function AdminRevenue() {
                         </span>
                       </td>
                       <td className="py-3 pr-4 text-xs text-white/40">{fmt(sale.paidAt)}</td>
-                      <td className="py-3 text-right font-semibold text-amber-300">
+                      <td className="py-3 pr-4">
+                        <select
+                          disabled={editingStatusId === sale.id}
+                          defaultValue="done"
+                          onChange={(e) => handleStatusChange(sale.id, e.target.value)}
+                          className="rounded-lg border border-white/10 bg-black px-2 py-1 text-xs text-white/80 cursor-pointer outline-none disabled:opacity-50"
+                        >
+                          <option value="done" className="bg-black text-white">Concluído</option>
+                          <option value="confirmed" className="bg-black text-white">Confirmado</option>
+                          <option value="pending" className="bg-black text-white">Pendente</option>
+                          <option value="cancelled" className="bg-black text-white">Cancelado</option>
+                        </select>
+                      </td>
+                      <td className="py-3 pr-4 text-right font-semibold text-amber-300">
                         {currency.format(sale.total)}
+                      </td>
+                      <td className="py-3 text-right">
+                        <button
+                          onClick={() => handleDeleteSale(sale.id)}
+                          disabled={deletingId === sale.id}
+                          className="text-white/25 hover:text-red-400 transition disabled:opacity-40"
+                          title="Excluir venda"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
                       </td>
                     </tr>
                   ))}

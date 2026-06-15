@@ -24,6 +24,7 @@ type CartItem = {
   id: string;
   name: string;
   price: number;
+  discountPercent: number;
   imageUrl: string;
   quantity: number;
 };
@@ -44,7 +45,14 @@ function CartSidebar({
   open: boolean;
   onClose: () => void;
 }) {
-  const subtotal = useMemo(() => cart.reduce((s, i) => s + i.price * i.quantity, 0), [cart]);
+  const subtotalOriginal = useMemo(() => cart.reduce((s, i) => s + i.price * i.quantity, 0), [cart]);
+  const subtotalDiscounted = useMemo(() => cart.reduce((s, i) => {
+    const discounted = i.discountPercent > 0 ? i.price * (1 - i.discountPercent / 100) : i.price;
+    return s + discounted * i.quantity;
+  }, 0), [cart]);
+  const totalDiscount = subtotalOriginal - subtotalDiscounted;
+  const effectiveShipping = deliveryMethod === 'encomendar' ? shippingFee : 0;
+  const grandTotal = subtotalDiscounted + effectiveShipping;
   return (
     <motion.div
       initial={false}
@@ -52,7 +60,8 @@ function CartSidebar({
       transition={{ type: 'spring', stiffness: 320, damping: 32 }}
       className="fixed top-0 right-0 h-full w-full max-w-sm z-50 bg-black border-l border-white/10 flex flex-col shadow-2xl"
     >
-      <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
+      {/* Header fixo */}
+      <div className="flex-shrink-0 flex items-center justify-between px-5 py-4 border-b border-white/10">
         <h3 className="text-base font-semibold flex items-center gap-2">
           <ShoppingBag className="h-4 w-4 text-neutral-300" />
           Carrinho
@@ -66,39 +75,53 @@ function CartSidebar({
           <X className="h-4 w-4 text-white/60" />
         </button>
       </div>
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+
+      {/* Itens — scroll independente, não estica */}
+      <div className="overflow-y-auto px-4 py-3 space-y-2 min-h-0" style={{ maxHeight: '45vh' }}>
         {cart.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
+          <div className="flex flex-col items-center justify-center py-12 text-center gap-3">
             <ShoppingBag className="h-10 w-10 text-white/10" />
             <p className="text-white/40 text-sm">Seu carrinho está vazio.</p>
           </div>
         ) : (
-          cart.map((item) => (
-            <div key={item.id} className="flex gap-3 items-start bg-white/[0.03] rounded-2xl p-3 border border-white/6">
-              {item.imageUrl ? (
-                <ImageWithFallback src={item.imageUrl} alt={item.name} className="w-14 h-14 rounded-xl object-cover flex-shrink-0" />
-              ) : (
-                <div className="w-14 h-14 rounded-xl bg-white/5 flex-shrink-0 flex items-center justify-center">
-                  <Gem className="h-5 w-5 text-white/20" />
+          cart.map((item) => {
+            const discountedPrice = item.discountPercent > 0 ? item.price * (1 - item.discountPercent / 100) : item.price;
+            return (
+              <div key={item.id} className="flex gap-3 items-center bg-white/[0.03] rounded-xl p-2.5 border border-white/6">
+                {/* Imagem pequena com container fixo */}
+                <div className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 bg-white/5">
+                  {item.imageUrl
+                    ? <ImageWithFallback src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />
+                    : <div className="w-full h-full flex items-center justify-center"><Gem className="h-4 w-4 text-white/20" /></div>
+                  }
                 </div>
-              )}
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate text-neutral-100">{item.name}</p>
-                <p className="text-xs text-neutral-400 mt-0.5">{currency.format(item.price)}</p>
-                <div className="flex items-center gap-2 mt-2">
+                {/* Info */}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate text-neutral-100 leading-tight">{item.name}</p>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    {item.discountPercent > 0 && (
+                      <span className="text-[11px] text-white/30 line-through">{currency.format(item.price)}</span>
+                    )}
+                    <span className="text-xs text-neutral-300">{currency.format(discountedPrice)}</span>
+                  </div>
+                </div>
+                {/* Quantidade + remover */}
+                <div className="flex items-center gap-1.5 flex-shrink-0">
                   <button onClick={() => updateQuantity(item.id, -1)} className="w-6 h-6 rounded-full border border-white/10 flex items-center justify-center hover:bg-white/10 transition text-white/70"><Minus className="h-3 w-3" /></button>
-                  <span className="text-sm w-5 text-center font-medium">{item.quantity}</span>
+                  <span className="text-sm w-4 text-center font-medium">{item.quantity}</span>
                   <button onClick={() => updateQuantity(item.id, 1)} className="w-6 h-6 rounded-full border border-white/10 flex items-center justify-center hover:bg-white/10 transition text-white/70"><Plus className="h-3 w-3" /></button>
-                  <button onClick={() => removeFromCart(item.id)} className="ml-auto p-1.5 rounded-full hover:bg-red-500/15 transition text-red-400/70 hover:text-red-400"><X className="h-3 w-3" /></button>
+                  <button onClick={() => removeFromCart(item.id)} className="ml-1 p-1 rounded-full hover:bg-red-500/15 transition text-red-400/60 hover:text-red-400"><X className="h-3 w-3" /></button>
                 </div>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
+
+      {/* Rodapé — sempre visível, cola abaixo dos itens */}
       {cart.length > 0 && (
-        <div className="px-4 py-5 border-t border-white/8 space-y-4">
-          <p className="text-xs text-white/40 uppercase tracking-widest">Como deseja receber?</p>
+        <div className="flex-shrink-0 px-4 py-4 border-t border-white/8 space-y-3 mt-auto">
+          <p className="text-[11px] text-white/40 uppercase tracking-widest">Como deseja receber?</p>
           <div className="flex gap-2">
             {(['buscar_na_loja', 'encomendar'] as const).map((method) => (
               <button key={method} onClick={() => setDeliveryMethod(method)}
@@ -107,18 +130,32 @@ function CartSidebar({
               </button>
             ))}
           </div>
-          <div className="space-y-1 text-sm">
-            <div className="flex justify-between text-white/50"><span>Subtotal</span><span>{currency.format(subtotal)}</span></div>
-            {deliveryMethod === 'encomendar' && (
-              <div className="flex justify-between text-white/40 text-xs"><span>Entrega</span><span>A combinar</span></div>
+          <div className="space-y-1 text-sm rounded-xl bg-white/[0.02] border border-white/6 px-3 py-2.5">
+            {totalDiscount > 0 && (
+              <>
+                <div className="flex justify-between text-white/40 text-xs"><span>Sem desconto</span><span>{currency.format(subtotalOriginal)}</span></div>
+                <div className="flex justify-between text-emerald-400/80 text-xs"><span>Desconto</span><span>- {currency.format(totalDiscount)}</span></div>
+              </>
             )}
-            <div className="flex justify-between font-semibold text-white border-t border-white/10 pt-2"><span>Total</span><span>{currency.format(subtotal)}</span></div>
+            {totalDiscount === 0 && (
+              <div className="flex justify-between text-white/50 text-xs"><span>Subtotal</span><span>{currency.format(subtotalOriginal)}</span></div>
+            )}
+            {deliveryMethod === 'encomendar' && (
+              <div className="flex justify-between text-white/40 text-xs">
+                <span>Entrega</span>
+                <span>{shippingFee > 0 ? currency.format(shippingFee) : 'A combinar'}</span>
+              </div>
+            )}
+            <div className="flex justify-between font-semibold text-white border-t border-white/10 pt-2 mt-1">
+              <span>Total</span>
+              <span>{currency.format(grandTotal)}</span>
+            </div>
           </div>
           <button
-            onClick={deliveryMethod === 'encomendar' ? onEncomenda : onCheckout}
-            className="group relative overflow-hidden w-full py-3.5 rounded-full bg-white text-black font-semibold text-sm hover:shadow-[0_0_30px_rgba(255,255,255,0.3)] transition-all duration-300">
+            onClick={onCheckout}
+            className="group relative overflow-hidden w-full py-3 rounded-full bg-white text-black font-semibold text-sm hover:shadow-[0_0_30px_rgba(255,255,255,0.3)] transition-all duration-300">
             <span className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-out bg-gradient-to-r from-transparent via-black/10 to-transparent skew-x-12" />
-            {deliveryMethod === 'encomendar' ? 'Registrar encomenda' : 'Finalizar retirada'}
+            {deliveryMethod === 'encomendar' ? 'Confirmar encomenda' : 'Confirmar retirada'}
           </button>
         </div>
       )}
@@ -126,72 +163,64 @@ function CartSidebar({
   );
 }
 
-// NewCheckoutModal — Finalizar compra (retirada ou entrega, com escolha de pagamento)
-function NewCheckoutModal({ cart, user, onClose, onDone }: {
+const WaIcon = () => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4 flex-shrink-0">
+    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
+  </svg>
+);
+
+// CartCheckoutModal — Buscar na loja (WhatsApp + data) ou Encomendar (endereço + botão WhatsApp)
+function CartCheckoutModal({ cart, user, deliveryMethod, storeWhatsapp, onClose, onDone }: {
   cart: CartItem[];
   user: JewelryUser;
+  deliveryMethod: 'buscar_na_loja' | 'encomendar';
+  storeWhatsapp: string;
   onClose: () => void;
   onDone: () => void;
 }) {
-  const [delivery, setDelivery] = useState<'pickup' | 'delivery'>('pickup');
-  const [payment, setPayment] = useState<'dinheiro' | 'cartao'>('dinheiro');
+  const isPickup = deliveryMethod === 'buscar_na_loja';
   const [phone, setPhone] = useState('');
+  const [pickupDate, setPickupDate] = useState('');
   const [addressLine1, setAddressLine1] = useState('');
   const [city, setCity] = useState('');
   const [addrState, setAddrState] = useState('');
-  const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [done, setDone] = useState(false);
-  const [donePayment, setDonePayment] = useState<'dinheiro' | 'cartao'>('dinheiro');
-  const [doneDelivery, setDoneDelivery] = useState<'pickup' | 'delivery'>('pickup');
 
-  const subtotal = cart.reduce((s, i) => s + i.price * i.quantity, 0);
+  const subtotalOriginal = cart.reduce((s, i) => s + i.price * i.quantity, 0);
+  const subtotalDiscounted = cart.reduce((s, i) => {
+    const p = i.discountPercent > 0 ? i.price * (1 - i.discountPercent / 100) : i.price;
+    return s + p * i.quantity;
+  }, 0);
+  const totalDiscount = subtotalOriginal - subtotalDiscounted;
 
-  const handleDeliveryChange = (d: 'pickup' | 'delivery') => {
-    setDelivery(d);
-    if (d === 'delivery') setPayment('cartao');
-  };
+  const waHref = storeWhatsapp
+    ? `${storeWhatsapp}${storeWhatsapp.includes('?') ? '&' : '?'}text=${encodeURIComponent(`Olá! Gostaria de confirmar o pagamento da minha encomenda:\n${cart.map((i) => `• ${i.name} x${i.quantity}`).join('\n')}\nTotal: ${currency.format(subtotalDiscounted)}`)}`
+    : undefined;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
     setError('');
     try {
-      const payload = {
-        customerName: user.name,
-        email: user.email,
-        phone,
-        deliveryMethod: delivery === 'pickup' ? 'pickup' : 'delivery',
-        addressLine1: delivery === 'delivery' ? addressLine1 : undefined,
-        city: delivery === 'delivery' ? city : undefined,
-        state: delivery === 'delivery' ? addrState : undefined,
-        notes,
-        items: cart.map((c) => ({ id: c.id, quantity: c.quantity })),
-        paymentMethod: payment,
-      };
-      if (payment === 'dinheiro') {
-        const res = await fetch('/api/jewelry-orders', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
-        if (!res.ok) throw new Error('Não foi possível finalizar o pedido');
-      } else {
-        const res = await fetch('/api/jewelry-checkout', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
-        if (!res.ok) throw new Error('Não foi possível processar o pagamento');
-        const data = await res.json();
-        if (data.paymentUrl) {
-          window.location.href = data.paymentUrl;
-          return;
-        }
-      }
-      setDonePayment(payment);
-      setDoneDelivery(delivery);
+      const res = await fetch('/api/jewelry-orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customerName: user.name,
+          email: user.email,
+          phone,
+          deliveryMethod: isPickup ? 'pickup' : 'delivery',
+          addressLine1: !isPickup ? addressLine1 : undefined,
+          city: !isPickup ? city : undefined,
+          state: !isPickup ? addrState : undefined,
+          items: cart.map((c) => ({ id: c.id, quantity: c.quantity })),
+          pickupDate: isPickup ? pickupDate : undefined,
+          initialStatus: isPickup ? 'pegar_na_loja' : 'nulo',
+        }),
+      });
+      if (!res.ok) throw new Error('Não foi possível finalizar o pedido');
       setDone(true);
       onDone();
     } catch (err: unknown) {
@@ -207,48 +236,54 @@ function NewCheckoutModal({ cart, user, onClose, onDone }: {
     <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/70 backdrop-blur-md">
       <motion.div initial={{ y: 60, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 60, opacity: 0 }}
         transition={{ type: 'spring', stiffness: 340, damping: 32 }}
-        className="w-full max-w-lg bg-black border border-white/10 rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-y-auto max-h-[95vh] sm:max-h-[90vh]">
+        className="w-full max-w-md bg-black border border-white/10 rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-y-auto max-h-[95vh] sm:max-h-[90vh]">
         {done ? (
-          <div className="p-12 text-center">
-            <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-white/8">
+          <div className="p-10 text-center flex flex-col items-center gap-4">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/8">
               <Gem className="h-7 w-7 text-neutral-200" />
             </div>
-            <h3 className="text-xl font-semibold mb-2">
-              {donePayment === 'cartao' ? 'Pagamento confirmado!' : 'Pedido confirmado!'}
+            <h3 className="text-xl font-semibold">
+              {isPickup ? 'Retirada confirmada!' : 'Encomenda registrada!'}
             </h3>
-            <p className="text-neutral-400 text-sm leading-relaxed">
-              {donePayment === 'dinheiro' && doneDelivery === 'pickup' && 'Entraremos em contato para combinar a retirada na loja.'}
-              {donePayment === 'dinheiro' && doneDelivery === 'delivery' && 'Entraremos em contato para combinar a entrega e o pagamento.'}
-              {donePayment === 'cartao' && doneDelivery === 'pickup' && 'Pode retirar na loja quando quiser.'}
-              {donePayment === 'cartao' && doneDelivery === 'delivery' && 'Entraremos em contato para combinar a entrega.'}
-            </p>
-            <button onClick={onClose} className="group relative overflow-hidden mt-7 px-8 py-2.5 rounded-full bg-white text-black text-sm font-semibold hover:shadow-[0_0_24px_rgba(255,255,255,0.3)] transition-all duration-300">
-              <span className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-out bg-gradient-to-r from-transparent via-black/10 to-transparent skew-x-12" />
-              Continuar
-            </button>
+            {isPickup ? (
+              <p className="text-neutral-400 text-sm leading-relaxed">
+                Te esperamos na loja{pickupDate ? ` no dia ${new Date(pickupDate + 'T12:00:00').toLocaleDateString('pt-BR')}` : ''}!
+              </p>
+            ) : (
+              <>
+                <p className="text-neutral-400 text-sm leading-relaxed">
+                  Entre em contato para pagamento e confirmação de compra.
+                </p>
+                {waHref && (
+                  <a href={waHref} target="_blank" rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 px-7 py-3 rounded-full bg-[#25D366] text-white text-sm font-semibold hover:shadow-[0_0_24px_rgba(37,211,102,0.4)] transition-all duration-300">
+                    <WaIcon />Entrar em contato pelo WhatsApp
+                  </a>
+                )}
+              </>
+            )}
+            <button onClick={onClose} className="px-8 py-2.5 rounded-full bg-white text-black text-sm font-semibold">Continuar</button>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="p-6 space-y-4">
             <div className="flex items-center justify-between pb-1">
               <div>
-                <h3 className="text-base font-semibold">Finalizar pedido</h3>
+                <h3 className="text-base font-semibold">{isPickup ? 'Retirada na loja' : 'Encomenda / Entrega'}</h3>
                 <p className="text-xs text-white/40 mt-0.5">Olá, {user.name}</p>
               </div>
               <button type="button" onClick={onClose} className="p-1.5 rounded-full hover:bg-white/8 transition"><X className="h-4 w-4 text-white/50" /></button>
             </div>
+
             <input className={inp} placeholder="WhatsApp *" required value={phone} onChange={(e) => setPhone(e.target.value)} />
-            <div>
-              <p className="text-xs text-white/40 uppercase tracking-widest mb-2">Como deseja receber?</p>
-              <div className="flex gap-2">
-                {(['pickup', 'delivery'] as const).map((d) => (
-                  <button key={d} type="button" onClick={() => handleDeliveryChange(d)}
-                    className={`flex-1 py-2 rounded-full text-xs font-medium border transition ${delivery === d ? 'bg-white text-black border-white' : 'border-white/10 text-white/60 hover:bg-white/5'}`}>
-                    {d === 'pickup' ? 'Buscar na loja' : 'Entrega'}
-                  </button>
-                ))}
+
+            {isPickup ? (
+              <div>
+                <p className="text-xs text-white/40 mb-1.5">Dia que vai buscar na loja *</p>
+                <input type="date" className={`${inp} [color-scheme:dark]`} required
+                  min={new Date().toISOString().split('T')[0]}
+                  value={pickupDate} onChange={(e) => setPickupDate(e.target.value)} />
               </div>
-            </div>
-            {delivery === 'delivery' && (
+            ) : (
               <div className="space-y-3">
                 <input className={inp} placeholder="Endereço *" required value={addressLine1} onChange={(e) => setAddressLine1(e.target.value)} />
                 <div className="grid grid-cols-2 gap-3">
@@ -257,39 +292,33 @@ function NewCheckoutModal({ cart, user, onClose, onDone }: {
                 </div>
               </div>
             )}
-            <div>
-              <p className="text-xs text-white/40 uppercase tracking-widest mb-2">Pagamento</p>
-              <div className="flex gap-2">
-                <button type="button" onClick={() => setPayment('dinheiro')} disabled={delivery === 'delivery'}
-                  className={`flex-1 py-2 rounded-full text-xs font-medium border transition ${payment === 'dinheiro' ? 'bg-white text-black border-white' : 'border-white/10 text-white/60 hover:bg-white/5'} disabled:opacity-30 disabled:cursor-not-allowed`}>
-                  Pagar na loja
-                </button>
-                <button type="button" onClick={() => setPayment('cartao')}
-                  className={`flex-1 py-2 rounded-full text-xs font-medium border transition ${payment === 'cartao' ? 'bg-white text-black border-white' : 'border-white/10 text-white/60 hover:bg-white/5'}`}>
-                  Cartão online
-                </button>
-              </div>
-              {delivery === 'delivery' && (
-                <p className="text-xs text-white/30 mt-1.5">Entrega requer pagamento com cartão</p>
-              )}
-            </div>
-            <div className="rounded-2xl border border-white/8 bg-white/[0.02] p-4 space-y-1.5 text-sm">
-              {cart.map((item) => (
-                <div key={item.id} className="flex justify-between text-white/60">
-                  <span>{item.name} x{item.quantity}</span>
-                  <span>{currency.format(item.price * item.quantity)}</span>
+
+            <div className="rounded-2xl border border-white/8 bg-white/[0.02] p-3.5 space-y-1.5 text-sm">
+              {cart.map((item) => {
+                const p = item.discountPercent > 0 ? item.price * (1 - item.discountPercent / 100) : item.price;
+                return (
+                  <div key={item.id} className="flex justify-between text-white/60">
+                    <span>{item.name} ×{item.quantity}</span>
+                    <span>{currency.format(p * item.quantity)}</span>
+                  </div>
+                );
+              })}
+              {totalDiscount > 0 && (
+                <div className="flex justify-between text-emerald-400/80 text-xs border-t border-white/10 pt-1.5">
+                  <span>Desconto</span><span>- {currency.format(totalDiscount)}</span>
                 </div>
-              ))}
-              <div className="flex justify-between font-semibold text-white border-t border-white/10 pt-2">
-                <span>Total</span><span>{currency.format(subtotal)}</span>
+              )}
+              <div className="flex justify-between font-semibold text-white border-t border-white/10 pt-1.5">
+                <span>Total</span><span>{currency.format(subtotalDiscounted)}</span>
               </div>
             </div>
-            <textarea className={`${inp} resize-none`} rows={2} placeholder="Observações (opcional)" value={notes} onChange={(e) => setNotes(e.target.value)} />
+
             {error && <p className="text-red-400/90 text-xs bg-red-400/8 rounded-xl px-3 py-2">{error}</p>}
+
             <button type="submit" disabled={submitting}
               className="group relative overflow-hidden w-full py-3.5 rounded-full bg-white text-black font-semibold text-sm hover:shadow-[0_0_30px_rgba(255,255,255,0.3)] transition-all duration-300 disabled:opacity-40">
               <span className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-out bg-gradient-to-r from-transparent via-black/10 to-transparent skew-x-12" />
-              {submitting ? 'Processando...' : payment === 'cartao' ? 'Pagar com cartão' : 'Confirmar pedido'}
+              {submitting ? 'Enviando...' : isPickup ? 'Confirmar retirada' : 'Registrar encomenda'}
             </button>
           </form>
         )}
@@ -577,6 +606,7 @@ export default function JoalheriaPage() {
   const [items, setItems] = useState<JewelryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [shippingFee, setShippingFee] = useState(0);
+  const [storeWhatsapp, setStoreWhatsapp] = useState('');
   const [cart, setCart] = useState<CartItem[]>([]);
   const [cartOpen, setCartOpen] = useState(false);
   const [deliveryMethod, setDeliveryMethod] = useState<'buscar_na_loja' | 'encomendar'>('buscar_na_loja');
@@ -594,13 +624,14 @@ export default function JoalheriaPage() {
       try {
         const [itemsRes, settingsRes] = await Promise.all([
           fetch('/api/jewelry'),
-          fetch('/api/site-settings?keys=jewelry_shipping_fee'),
+          fetch('/api/site-settings?keys=jewelry_shipping_fee,main_whatsapp'),
         ]);
         const itemsData = itemsRes.ok ? await itemsRes.json() : [];
         const settingsData = settingsRes.ok ? await settingsRes.json() : {};
         if (isMounted) {
           setItems(Array.isArray(itemsData) ? itemsData : []);
           setShippingFee(Number(settingsData.jewelry_shipping_fee) || 0);
+          if (settingsData.main_whatsapp) setStoreWhatsapp(settingsData.main_whatsapp);
         }
       } catch (err) { console.error(err); }
       finally { if (isMounted) setLoading(false); }
@@ -613,7 +644,7 @@ export default function JoalheriaPage() {
     setCart((cur) => {
       const exists = cur.find((c) => c.id === item.id);
       if (exists) return cur.map((c) => c.id === item.id ? { ...c, quantity: c.quantity + 1 } : c);
-      return [...cur, { id: item.id, name: item.name, price: Number(item.price), imageUrl: item.primaryImageUrl, quantity: 1 }];
+      return [...cur, { id: item.id, name: item.name, price: Number(item.price), discountPercent: item.discountPercent || 0, imageUrl: item.primaryImageUrl, quantity: 1 }];
     });
     setCartOpen(true);
   };
@@ -716,8 +747,8 @@ export default function JoalheriaPage() {
       <section className="relative h-[420px] sm:h-[520px] md:h-[600px] flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-gray-900/50 to-black/80 z-10" />
         <ImageWithFallback
-          src="https://images.unsplash.com/photo-1605100804763-247f67b3557e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=1080"
-          alt="Luxury Jewelry"
+          src="/piercings-bg.jpg"
+          alt="Catálogo de Piercings"
           className="absolute inset-0 w-full h-full object-cover"
         />
         <motion.div
@@ -898,14 +929,15 @@ export default function JoalheriaPage() {
               </button>
             </motion.div>
             <motion.div
-              className="relative h-[260px] sm:h-[360px] md:h-[500px] rounded-lg overflow-hidden"
+              className="flex items-center justify-center"
               initial={{ opacity: 0, x: 60 }} whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }} transition={{ duration: 0.8 }}
             >
-              <ImageWithFallback
-                src="https://images.unsplash.com/photo-1720189031165-b6f3cf3ff940?w=800"
+              <img
+                src="/media/Piercing-fim-page.jpg"
                 alt="Artesanato em joalheria"
-                className="w-full h-full object-cover"
+                className="w-full max-w-sm rounded-2xl"
+                style={{ objectFit: 'contain', display: 'block' }}
               />
             </motion.div>
           </div>
@@ -993,11 +1025,13 @@ export default function JoalheriaPage() {
 
       <AnimatePresence>
         {showCheckout && user && (
-          <NewCheckoutModal key="checkout" cart={cart} user={user}
+          <CartCheckoutModal key="checkout" cart={cart} user={user}
+            deliveryMethod={deliveryMethod}
+            storeWhatsapp={storeWhatsapp}
             onClose={() => setShowCheckout(false)}
             onDone={() => setCart([])} />
         )}
-        {showEncomenda && <EncomendaModal key="encomenda" onClose={() => setShowEncomenda(false)} cartItems={deliveryMethod === 'encomendar' ? cart : undefined} />}
+        {showEncomenda && <EncomendaModal key="encomenda" onClose={() => setShowEncomenda(false)} />}
         {selectedItem && (
           <ItemModal key="item-modal" item={selectedItem} onClose={() => setSelectedItem(null)}
             onAddToCart={addToCart} onEncomenda={() => setShowEncomenda(true)} />

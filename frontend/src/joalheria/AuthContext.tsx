@@ -8,7 +8,6 @@ export interface JewelryUser {
 
 interface AuthContextValue {
   user: JewelryUser | null;
-  token: string | null;
   login: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<void>;
   logout: () => void;
@@ -17,21 +16,21 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-const TOKEN_KEY = 'jewelry_auth_token';
-
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<JewelryUser | null>(null);
-  const [token, setToken] = useState<string | null>(() => localStorage.getItem(TOKEN_KEY));
   const [loading, setLoading] = useState(true);
 
-  // Validate existing token on mount
+  // Limpar token antigo do localStorage caso ainda exista
   useEffect(() => {
-    const savedToken = localStorage.getItem(TOKEN_KEY);
-    if (!savedToken) { setLoading(false); return; }
-    fetch('/api/auth/me', { headers: { Authorization: `Bearer ${savedToken}` } })
-      .then((r) => r.ok ? r.json() : Promise.reject())
-      .then((data: JewelryUser) => { setUser(data); setToken(savedToken); })
-      .catch(() => { localStorage.removeItem(TOKEN_KEY); setToken(null); })
+    localStorage.removeItem('jewelry_auth_token');
+  }, []);
+
+  // Validar sessão via cookie httpOnly ao carregar
+  useEffect(() => {
+    fetch('/api/auth/me', { credentials: 'include' })
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((data: JewelryUser) => setUser(data))
+      .catch(() => setUser(null))
       .finally(() => setLoading(false));
   }, []);
 
@@ -41,6 +40,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ email, password }),
       });
     } catch {
@@ -50,9 +50,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.error || `Erro ${res.status} ao entrar`);
     }
-    const { token: t, user: u } = await res.json();
-    localStorage.setItem(TOKEN_KEY, t);
-    setToken(t);
+    const { user: u } = await res.json();
     setUser(u);
   };
 
@@ -62,6 +60,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ name, email, password }),
       });
     } catch {
@@ -71,20 +70,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.error || `Erro ${res.status} ao criar conta`);
     }
-    const { token: t, user: u } = await res.json();
-    localStorage.setItem(TOKEN_KEY, t);
-    setToken(t);
+    const { user: u } = await res.json();
     setUser(u);
   };
 
   const logout = () => {
-    localStorage.removeItem(TOKEN_KEY);
-    setToken(null);
     setUser(null);
+    fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, login, register, logout, loading }}>
+    <AuthContext.Provider value={{ user, login, register, logout, loading }}>
       {children}
     </AuthContext.Provider>
   );
