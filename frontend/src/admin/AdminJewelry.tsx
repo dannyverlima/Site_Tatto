@@ -394,8 +394,8 @@ export function AdminJewelry() {
                   </Button>
                 </div>
                 {url ? (
-                  <div className="mt-3 overflow-hidden rounded-2xl border border-white/10 bg-black/30">
-                    <ImageWithFallback src={url} alt="Preview" className="h-40 w-full object-cover" />
+                  <div className="mt-2 w-fit overflow-hidden rounded-xl border border-white/10 bg-black/30">
+                    <ImageWithFallback src={url} alt="Preview" className="h-24 w-24 object-cover" />
                   </div>
                 ) : null}
               </div>
@@ -530,8 +530,8 @@ export function AdminJewelry() {
                             </Button>
                           </div>
                           {url ? (
-                            <div className="mt-3 overflow-hidden rounded-2xl border border-white/10 bg-black/30">
-                              <ImageWithFallback src={url} alt="Preview" className="h-40 w-full object-cover" />
+                            <div className="mt-2 w-fit overflow-hidden rounded-xl border border-white/10 bg-black/30">
+                              <ImageWithFallback src={url} alt="Preview" className="h-24 w-24 object-cover" />
                             </div>
                           ) : null}
                         </div>
@@ -596,7 +596,7 @@ export function AdminJewelry() {
                         <ImageWithFallback
                           src={item.imageUrls?.[0] || ''}
                           alt={item.name}
-                          className="h-48 w-full object-cover"
+                          className="h-32 w-full object-cover"
                         />
                       </div>
                       <div>

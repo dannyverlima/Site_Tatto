@@ -229,8 +229,8 @@ export function AdminSpecialists() {
             />
           </label>
           {newSpecialist.imageUrl ? (
-            <div className="overflow-hidden rounded-2xl border border-white/10 bg-black/30">
-              <ImageWithFallback src={newSpecialist.imageUrl} alt="Prévia do especialista" className="h-56 w-full object-cover" />
+            <div className="w-fit overflow-hidden rounded-xl border border-white/10 bg-black/30">
+              <ImageWithFallback src={newSpecialist.imageUrl} alt="Prévia do especialista" className="h-24 w-24 object-cover" />
             </div>
           ) : null}
           <Input
@@ -337,8 +337,8 @@ export function AdminSpecialists() {
                   </label>
 
                   {specialist.imageUrl ? (
-                    <div className="overflow-hidden rounded-2xl border border-white/10 bg-black/30">
-                      <ImageWithFallback src={specialist.imageUrl} alt={specialist.name} className="h-48 w-full object-cover" />
+                    <div className="w-fit overflow-hidden rounded-xl border border-white/10 bg-black/30">
+                      <ImageWithFallback src={specialist.imageUrl} alt={specialist.name} className="h-24 w-24 object-cover" />
                     </div>
                   ) : null}
 

@@ -67,6 +67,8 @@ const envPath = process.env.DOTENV_CONFIG_PATH || path.resolve(__dirname, '..', 
 dotenv.config({ path: envPath });
 
 const app = express();
+// Necessário para rate limiting e cookies seguros atrás do Nginx (proxy reverso)
+app.set('trust proxy', 1);
 const port = Number(process.env.PORT || 5175);
 const projectRoot = path.resolve(__dirname, '..');
 const adminMediaDir = path.join(projectRoot, 'media');
@@ -735,6 +737,9 @@ app.post('/api/reviews', formLimiter, async (req, res) => {
 
   try {
     await createReview({ name, rating, comment });
+    sendReviewEmail({ name, rating, comment }).catch((err) => {
+      console.error('Falha ao enviar email de avaliacao:', err.message);
+    });
     res.status(201).json({ ok: true });
   } catch (error) {
     console.error('Erro ao criar avaliacao', error);
@@ -742,27 +747,134 @@ app.post('/api/reviews', formLimiter, async (req, res) => {
   }
 });
 
-const sendContactEmail = async ({ name, email, phone, message }) => {
+// ─── Email helpers ────────────────────────────────────────────────────────────
+
+const ADMIN_EMAIL = process.env.CONTACT_EMAIL || 'studiostattoadmin@gmail.com';
+
+const createMailTransporter = () => {
   const smtpUser = process.env.SMTP_USER;
   const smtpPass = process.env.SMTP_PASS;
-  const contactEmail = process.env.CONTACT_EMAIL || 'dannyverlima@gmail.com';
   if (!smtpUser || !smtpPass) {
     console.warn('Email não configurado: defina SMTP_USER e SMTP_PASS no .env');
-    return;
+    return null;
   }
-  const transporter = nodemailer.createTransport({
+  return nodemailer.createTransport({
     host: process.env.SMTP_HOST || 'smtp.gmail.com',
     port: Number(process.env.SMTP_PORT || 587),
     secure: false,
     auth: { user: smtpUser, pass: smtpPass },
   });
+};
+
+const row = (label, value) =>
+  `<tr><td style="padding:6px 12px;color:#888;font-size:13px;white-space:nowrap">${label}</td><td style="padding:6px 12px;font-size:13px">${value || '—'}</td></tr>`;
+
+const emailWrap = (title, badge, bodyHtml) => `
+<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f4f4f4;font-family:Arial,sans-serif">
+<div style="max-width:560px;margin:32px auto;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.1)">
+  <div style="background:#111;padding:24px 28px;display:flex;align-items:center;gap:12px">
+    <span style="font-size:22px;font-weight:700;color:#C9A84C;letter-spacing:.04em">Studio Markin Tattoo</span>
+    <span style="margin-left:auto;background:#C9A84C;color:#000;font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;white-space:nowrap">${badge}</span>
+  </div>
+  <div style="padding:24px 28px">
+    <h2 style="margin:0 0 18px;font-size:17px;color:#111">${title}</h2>
+    <table style="width:100%;border-collapse:collapse;background:#fafafa;border-radius:8px;overflow:hidden">${bodyHtml}</table>
+  </div>
+  <div style="padding:14px 28px;background:#f9f9f9;border-top:1px solid #eee;font-size:11px;color:#aaa;text-align:center">
+    Esta é uma notificação automática — não responda diretamente a este email.
+  </div>
+</div>
+</body></html>`;
+
+const sendContactEmail = async ({ name, email, phone, message }) => {
+  const transporter = createMailTransporter();
+  if (!transporter) return;
+  const bodyHtml = row('Nome', name) + row('Email', email) + row('Telefone', phone) + row('Mensagem', message.replace(/\n/g, '<br>'));
   await transporter.sendMail({
-    from: `"Studios Tatto" <${smtpUser}>`,
-    to: contactEmail,
+    from: `"Studio Markin Tattoo" <${process.env.SMTP_USER}>`,
+    to: ADMIN_EMAIL,
     replyTo: email,
-    subject: `Nova mensagem de contato — ${name}`,
+    subject: `📩 Novo contato — ${name}`,
     text: `Nome: ${name}\nEmail: ${email}\nTelefone: ${phone || '—'}\n\n${message}`,
-    html: `<p><strong>Nome:</strong> ${name}</p><p><strong>Email:</strong> ${email}</p><p><strong>Telefone:</strong> ${phone || '—'}</p><p><strong>Mensagem:</strong></p><p>${message.replace(/\n/g, '<br>')}</p>`,
+    html: emailWrap('Nova mensagem de contato', 'CONTATO', bodyHtml),
+  });
+};
+
+const sendCourseEnrollmentEmail = async ({ name, email, phone, cidade, experiencia }) => {
+  const transporter = createMailTransporter();
+  if (!transporter) return;
+  const nivelMap = { nenhuma: 'Nenhuma – iniciante', basica: 'Básica', intermediaria: 'Intermediária', avancada: 'Avançada' };
+  const nivel = nivelMap[experiencia] || experiencia || '—';
+  const bodyHtml =
+    row('Nome', name) + row('Email', email) + row('WhatsApp', phone) +
+    row('Cidade', cidade) + row('Experiência', nivel);
+  await transporter.sendMail({
+    from: `"Studio Markin Tattoo" <${process.env.SMTP_USER}>`,
+    to: ADMIN_EMAIL,
+    replyTo: email || undefined,
+    subject: `🎓 Nova inscrição no curso — ${name}`,
+    text: `Nome: ${name}\nEmail: ${email}\nWhatsApp: ${phone || '—'}\nCidade: ${cidade || '—'}\nExperiência: ${nivel}`,
+    html: emailWrap('Nova inscrição no curso', 'CURSO', bodyHtml),
+  });
+};
+
+const sendReviewEmail = async ({ name, rating, comment }) => {
+  const transporter = createMailTransporter();
+  if (!transporter) return;
+  const stars = '★'.repeat(Number(rating)) + '☆'.repeat(5 - Number(rating));
+  const bodyHtml = row('Nome', name) + row('Avaliação', `${stars} (${rating}/5)`) + row('Comentário', comment);
+  await transporter.sendMail({
+    from: `"Studio Markin Tattoo" <${process.env.SMTP_USER}>`,
+    to: ADMIN_EMAIL,
+    subject: `⭐ Nova avaliação pendente — ${name}`,
+    text: `Nova avaliação aguardando aprovação.\n\nNome: ${name}\nNota: ${rating}/5\n\n${comment}`,
+    html: emailWrap('Nova avaliação (pendente de aprovação)', 'AVALIAÇÃO', bodyHtml),
+  });
+};
+
+const sendJewelryOrderEmail = async ({ orderId, customerName, email, phone, deliveryMethod, addressLine1, city, state, postalCode, notes, items, paymentMethod }) => {
+  const transporter = createMailTransporter();
+  if (!transporter) return;
+  const delivery = deliveryMethod === 'delivery' ? 'Entrega' : 'Retirada na loja';
+  const payment = { pix: 'PIX', cartao: 'Cartão', dinheiro: 'Dinheiro' }[paymentMethod] || paymentMethod || '—';
+  const total = Array.isArray(items)
+    ? items.reduce((s, i) => s + (Number(i.price) || 0) * (Number(i.quantity) || 1), 0)
+    : 0;
+  const itemsHtml = Array.isArray(items)
+    ? items.map((i) => `<li style="font-size:13px;padding:2px 0">${i.name} × ${i.quantity || 1} — R$ ${Number(i.price).toFixed(2)}</li>`).join('')
+    : '';
+  const addressStr = [addressLine1, city, state, postalCode].filter(Boolean).join(', ');
+  const bodyHtml =
+    row('Pedido nº', orderId) +
+    row('Cliente', customerName) +
+    row('Email', email) +
+    row('Telefone', phone) +
+    row('Entrega', delivery) +
+    (addressStr ? row('Endereço', addressStr) : '') +
+    row('Pagamento', payment) +
+    row('Total', `R$ ${total.toFixed(2)}`) +
+    (notes ? row('Observações', notes) : '') +
+    `<tr><td colspan="2" style="padding:10px 12px"><strong style="font-size:13px">Itens:</strong><ul style="margin:6px 0 0;padding-left:18px">${itemsHtml}</ul></td></tr>`;
+  await transporter.sendMail({
+    from: `"Studio Markin Tattoo" <${process.env.SMTP_USER}>`,
+    to: ADMIN_EMAIL,
+    replyTo: email || undefined,
+    subject: `💍 Novo pedido de joia #${orderId} — ${customerName}`,
+    text: `Novo pedido #${orderId}\nCliente: ${customerName}\nEmail: ${email || '—'}\nTelefone: ${phone || '—'}\nEntrega: ${delivery}\nPagamento: ${payment}\nTotal: R$ ${total.toFixed(2)}\n\nItens:\n${Array.isArray(items) ? items.map((i) => `- ${i.name} x${i.quantity || 1}`).join('\n') : '—'}`,
+    html: emailWrap(`Novo pedido de joia #${orderId}`, 'JOALHERIA', bodyHtml),
+  });
+};
+
+const sendNewCustomerEmail = async ({ name, email }) => {
+  const transporter = createMailTransporter();
+  if (!transporter) return;
+  const bodyHtml = row('Nome', name) + row('Email', email);
+  await transporter.sendMail({
+    from: `"Studio Markin Tattoo" <${process.env.SMTP_USER}>`,
+    to: ADMIN_EMAIL,
+    subject: `👤 Novo cliente cadastrado — ${name}`,
+    text: `Novo cliente registado na joalheria.\n\nNome: ${name}\nEmail: ${email}`,
+    html: emailWrap('Novo cliente cadastrado na joalheria', 'CLIENTE', bodyHtml),
   });
 };
 
@@ -797,7 +909,9 @@ app.post('/api/course-enrollments', formLimiter, async (req, res) => {
   const name = sanitize(body.nome || body.name);
   const email = String(body.email || '').toLowerCase().trim();
   const phone = sanitize(body.whatsapp || body.phone);
-  const message = sanitize(body.experiencia || body.message || body.cidade || '');
+  const cidade = sanitize(body.cidade || '');
+  const experiencia = sanitize(body.experiencia || body.message || '');
+  const message = experiencia || cidade;
 
   if (!name && !email) {
     return badRequest(res, 'Nome e email são obrigatórios');
@@ -814,6 +928,9 @@ app.post('/api/course-enrollments', formLimiter, async (req, res) => {
 
   try {
     await createCourseEnrollment({ name, email, phone, message });
+    sendCourseEnrollmentEmail({ name, email, phone, cidade, experiencia }).catch((err) => {
+      console.error('Falha ao enviar email de inscricao:', err.message);
+    });
     res.status(201).json({ ok: true });
   } catch (error) {
     console.error('Erro ao salvar inscricao', error);
@@ -966,6 +1083,9 @@ app.post('/api/auth/register', authLimiter, async (req, res) => {
     );
     const user = result.rows[0];
     res.cookie(SESSION_COOKIE, signToken(user), cookieOpts);
+    sendNewCustomerEmail({ name: user.name, email: user.email }).catch((err) => {
+      console.error('Falha ao enviar email de novo cliente:', err.message);
+    });
     res.status(201).json({ user });
   } catch (err) {
     console.error('Erro no cadastro:', err);
@@ -1142,6 +1262,13 @@ app.post('/api/jewelry-orders', async (req, res) => {
       notes, items: validatedItems, paymentMethod: safePayment,
       pickupDate, initialStatus: safeInitialStatus,
     });
+    sendJewelryOrderEmail({
+      orderId, customerName, email, phone, deliveryMethod,
+      addressLine1, city, state, postalCode, notes,
+      items: validatedItems, paymentMethod: safePayment,
+    }).catch((err) => {
+      console.error('Falha ao enviar email de pedido:', err.message);
+    });
     res.status(201).json({ ok: true, orderId });
   } catch (error) {
     console.error('Erro ao criar pedido de joia', error);
@@ -1213,7 +1340,14 @@ app.post('/api/jewelry-checkout', async (req, res) => {
       customerName, email, phone,
       deliveryMethod: safeDelivery,
       addressLine1, addressLine2: '', city, state, postalCode: '',
-      notes, items, paymentMethod: 'cartao',
+      notes, items: cartWithPrices, paymentMethod: 'cartao',
+    });
+    sendJewelryOrderEmail({
+      orderId, customerName, email, phone,
+      deliveryMethod: safeDelivery, addressLine1, city, state,
+      postalCode: '', notes, items: cartWithPrices, paymentMethod: 'cartao',
+    }).catch((err) => {
+      console.error('Falha ao enviar email de checkout:', err.message);
     });
 
     const clientId = process.env.INFINITEPAY_CLIENT_ID;

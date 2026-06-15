@@ -466,8 +466,8 @@ export function AdminPortfolio() {
                 </label>
 
                 {imageUrl ? (
-                  <div className="mt-3 overflow-hidden rounded-2xl border border-white/10 bg-black/30">
-                    <ImageWithFallback src={imageUrl} alt={`Prévia ${index + 1}`} className="aspect-[9/16] w-full object-cover" />
+                  <div className="mt-2 w-fit overflow-hidden rounded-xl border border-white/10 bg-black/30">
+                    <ImageWithFallback src={imageUrl} alt={`Prévia ${index + 1}`} className="h-24 w-16 object-cover" />
                   </div>
                 ) : null}
               </div>
@@ -561,10 +561,10 @@ export function AdminPortfolio() {
                   </label>
                   ) : null}
 
-                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                  <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
                     {album.photos.map((photo) => (
-                      <div key={photo.id} className="overflow-hidden rounded-2xl border border-white/10 bg-black/30">
-                        <ImageWithFallback src={photo.imageUrl} alt={photo.title} className="aspect-[9/16] w-full object-cover" />
+                      <div key={photo.id} className="overflow-hidden rounded-xl border border-white/10 bg-black/30">
+                        <ImageWithFallback src={photo.imageUrl} alt={photo.title} className="h-28 w-full object-cover" />
                         <div className="flex items-center justify-between p-3">
                           <p className="text-xs text-white/60">Foto ID {photo.id}</p>
                           <Button

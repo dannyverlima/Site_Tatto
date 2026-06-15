@@ -2,9 +2,12 @@ node_modules/
 dist/
 .env
 .env.local
+.env.production
 db/exports/
 *.mp4
 *.mov
 *.webm
 backend/server.err
 *.err
+logs/
+backend/media/

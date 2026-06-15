@@ -1,0 +1,232 @@
+================================================================================
+     GUIA COMPLETO DE DEPLOY — STUDIO MARKIN TATTOO
+     Do computador local para o servidor brasileiro (seguro + HTTPS)
+================================================================================
+
+CUSTO MENSAL ESTIMADO:
+  Domínio .com.br (Registro.br)  →  R$ 40/ano  (~R$ 3/mês)
+  VPS Hostinger KVM1 (Brasil)    →  R$ 25-50/mês
+  SSL                            →  GRATUITO (Let's Encrypt)
+  TOTAL                          →  ~R$ 30-55/mês
+
+────────────────────────────────────────────────────────────────────────────────
+PASSO 1 — COMPRAR O DOMÍNIO .com.br
+────────────────────────────────────────────────────────────────────────────────
+
+  Opção A — Registro.br (oficial, mais barato):
+    1. Acesse: https://registro.br
+    2. Clique em "Registrar um .br"
+    3. Pesquise o nome desejado (ex: studiomarkintattoo.com.br)
+    4. Complete com CPF/CNPJ e pague (R$ 40/ano)
+
+  Opção B — HostGator Brasil (mais fácil, inclui DNS):
+    1. Acesse: https://www.hostgator.com.br/registro-de-dominio
+    2. Pesquise e registe o domínio
+
+  ✅ Anote o domínio escolhido. Será usado em todos os passos abaixo.
+     Exemplo: studiomarkintattoo.com.br
+
+────────────────────────────────────────────────────────────────────────────────
+PASSO 2 — CRIAR O VPS NA HOSTINGER
+────────────────────────────────────────────────────────────────────────────────
+
+  1. Acesse: https://www.hostinger.com.br/servidor-vps
+  2. Escolha o plano "KVM 1" (o mais básico, ~R$ 30/mês) — é suficiente
+  3. Selecione localização: BRASIL (São Paulo)
+  4. Sistema operacional: Ubuntu 22.04 LTS
+  5. Conclua a compra
+
+  Após criar, a Hostinger envia por email:
+    - IP do servidor (ex: 189.180.xxx.xxx)
+    - Utilizador: root
+    - Senha: (definida na criação)
+
+  ✅ Anote o IP do servidor.
+
+────────────────────────────────────────────────────────────────────────────────
+PASSO 3 — APONTAR O DOMÍNIO PARA O SERVIDOR
+────────────────────────────────────────────────────────────────────────────────
+
+  No painel do seu registo de domínio (Registro.br ou HostGator):
+
+  Adicione estes registos DNS:
+
+    Tipo    Nome    Valor
+    ────────────────────────────────────
+    A       @       189.180.xxx.xxx   ← IP do VPS
+    A       www     189.180.xxx.xxx   ← IP do VPS
+
+  ⏳ Aguarde 15-60 minutos para o DNS propagar.
+
+  Para testar: ping studiomarkintattoo.com.br
+  Deve responder com o IP do VPS.
+
+────────────────────────────────────────────────────────────────────────────────
+PASSO 4 — LIGAR AO SERVIDOR (SSH)
+────────────────────────────────────────────────────────────────────────────────
+
+  No Windows, abra o PowerShell ou o Terminal e execute:
+
+    ssh root@189.180.xxx.xxx
+
+  Quando pedir a senha, use a senha que definiu na Hostinger.
+
+  Alternativa: use o PuTTY (https://www.putty.org/)
+
+────────────────────────────────────────────────────────────────────────────────
+PASSO 5 — CONFIGURAR O SERVIDOR (apenas 1 vez)
+────────────────────────────────────────────────────────────────────────────────
+
+  Já dentro do servidor (SSH), execute estes comandos:
+
+  5.1. Instalar Git:
+    apt-get update && apt-get install -y git
+
+  5.2. Clonar o projeto para o servidor:
+    git clone https://github.com/dannyverlima/Site_Tatto.git /var/www/studio-markin
+    cd /var/www/studio-markin
+
+  5.3. Executar o setup automático (instala Node.js, PostgreSQL, Nginx, SSL):
+    bash scripts/setup-vps.sh studiomarkintattoo.com.br
+
+    ⚠️  O script vai pedir uma senha para a base de dados.
+        Escolha uma senha forte e ANOTE-A — vai precisar no próximo passo.
+
+────────────────────────────────────────────────────────────────────────────────
+PASSO 6 — CONFIGURAR AS VARIÁVEIS DE AMBIENTE (SEGREDO)
+────────────────────────────────────────────────────────────────────────────────
+
+  Ainda no servidor, crie o ficheiro .env de produção:
+
+    nano /var/www/studio-markin/backend/.env
+
+  Cole o conteúdo abaixo, substituindo os valores:
+
+  ┌─────────────────────────────────────────────────────────┐
+  │ PGHOST=localhost                                        │
+  │ PGPORT=5432                                             │
+  │ PGUSER=studio_user                                      │
+  │ PGPASSWORD=SENHA_DO_BANCO_QUE_ANOTOU                    │
+  │ PGDATABASE=studio_markin                                │
+  │                                                         │
+  │ PORT=5175                                               │
+  │ NODE_ENV=production                                     │
+  │                                                         │
+  │ CORS_ORIGINS=https://studiomarkintattoo.com.br,https://www.studiomarkintattoo.com.br
+  │                                                         │
+  │ JWT_SECRET=COLE_RESULTADO_DO_COMANDO_ABAIXO             │
+  │ ADMIN_JWT_SECRET=COLE_RESULTADO_DO_COMANDO_ABAIXO2      │
+  │                                                         │
+  │ ADMIN_PASS=SenhaAdmin_Forte2025!                        │
+  │ JOALHERIA_ADMIN_PASS=SenhaJoalheria_Forte2025!          │
+  │                                                         │
+  │ SMTP_HOST=smtp.gmail.com                                │
+  │ SMTP_PORT=587                                           │
+  │ SMTP_USER=studiostatto@gmail.com                        │
+  │ SMTP_PASS=APP_PASSWORD_DO_GMAIL                         │
+  │ CONTACT_EMAIL=studiostattoadmin@gmail.com               │
+  └─────────────────────────────────────────────────────────┘
+
+  Para gerar os JWT_SECRET e ADMIN_JWT_SECRET, execute:
+    openssl rand -base64 48
+  (execute duas vezes e cole cada resultado no .env)
+
+  Salvar no nano: Ctrl+O → Enter → Ctrl+X
+
+  Proteger o ficheiro (apenas root pode ler):
+    chmod 600 /var/www/studio-markin/backend/.env
+
+────────────────────────────────────────────────────────────────────────────────
+PASSO 7 — FAZER O DEPLOY DO SITE
+────────────────────────────────────────────────────────────────────────────────
+
+  Execute:
+    cd /var/www/studio-markin
+    bash scripts/deploy.sh studiomarkintattoo.com.br
+
+  O script vai automaticamente:
+    ✅ Instalar dependências npm
+    ✅ Compilar o frontend (build)
+    ✅ Executar as migrations da base de dados
+    ✅ Configurar o Nginx com o domínio
+    ✅ Instalar o certificado SSL gratuito (HTTPS)
+    ✅ Iniciar o backend com PM2 (reinicia automaticamente)
+
+  ⏳ Este processo demora cerca de 3-5 minutos na primeira vez.
+
+────────────────────────────────────────────────────────────────────────────────
+PASSO 8 — TESTAR O SITE
+────────────────────────────────────────────────────────────────────────────────
+
+  Após o deploy, acesse no browser:
+
+    https://studiomarkintattoo.com.br          ← site público
+    https://studiomarkintattoo.com.br/admin    ← painel admin
+    https://studiomarkintattoo.com.br/joalheria ← loja
+
+  Verifique:
+    ☐ Cadeado verde (HTTPS) na barra de endereço
+    ☐ Site carrega corretamente
+    ☐ Formulários funcionam (enviam email)
+    ☐ Admin consegue fazer login
+
+────────────────────────────────────────────────────────────────────────────────
+PASSO 9 — ATUALIZAR O SITE NO FUTURO
+────────────────────────────────────────────────────────────────────────────────
+
+  Quando quiser atualizar o site após mudanças no código:
+
+  1. No seu computador: faça as alterações e commit no Git
+       git add .
+       git commit -m "Descrição da alteração"
+       git push
+
+  2. No servidor (SSH):
+       cd /var/www/studio-markin
+       git pull
+       bash scripts/deploy.sh studiomarkintattoo.com.br
+
+  ✅ O site atualiza em 3-5 minutos sem tempo de inatividade.
+
+────────────────────────────────────────────────────────────────────────────────
+COMANDOS ÚTEIS NO SERVIDOR
+────────────────────────────────────────────────────────────────────────────────
+
+  Ver logs do backend em tempo real:
+    pm2 logs studio-markin
+
+  Estado do processo:
+    pm2 status
+
+  Reiniciar o backend:
+    pm2 restart studio-markin
+
+  Recarregar Nginx:
+    systemctl reload nginx
+
+  Ver logs do Nginx:
+    tail -f /var/log/nginx/error.log
+
+  Renovar SSL (automático, mas pode forçar):
+    certbot renew
+
+────────────────────────────────────────────────────────────────────────────────
+SEGURANÇA — O QUE FOI IMPLEMENTADO
+────────────────────────────────────────────────────────────────────────────────
+
+  ✅ HTTPS obrigatório (HTTP redireciona para HTTPS)
+  ✅ Certificado SSL gratuito auto-renovável (Let's Encrypt)
+  ✅ Firewall: apenas portas 22 (SSH), 80 (HTTP), 443 (HTTPS) abertas
+  ✅ Backend não exposto diretamente (apenas via Nginx na porta 5175 interna)
+  ✅ Helmet.js: cabeçalhos de segurança HTTP
+  ✅ Rate limiting: protecção contra força bruta e spam
+  ✅ Senhas bcrypt, JWT em cookie httpOnly
+  ✅ Queries parametrizadas (anti SQL Injection)
+  ✅ DOMPurify (anti XSS)
+  ✅ CORS restrito ao domínio de produção
+  ✅ Variáveis sensíveis em .env (nunca no código)
+  ✅ Permissões 600 no .env (só root lê)
+
+================================================================================
+  Em caso de dúvida, contacte o developer: dannyverlima@gmail.com
+================================================================================

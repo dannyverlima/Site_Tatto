@@ -16,7 +16,7 @@ const MARKIN_FOTO_URL = '/media/markin-foto.jpg';
 const WA_NUMBER = '5527988063942';
 const WA_URL = 'https://api.whatsapp.com/message/5QLGPVKNZKX3B1?autoload=1&app_absent=0&utm_source=ig';
 const PHONE_DISPLAY = '(27) 9 8806 3942';
-const ADDRESS = 'Rodovia Governador Mário Covas, nº 1990, Jardim Limoeiro – Serra, ES';
+const ADDRESS = 'Rodovia Governador Mário Covas, 1990, São Geraldo – Serra, ES, 29166-095';
 
 const GOLD = '#C9A84C';
 const GOLD_LIGHT = '#E8C96A';
@@ -486,7 +486,7 @@ export default function CursoPage() {
                   Já participou de muitos eventos de tatuagem do país e possui diversos prêmios na sua área. <strong className="text-white">Ministra cursos e mentoria particulares desde 2022.</strong>
                 </p>
                 <p>
-                  CEO de um estúdio privativo localizado na Rodovia Governador Mário Covas, nº 1990, Jardim Limoeiro, Serra – ES.
+                  CEO de um estúdio privativo localizado na Rodovia Governador Mário Covas, 1990, São Geraldo, Serra – ES.
                 </p>
               </div>
               <button

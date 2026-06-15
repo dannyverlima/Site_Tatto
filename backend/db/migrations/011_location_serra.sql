@@ -1,7 +1,7 @@
 BEGIN;
 
 -- Insere ou atualiza a localização do estúdio
--- Rodovia Governador Mário Covas, 1062 – S Geraldo, Serra ES, 29166-095
+-- Rodovia Governador Mário Covas, 1990 – São Geraldo, Serra ES, 29166-095
 
 DO $$
 DECLARE
@@ -34,13 +34,13 @@ BEGIN
     ) VALUES (
       v_site_id,
       'Markin Tattoo Studio',
-      'Rodovia Governador Mário Covas, 1062',
-      'S Geraldo',
+      'Rodovia Governador Mário Covas, 1990',
+      'São Geraldo',
       'Serra',
       'ES',
       'Brasil',
       '29166-095',
-      'https://maps.google.com/maps?q=Rodovia+Governador+Mario+Covas,+1062,+S+Geraldo,+Serra,+ES,+29166-095,+Brasil&output=embed&hl=pt-BR'
+      'https://maps.google.com/maps?q=Rodovia+Governador+M%C3%A1rio+Covas%2C+1990%2C+S%C3%A3o+Geraldo%2C+Serra%2C+ES%2C+29166-095%2C+Brasil&output=embed&hl=pt-BR'
     )
     RETURNING id INTO v_location_id;
 
@@ -49,13 +49,13 @@ BEGIN
     -- Atualiza localização existente
     UPDATE app.location SET
       name           = 'Markin Tattoo Studio',
-      address_line1  = 'Rodovia Governador Mário Covas, 1062',
-      address_line2  = 'S Geraldo',
+      address_line1  = 'Rodovia Governador Mário Covas, 1990',
+      address_line2  = 'São Geraldo',
       city           = 'Serra',
       state          = 'ES',
       country        = 'Brasil',
       postal_code    = '29166-095',
-      map_embed_url  = 'https://maps.google.com/maps?q=Rodovia+Governador+Mario+Covas,+1062,+S+Geraldo,+Serra,+ES,+29166-095,+Brasil&output=embed&hl=pt-BR'
+      map_embed_url  = 'https://maps.google.com/maps?q=Rodovia+Governador+M%C3%A1rio+Covas%2C+1990%2C+S%C3%A3o+Geraldo%2C+Serra%2C+ES%2C+29166-095%2C+Brasil&output=embed&hl=pt-BR'
     WHERE id = v_location_id;
 
     RAISE NOTICE 'Localização atualizada: %', v_location_id;
