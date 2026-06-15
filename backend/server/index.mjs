@@ -793,17 +793,23 @@ app.post('/api/contact-submissions', formLimiter, async (req, res) => {
 
 app.post('/api/course-enrollments', formLimiter, async (req, res) => {
   const body = req.body || {};
-  // Aceita tanto o formato novo (nome/whatsapp/cidade/experiencia) como o antigo (name/phone/message)
+  // Aceita formato do formulário (nome/whatsapp/cidade/experiencia) e formato legado (name/phone/message)
   const name = sanitize(body.nome || body.name);
   const email = String(body.email || '').toLowerCase().trim();
   const phone = sanitize(body.whatsapp || body.phone);
   const message = sanitize(body.experiencia || body.message || body.cidade || '');
 
-  if (!name || !email) {
+  if (!name && !email) {
     return badRequest(res, 'Nome e email são obrigatórios');
   }
+  if (!name) {
+    return badRequest(res, 'O campo "Nome" é obrigatório');
+  }
+  if (!email) {
+    return badRequest(res, 'O campo "Email" é obrigatório');
+  }
   if (!emailRegex.test(email)) {
-    return badRequest(res, 'Email inválido');
+    return badRequest(res, 'O email inserido não é válido — verifique o endereço');
   }
 
   try {
@@ -811,7 +817,11 @@ app.post('/api/course-enrollments', formLimiter, async (req, res) => {
     res.status(201).json({ ok: true });
   } catch (error) {
     console.error('Erro ao salvar inscricao', error);
-    res.status(500).json({ error: 'Falha ao salvar inscricao' });
+    const msg = String(error?.message || '');
+    if (msg === 'Curso nao configurado') {
+      return res.status(503).json({ error: 'Não há turmas abertas no momento. Entre em contato via WhatsApp.' });
+    }
+    res.status(500).json({ error: 'Não foi possível guardar a inscrição. Tente novamente.' });
   }
 });
 
