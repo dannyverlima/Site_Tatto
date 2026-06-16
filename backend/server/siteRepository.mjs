@@ -453,39 +453,6 @@ export const saveSiteConfig = async (config) => {
       );
     }
 
-    await client.query('DELETE FROM app.portfolio_item WHERE site_id = $1', [site.id]);
-    for (const [index, item] of safeConfig.portfolio.items.entries()) {
-      await client.query(
-        'INSERT INTO app.portfolio_item (site_id, title, style, image_url, specialist_id, sort_order, is_published) VALUES ($1, $2, $3, $4, $5, $6, true)',
-        [
-          site.id,
-          normalizeString(item.title),
-          normalizeString(item.style),
-          normalizeString(item.image || item.imageUrl),
-          item.specialistId || null,
-          index,
-        ]
-      );
-    }
-
-    await client.query('DELETE FROM app.specialist WHERE site_id = $1', [site.id]);
-    for (const [index, item] of safeConfig.specialists.items.entries()) {
-      await client.query(
-        'INSERT INTO app.specialist (site_id, name, specialty, description, image_url, experience, instagram, whatsapp, sort_order) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)',
-        [
-          site.id,
-          normalizeString(item.name),
-          normalizeString(item.specialty),
-          normalizeString(item.description),
-          normalizeString(item.image || item.imageUrl),
-          normalizeString(item.experience),
-          normalizeString(item.instagram),
-          normalizeString(item.whatsapp),
-          index,
-        ]
-      );
-    }
-
     await client.query('COMMIT');
   } catch (error) {
     await client.query('ROLLBACK');

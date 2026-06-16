@@ -73,7 +73,16 @@ const port = Number(process.env.PORT || 5175);
 const projectRoot = path.resolve(__dirname, '..');
 const adminMediaDir = path.join(projectRoot, 'media');
 
-const storage = multer.memoryStorage();
+const storage = multer.diskStorage({
+  destination: (_req, _file, cb) => {
+    fs.mkdir(adminMediaDir, { recursive: true })
+      .then(() => cb(null, adminMediaDir))
+      .catch(cb);
+  },
+  filename: (_req, file, cb) => {
+    cb(null, safeDiskFilename(file.originalname, file.mimetype));
+  },
+});
 
 const runCommand = (command, args) =>
   new Promise((resolve, reject) => {
@@ -133,7 +142,7 @@ const transcodeVideoBuffer = async (file) => {
 const upload = multer({
   storage,
   limits: {
-    fileSize: 50 * 1024 * 1024, // 50MB
+    fileSize: 2 * 1024 * 1024 * 1024, // 2GB
   },
   fileFilter: (_req, file, callback) => {
     if (file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/')) {
@@ -519,40 +528,46 @@ app.post('/api/uploads', requireAdmin, (req, res) => {
         return badRequest(res, 'Arquivo não enviado');
       }
 
+      // diskStorage already saved the file to adminMediaDir
+      const diskFilename = req.file.filename;
+      const diskPath = req.file.path;
+      const originalMimetype = req.file.mimetype || 'application/octet-stream';
+      const originalFilename = req.file.originalname || diskFilename;
+
       const isMp4Video =
-        req.file.mimetype === 'video/mp4' ||
-        path.extname(req.file.originalname || '').toLowerCase() === '.mp4';
+        originalMimetype === 'video/mp4' ||
+        path.extname(originalFilename).toLowerCase() === '.mp4';
 
-      const mediaFile = req.file.mimetype.startsWith('video/') && !isMp4Video
-        ? await transcodeVideoBuffer(req.file)
-        : {
-            buffer: req.file.buffer,
-            filename: req.file.originalname || (isMp4Video ? 'video.mp4' : 'arquivo'),
-            mimetype: req.file.mimetype || (isMp4Video ? 'video/mp4' : 'application/octet-stream'),
-          };
-
-      await ensureAdminMediaDir();
-      const diskFilename = safeDiskFilename(mediaFile.filename, mediaFile.mimetype);
-      const diskPath = path.join(adminMediaDir, diskFilename);
-      console.log('Upload: gravando arquivo em', diskPath);
-      await fs.writeFile(diskPath, mediaFile.buffer);
+      // For non-MP4 video formats, transcode to MP4 in-place
+      let finalDiskFilename = diskFilename;
+      let finalDiskPath = diskPath;
+      let finalMimetype = originalMimetype;
+      if (originalMimetype.startsWith('video/') && !isMp4Video) {
+        const fileBuffer = await fs.readFile(diskPath);
+        const transcoded = await transcodeVideoBuffer({ ...req.file, buffer: fileBuffer });
+        finalDiskFilename = safeDiskFilename(transcoded.filename, transcoded.mimetype);
+        finalDiskPath = path.join(adminMediaDir, finalDiskFilename);
+        finalMimetype = transcoded.mimetype;
+        await fs.writeFile(finalDiskPath, transcoded.buffer);
+        await fs.unlink(diskPath).catch(() => {});
+      }
 
       const siteId = await ensureSiteId();
-      console.log('Upload: inserindo no DB, siteId=', siteId, 'arquivo=', diskFilename);
+      console.log('Upload: inserindo no DB, siteId=', siteId, 'arquivo=', finalDiskFilename);
       const insertResult = await pool.query(
         'INSERT INTO app.media_asset (site_id, filename, mimetype, disk_filename, disk_path) VALUES ($1, $2, $3, $4, $5) RETURNING id',
-        [siteId, mediaFile.filename, mediaFile.mimetype, diskFilename, diskPath]
+        [siteId, originalFilename, finalMimetype, finalDiskFilename, finalDiskPath]
       );
       const mediaId = insertResult.rows[0].id;
       console.log('Upload: sucesso, id=', mediaId);
 
       res.status(201).json({
         url: `/api/uploads/${mediaId}`,
-        diskUrl: `/admin-media/${diskFilename}`,
+        diskUrl: `/admin-media/${finalDiskFilename}`,
         id: mediaId,
-        name: mediaFile.filename,
-        size: mediaFile.buffer.length,
-        mimetype: mediaFile.mimetype,
+        name: originalFilename,
+        size: req.file.size,
+        mimetype: finalMimetype,
       });
     } catch (uploadError) {
       console.error('Erro ao enviar arquivo', uploadError);
@@ -1675,7 +1690,18 @@ app.delete('/api/course/extra-info/:id', requireAdmin, async (req, res) => {
 
 // Serve frontend/dist em produção (quando Vite dev server não está rodando)
 const frontendDist = path.resolve(__dirname, '..', '..', 'frontend', 'dist');
-app.use(express.static(frontendDist));
+app.use(express.static(frontendDist, { extensions: ['html'] }));
+
+// Rotas explícitas para as páginas multi-entry do Vite (sem extensão .html)
+const multiEntryPages = {
+  '/joalheria': 'joalheria.html',
+  '/joias': 'joias.html',
+  '/curso': 'curso.html',
+};
+for (const [route, file] of Object.entries(multiEntryPages)) {
+  app.get(route, (_req, res) => res.sendFile(path.join(frontendDist, file)));
+}
+
 // Catch-all: devolve index.html para rotas SPA que não são /api nem /media
 app.get('*', (req, res, next) => {
   if (req.path.startsWith('/api') || req.path.startsWith('/media') || req.path.startsWith('/admin-media') || req.path.startsWith('/uploads')) {
