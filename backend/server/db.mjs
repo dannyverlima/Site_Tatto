@@ -29,6 +29,7 @@ try {
     password: process.env.PGPASSWORD || '',
     database: process.env.PGDATABASE || 'studio_tatto',
     max: 10,
+    ssl: process.env.PGSSL === 'true' ? { rejectUnauthorized: false } : false,
   });
   
   // Teste rápido de conexão
