@@ -153,7 +153,7 @@ app.use(helmet({
 app.use(cors({
   origin: (origin, cb) => {
     if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
-    cb(new Error('CORS bloqueado'));
+    cb(null, false); // rejeita sem lançar erro 500
   },
   credentials: true,
 }));
