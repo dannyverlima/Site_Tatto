@@ -3,14 +3,17 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "scripts": {
     "predev": "node scripts/kill-ports.mjs",
     "dev": "concurrently \"pnpm run dev:server\" \"pnpm run dev:web\"",
-    "build": "vite build",
-    "preview": "vite preview",
+    "build": "vite build --config frontend/vite.config.ts",
+    "preview": "vite preview --config frontend/vite.config.ts",
     "dev:server": "node backend/server/index.mjs",
     "dev:web": "vite --config frontend/vite.config.ts",
-    "start": "node ./start.bat"
+    "start": "node backend/server/index.mjs"
   },
   "dependencies": {
     "@emotion/react": "^11.11.4",
