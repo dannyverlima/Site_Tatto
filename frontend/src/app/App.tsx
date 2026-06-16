@@ -5,7 +5,7 @@ import { Specialists } from './components/Specialists';
 import { Course } from './components/curso';
 import { Reviews } from './components/Reviews';
 import { ContatoLocalizacao } from './components/ContatoLocalizacao';
-import { Footer } from './components/rodapé';
+import { Footer } from './components/rodape';
 import { LoadingScreen } from './components/LoadingScreen';
 
 export default function App() {
