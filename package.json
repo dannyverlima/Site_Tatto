@@ -6,6 +6,11 @@
   "engines": {
     "node": ">=20.0.0"
   },
+  "pnpm": {
+    "overrides": {
+      "vite": "^8.0.16"
+    }
+  },
   "scripts": {
     "predev": "node scripts/kill-ports.mjs",
     "dev": "concurrently \"pnpm run dev:server\" \"pnpm run dev:web\"",

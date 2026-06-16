@@ -60,6 +60,9 @@ import {
   getSiteSettings,
   setSiteSetting,
   getJewelrySales,
+  getAllReviews,
+  updateReviewStatus,
+  deleteReview,
 } from './siteRepository.mjs';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -759,6 +762,44 @@ app.post('/api/reviews', formLimiter, async (req, res) => {
   } catch (error) {
     console.error('Erro ao criar avaliacao', error);
     res.status(500).json({ error: 'Falha ao criar avaliacao' });
+  }
+});
+
+// ─── Admin: gestão de avaliações ─────────────────────────────────────────────
+
+app.get('/api/admin/reviews', requireAdmin, async (_req, res) => {
+  try {
+    const reviews = await getAllReviews();
+    res.json(reviews);
+  } catch (error) {
+    console.error('Erro ao carregar avaliacoes (admin)', error);
+    res.status(500).json({ error: 'Falha ao carregar avaliacoes' });
+  }
+});
+
+app.patch('/api/admin/reviews/:id', requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body || {};
+  if (!['published', 'rejected', 'pending'].includes(status)) {
+    return badRequest(res, 'Status invalido');
+  }
+  try {
+    await updateReviewStatus(id, status);
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Erro ao atualizar status de avaliacao', error);
+    res.status(500).json({ error: 'Falha ao atualizar avaliacao' });
+  }
+});
+
+app.delete('/api/admin/reviews/:id', requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  try {
+    await deleteReview(id);
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Erro ao deletar avaliacao', error);
+    res.status(500).json({ error: 'Falha ao deletar avaliacao' });
   }
 });
 
@@ -1697,6 +1738,8 @@ const multiEntryPages = {
   '/joalheria': 'joalheria.html',
   '/joias': 'joias.html',
   '/curso': 'curso.html',
+  '/portifolio': 'portifolio.html',
+  '/portifolio/:slug': 'portifolio.html',
 };
 for (const [route, file] of Object.entries(multiEntryPages)) {
   app.get(route, (_req, res) => res.sendFile(path.join(frontendDist, file)));

@@ -221,6 +221,49 @@ export const createReview = async ({ name, rating, comment }) => {
   }
 };
 
+export const getAllReviews = async () => {
+  const client = await pool.connect();
+  try {
+    const site = await getOrCreateSite(client);
+    const result = await client.query(
+      'SELECT id, name, rating, comment, status, submitted_at, display_date FROM app.review WHERE site_id = $1 ORDER BY submitted_at DESC',
+      [site.id]
+    );
+    return result.rows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      rating: row.rating,
+      comment: row.comment,
+      status: row.status,
+      submittedAt: row.submitted_at,
+      displayDate: row.display_date,
+    }));
+  } finally {
+    client.release();
+  }
+};
+
+export const updateReviewStatus = async (id, status) => {
+  const client = await pool.connect();
+  try {
+    await client.query(
+      "UPDATE app.review SET status = $1, display_date = CASE WHEN $1 = 'published' THEN TO_CHAR(NOW(), 'DD/MM/YYYY') ELSE display_date END WHERE id = $2",
+      [status, id]
+    );
+  } finally {
+    client.release();
+  }
+};
+
+export const deleteReview = async (id) => {
+  const client = await pool.connect();
+  try {
+    await client.query('DELETE FROM app.review WHERE id = $1', [id]);
+  } finally {
+    client.release();
+  }
+};
+
 export const createContactSubmission = async ({ name, email, phone, message }) => {
   const client = await pool.connect();
   try {

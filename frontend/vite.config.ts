@@ -58,6 +58,7 @@ export default defineConfig({
         curso: path.resolve(__dirname, 'curso.html'),
         joias: path.resolve(__dirname, 'joias.html'),
         joalheria: path.resolve(__dirname, 'joalheria.html'),
+        portifolio: path.resolve(__dirname, 'portifolio.html'),
       },
     },
   },

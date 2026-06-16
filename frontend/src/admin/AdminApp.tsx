@@ -5,10 +5,11 @@ import { AdminSpecialists } from './AdminSpecialists';
 import { AdminCourse } from './AdminCourse';
 import { AdminPortfolio } from './AdminPortfolio';
 import { AdminUrls } from './AdminUrls';
+import { AdminReviews } from './AdminReviews';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../app/components/ui/tabs';
 import { Button } from '../app/components/ui/button';
 import { Input } from '../app/components/ui/input';
-import { ChevronRight, Upload, Wand2, Gem, Link2 } from 'lucide-react';
+import { ChevronRight, Upload, Wand2, Gem, Link2, Star } from 'lucide-react';
 import { uploadImageFile } from './uploadImage';
 import { ImageWithFallback } from '../app/components/figma/ImageWithFallback';
 
@@ -222,6 +223,7 @@ const AdminLogin = ({ onSuccess }: { onSuccess: () => void }) => {
               <TabsTrigger value="specialists" className="!h-10 sm:!h-11 px-4 sm:px-2 rounded-full text-xs sm:text-sm font-medium text-white/70 transition-all duration-300 hover:bg-white/10 hover:text-white data-[state=active]:!border-white/20 data-[state=active]:!bg-white data-[state=active]:!text-black data-[state=active]:shadow-[0_8px_20px_rgba(255,255,255,0.18)] whitespace-nowrap">Especialistas</TabsTrigger>
               <TabsTrigger value="portfolio" className="!h-10 sm:!h-11 px-4 sm:px-2 rounded-full text-xs sm:text-sm font-medium text-white/70 transition-all duration-300 hover:bg-white/10 hover:text-white data-[state=active]:!border-white/20 data-[state=active]:!bg-white data-[state=active]:!text-black data-[state=active]:shadow-[0_8px_20px_rgba(255,255,255,0.18)] whitespace-nowrap">Portfólio</TabsTrigger>
               <TabsTrigger value="urls" className="!h-10 sm:!h-11 px-4 sm:px-2 rounded-full text-xs sm:text-sm font-medium text-white/70 transition-all duration-300 hover:bg-white/10 hover:text-white data-[state=active]:!border-white/20 data-[state=active]:!bg-white data-[state=active]:!text-black data-[state=active]:shadow-[0_8px_20px_rgba(255,255,255,0.18)] whitespace-nowrap inline-flex items-center gap-1.5"><Link2 className="h-3.5 w-3.5" />URLs</TabsTrigger>
+              <TabsTrigger value="reviews" className="!h-10 sm:!h-11 px-4 sm:px-2 rounded-full text-xs sm:text-sm font-medium text-white/70 transition-all duration-300 hover:bg-white/10 hover:text-white data-[state=active]:!border-white/20 data-[state=active]:!bg-white data-[state=active]:!text-black data-[state=active]:shadow-[0_8px_20px_rgba(255,255,255,0.18)] whitespace-nowrap inline-flex items-center gap-1.5"><Star className="h-3.5 w-3.5" />Avaliações</TabsTrigger>
               <TabsTrigger value="config" className="!h-10 sm:!h-11 px-4 sm:px-2 rounded-full text-xs sm:text-sm font-medium text-white/70 transition-all duration-300 hover:bg-white/10 hover:text-white data-[state=active]:!border-white/20 data-[state=active]:!bg-white data-[state=active]:!text-black data-[state=active]:shadow-[0_8px_20px_rgba(255,255,255,0.18)] whitespace-nowrap">Config</TabsTrigger>
             </TabsList>
           </div>
@@ -364,6 +366,13 @@ const AdminLogin = ({ onSuccess }: { onSuccess: () => void }) => {
               </div>
               <AdminUrls />
             </section>
+          </TabsContent>
+
+          <TabsContent value="reviews" className="space-y-10">
+            <div className="rounded-[28px] border border-white/10 bg-white/[0.03] p-4 sm:p-6 backdrop-blur-xl">
+              <h2 className="text-lg font-bold text-white mb-4">Gerenciar Avaliações</h2>
+              <AdminReviews />
+            </div>
           </TabsContent>
 
           <TabsContent value="config" className="space-y-10">
