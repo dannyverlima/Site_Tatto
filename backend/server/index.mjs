@@ -576,10 +576,10 @@ app.post('/api/uploads', requireAdmin, (req, res) => {
   });
 });
 
-app.get('/api/uploads', async (_req, res) => {
+app.get('/api/uploads', requireAdmin, async (_req, res) => {
   try {
     const result = await pool.query(
-      'SELECT id, filename, mimetype, created_at, disk_filename FROM app.media_asset ORDER BY created_at DESC LIMIT 200'
+      'SELECT id, filename, mimetype, created_at FROM app.media_asset ORDER BY created_at DESC LIMIT 200'
     );
 
     res.json(
@@ -589,7 +589,6 @@ app.get('/api/uploads', async (_req, res) => {
         mimetype: row.mimetype,
         createdAt: row.created_at,
         url: `/api/uploads/${row.id}`,
-        diskUrl: row.disk_filename ? `/admin-media/${row.disk_filename}` : null,
       }))
     );
   } catch (error) {
