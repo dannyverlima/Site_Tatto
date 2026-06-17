@@ -45,7 +45,7 @@ export function ImageWithFallback(props: React.ImgHTMLAttributes<HTMLImageElemen
           </div>
         </div>
       ) : (
-        <img src={src} alt={alt} className="w-full h-full object-cover" {...rest} onError={handleError} />
+        <img src={visible ? src : undefined} alt={alt} loading="lazy" className="w-full h-full object-cover" {...rest} onError={handleError} />
       )}
     </div>
   )

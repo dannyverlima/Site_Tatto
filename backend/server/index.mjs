@@ -626,6 +626,8 @@ app.get('/api/uploads/:id', async (req, res) => {
       .replace(/[^\x20-\x7E]/g, '_');
     res.setHeader('Content-Type', media.mimetype);
     res.setHeader('Content-Disposition', `inline; filename="${safeFilename}"`);
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    res.setHeader('ETag', `"${id}"`);
 
     // Arquivo armazenado no banco (legado)
     if (media.data) {
@@ -1690,6 +1692,11 @@ app.delete('/api/course/extra-info/:id', requireAdmin, async (req, res) => {
 
 // Serve frontend compilado
 const frontendDist = path.resolve(__dirname, '..', '..', 'frontend', 'dist');
+// Hashed assets (JS/CSS/images inside /assets/) get long-lived cache; HTML must not be cached
+app.use('/assets', express.static(path.join(frontendDist, 'assets'), {
+  maxAge: '1y',
+  immutable: true,
+}));
 app.use(express.static(frontendDist, { extensions: ['html'] }));
 
 // Rotas explícitas para as páginas multi-entry do Vite (sem extensão .html)

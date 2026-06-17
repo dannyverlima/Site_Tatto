@@ -1205,10 +1205,51 @@ export const updateJewelryOrderStatus = async (id, { status }) => {
     const safeStatus = allowed.includes(status) ? status : 'nulo';
     const setPaidAt = safeStatus === 'pago' || safeStatus === 'encomendado_pago' || safeStatus === 'entregue';
 
+    const current = await client.query(
+      'SELECT status FROM app.jewelry_order WHERE id = $1 AND site_id = $2',
+      [id, site.id]
+    );
+    const prevStatus = current.rows[0]?.status;
+
+    await client.query('BEGIN');
+
     await client.query(
       `UPDATE app.jewelry_order SET status = $1, updated_at = now(), paid_at = ${setPaidAt ? 'COALESCE(paid_at, now())' : 'paid_at'} WHERE id = $2 AND site_id = $3`,
       [safeStatus, id, site.id]
     );
+
+    // Decrement stock when transitioning INTO 'entregue'
+    if (safeStatus === 'entregue' && prevStatus !== 'entregue') {
+      const items = await client.query(
+        'SELECT jewelry_item_id, quantity FROM app.jewelry_order_item WHERE order_id = $1',
+        [id]
+      );
+      for (const item of items.rows) {
+        await client.query(
+          'UPDATE app.jewelry_item SET stock = GREATEST(0, stock - $1) WHERE id = $2',
+          [item.quantity, item.jewelry_item_id]
+        );
+      }
+    }
+
+    // Restore stock when transitioning OUT OF 'entregue'
+    if (prevStatus === 'entregue' && safeStatus !== 'entregue') {
+      const items = await client.query(
+        'SELECT jewelry_item_id, quantity FROM app.jewelry_order_item WHERE order_id = $1',
+        [id]
+      );
+      for (const item of items.rows) {
+        await client.query(
+          'UPDATE app.jewelry_item SET stock = stock + $1 WHERE id = $2',
+          [item.quantity, item.jewelry_item_id]
+        );
+      }
+    }
+
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
   } finally {
     client.release();
   }
