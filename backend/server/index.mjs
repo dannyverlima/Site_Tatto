@@ -73,16 +73,7 @@ const port = Number(process.env.PORT || 5175);
 const projectRoot = path.resolve(__dirname, '..');
 const adminMediaDir = path.join(projectRoot, 'media');
 
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => {
-    fs.mkdir(adminMediaDir, { recursive: true })
-      .then(() => cb(null, adminMediaDir))
-      .catch(cb);
-  },
-  filename: (_req, file, cb) => {
-    cb(null, safeDiskFilename(file.originalname, file.mimetype));
-  },
-});
+const storage = multer.memoryStorage();
 
 const runCommand = (command, args) =>
   new Promise((resolve, reject) => {
@@ -142,7 +133,7 @@ const transcodeVideoBuffer = async (file) => {
 const upload = multer({
   storage,
   limits: {
-    fileSize: 2 * 1024 * 1024 * 1024, // 2GB
+    fileSize: 500 * 1024 * 1024, // 500MB (memoryStorage — fica em RAM durante upload)
   },
   fileFilter: (_req, file, callback) => {
     if (file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/')) {
@@ -528,45 +519,45 @@ app.post('/api/uploads', requireAdmin, (req, res) => {
         return badRequest(res, 'Arquivo não enviado');
       }
 
-      // diskStorage already saved the file to adminMediaDir
-      const diskFilename = req.file.filename;
-      const diskPath = req.file.path;
       const originalMimetype = req.file.mimetype || 'application/octet-stream';
-      const originalFilename = req.file.originalname || diskFilename;
+      const originalFilename = req.file.originalname || 'arquivo';
 
-      const isMp4Video =
+      let finalBuffer = req.file.buffer;
+      let finalMimetype = originalMimetype;
+      let finalFilename = originalFilename;
+
+      // Tentar transcodar vídeos não-MP4 para MP4; se ffmpeg falhar (ex: EACCES no servidor),
+      // guarda o ficheiro original sem transcodificação
+      const isMp4 =
         originalMimetype === 'video/mp4' ||
         path.extname(originalFilename).toLowerCase() === '.mp4';
-
-      // For non-MP4 video formats, transcode to MP4 in-place
-      let finalDiskFilename = diskFilename;
-      let finalDiskPath = diskPath;
-      let finalMimetype = originalMimetype;
-      if (originalMimetype.startsWith('video/') && !isMp4Video) {
-        const fileBuffer = await fs.readFile(diskPath);
-        const transcoded = await transcodeVideoBuffer({ ...req.file, buffer: fileBuffer });
-        finalDiskFilename = safeDiskFilename(transcoded.filename, transcoded.mimetype);
-        finalDiskPath = path.join(adminMediaDir, finalDiskFilename);
-        finalMimetype = transcoded.mimetype;
-        await fs.writeFile(finalDiskPath, transcoded.buffer);
-        await fs.unlink(diskPath).catch(() => {});
+      if (originalMimetype.startsWith('video/') && !isMp4) {
+        try {
+          const transcoded = await transcodeVideoBuffer(req.file);
+          finalBuffer = transcoded.buffer;
+          finalMimetype = transcoded.mimetype;
+          finalFilename = transcoded.filename;
+        } catch (ffmpegErr) {
+          console.warn('ffmpeg indisponível, guardando vídeo original:', ffmpegErr.message);
+          // Aceitar MOV/WebM/etc. directamente — o browser moderno reproduz
+          finalMimetype = originalMimetype === 'video/quicktime' ? 'video/mp4' : originalMimetype;
+        }
       }
 
       const siteId = await ensureSiteId();
-      console.log('Upload: inserindo no DB, siteId=', siteId, 'arquivo=', finalDiskFilename);
+      console.log('Upload: inserindo no DB, siteId=', siteId, 'arquivo=', finalFilename, 'tamanho=', finalBuffer.length);
       const insertResult = await pool.query(
-        'INSERT INTO app.media_asset (site_id, filename, mimetype, disk_filename, disk_path) VALUES ($1, $2, $3, $4, $5) RETURNING id',
-        [siteId, originalFilename, finalMimetype, finalDiskFilename, finalDiskPath]
+        'INSERT INTO app.media_asset (site_id, filename, mimetype, data) VALUES ($1, $2, $3, $4) RETURNING id',
+        [siteId, finalFilename, finalMimetype, finalBuffer]
       );
       const mediaId = insertResult.rows[0].id;
       console.log('Upload: sucesso, id=', mediaId);
 
       res.status(201).json({
         url: `/api/uploads/${mediaId}`,
-        diskUrl: `/admin-media/${finalDiskFilename}`,
         id: mediaId,
-        name: originalFilename,
-        size: req.file.size,
+        name: finalFilename,
+        size: finalBuffer.length,
         mimetype: finalMimetype,
       });
     } catch (uploadError) {
@@ -628,9 +619,25 @@ app.get('/api/uploads/:id', async (req, res) => {
     res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
     res.setHeader('ETag', `"${id}"`);
 
-    // Arquivo armazenado no banco (legado)
+    // Arquivo armazenado no banco — suporta range requests para vídeo
     if (media.data) {
-      return res.send(media.data);
+      const total = media.data.length;
+      const range = req.headers.range;
+      res.setHeader('Accept-Ranges', 'bytes');
+
+      if (range) {
+        const [startStr, endStr] = range.replace(/bytes=/, '').split('-');
+        const start = parseInt(startStr, 10);
+        const end = endStr ? parseInt(endStr, 10) : total - 1;
+        const chunkSize = end - start + 1;
+        res.status(206);
+        res.setHeader('Content-Range', `bytes ${start}-${end}/${total}`);
+        res.setHeader('Content-Length', chunkSize);
+        return res.end(media.data.slice(start, end + 1));
+      }
+
+      res.setHeader('Content-Length', total);
+      return res.end(media.data);
     }
 
     // Arquivo em disco — streaming com suporte a range requests (necessário para vídeo)
@@ -660,12 +667,18 @@ app.get('/api/uploads/:id', async (req, res) => {
         res.setHeader('Content-Range', `bytes ${start}-${end}/${fileSize}`);
         res.setHeader('Accept-Ranges', 'bytes');
         res.setHeader('Content-Length', chunkSize);
-        return createReadStream(filePath, { start, end }).pipe(res);
+        createReadStream(filePath, { start, end }).pipe(res);
+      } else {
+        res.setHeader('Accept-Ranges', 'bytes');
+        res.setHeader('Content-Length', fileSize);
+        createReadStream(filePath).pipe(res);
       }
 
-      res.setHeader('Accept-Ranges', 'bytes');
-      res.setHeader('Content-Length', fileSize);
-      return createReadStream(filePath).pipe(res);
+      // Migração lazy: mover para o banco em background para garantir persistência futura
+      fs.readFile(filePath).then((buf) =>
+        pool.query('UPDATE app.media_asset SET data = $1 WHERE id = $2 AND data IS NULL', [buf, id])
+      ).catch(() => {});
+      return;
     }
 
     return res.status(404).json({ error: 'Conteúdo do arquivo não encontrado' });
