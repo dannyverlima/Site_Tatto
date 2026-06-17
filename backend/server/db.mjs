@@ -22,15 +22,23 @@ const mockData = {
 let pool;
 
 try {
-  pool = new Pool({
-    host: process.env.PGHOST || 'localhost',
-    port: Number(process.env.PGPORT || 5432),
-    user: process.env.PGUSER || 'postgres',
-    password: process.env.PGPASSWORD || '',
-    database: process.env.PGDATABASE || 'studio_tatto',
-    max: 10,
-    ssl: process.env.PGSSL === 'true' ? { rejectUnauthorized: false } : false,
-  });
+  // Suporta DATABASE_URL (Hostinger/Railway/Render) ou variáveis individuais PG*
+  const poolConfig = process.env.DATABASE_URL
+    ? {
+        connectionString: process.env.DATABASE_URL,
+        max: 10,
+        ssl: { rejectUnauthorized: false },
+      }
+    : {
+        host: process.env.PGHOST || 'localhost',
+        port: Number(process.env.PGPORT || 5432),
+        user: process.env.PGUSER || 'postgres',
+        password: process.env.PGPASSWORD || '',
+        database: process.env.PGDATABASE || 'studio_tatto',
+        max: 10,
+        ssl: process.env.PGSSL === 'true' ? { rejectUnauthorized: false } : false,
+      };
+  pool = new Pool(poolConfig);
   
   // Teste rápido de conexão
   await pool.query('SELECT NOW()');
