@@ -1200,6 +1200,32 @@ app.post('/api/admin/login', authLimiter, (req, res) => {
 });
 // ============= END ADMIN AUTH =============
 
+app.post('/api/admin/test-email', requireAdmin, async (_req, res) => {
+  const user = process.env.SMTP_USER || '(não definido)';
+  const pass = process.env.SMTP_PASS;
+  const host = process.env.SMTP_HOST || 'smtp.gmail.com';
+  const port = Number(process.env.SMTP_PORT || 587);
+  const to   = process.env.CONTACT_EMAIL || 'studiostattoadmin@gmail.com';
+
+  if (!pass) {
+    return res.json({ ok: false, config: { user, host, port, to }, error: 'SMTP_PASS não definido nas variáveis de ambiente' });
+  }
+
+  const transporter = nodemailer.createTransport({ host, port, secure: false, auth: { user, pass } });
+  try {
+    await transporter.verify();
+    await transporter.sendMail({
+      from: `"Teste Studio" <${user}>`,
+      to,
+      subject: '✅ Teste de email — Studio Markin Tattoo',
+      text: 'Se recebeste este email, o SMTP está configurado corretamente!',
+    });
+    res.json({ ok: true, config: { user, host, port, to }, message: 'Email enviado com sucesso!' });
+  } catch (err) {
+    res.json({ ok: false, config: { user, host, port, to }, error: err.message, code: err.code });
+  }
+});
+
 app.get('/api/jewelry', async (req, res) => {
   try {
     const includeInactive = String(req.query.all || '') === '1';
