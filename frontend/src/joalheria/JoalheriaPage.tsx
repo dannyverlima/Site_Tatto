@@ -465,17 +465,23 @@ function ItemModal({ item, onClose, onAddToCart, onEncomenda }: {
               <span className="mb-0.5 px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-400 text-[11px] font-semibold">-{Math.round(item.discountPercent)}%</span>
             )}
           </div>
-          {item.stock > 0 && (
+          {item.stock > 0 ? (
             <p className="text-xs text-white/35 flex items-center gap-1.5">
               <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400" />
               {item.stock} {item.stock === 1 ? 'unidade' : 'unidades'} em estoque
             </p>
+          ) : (
+            <p className="text-xs text-red-400/80 flex items-center gap-1.5">
+              <span className="inline-block h-1.5 w-1.5 rounded-full bg-red-400" />
+              Esgotado
+            </p>
           )}
           <div className="flex gap-3 pt-1">
             <button onClick={() => { onAddToCart(item); onClose(); }}
-              className="group relative overflow-hidden flex-1 flex items-center justify-center gap-2 py-3 rounded-full bg-white text-black font-semibold text-sm hover:shadow-[0_0_28px_rgba(255,255,255,0.35)] transition-all duration-300">
+              disabled={item.stock === 0}
+              className="group relative overflow-hidden flex-1 flex items-center justify-center gap-2 py-3 rounded-full bg-white text-black font-semibold text-sm hover:shadow-[0_0_28px_rgba(255,255,255,0.35)] transition-all duration-300 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:shadow-none">
               <span className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-out bg-gradient-to-r from-transparent via-black/10 to-transparent skew-x-12" />
-              <ShoppingBag className="h-4 w-4" /> Adicionar ao carrinho
+              <ShoppingBag className="h-4 w-4" /> {item.stock === 0 ? 'Esgotado' : 'Adicionar ao carrinho'}
             </button>
             <button onClick={() => { onEncomenda(); onClose(); }}
               className="group relative overflow-hidden flex items-center justify-center gap-1.5 px-4 py-3 rounded-full border border-white/60 text-white/80 text-sm shadow-[0_0_8px_rgba(255,255,255,0.3),0_0_20px_rgba(255,255,255,0.1),inset_0_0_8px_rgba(255,255,255,0.04)] hover:shadow-[0_0_14px_rgba(255,255,255,0.55),0_0_32px_rgba(255,255,255,0.18),inset_0_0_12px_rgba(255,255,255,0.07)] hover:text-white transition-all duration-300">
@@ -517,9 +523,14 @@ function FeaturedCard({ item, index, effectivePrice, onView, onAdd }: {
           className="absolute top-4 right-4 bg-black/50 p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
           <Heart className={`w-5 h-5 transition-colors ${liked ? 'fill-white text-white' : ''}`} />
         </button>
-        {item.discountPercent > 0 && (
+        {item.discountPercent > 0 && item.stock > 0 && (
           <div className="absolute top-4 left-4 bg-white text-black text-[10px] font-bold px-2 py-0.5 rounded">
             -{Math.round(item.discountPercent)}%
+          </div>
+        )}
+        {item.stock === 0 && (
+          <div className="absolute top-4 left-4 bg-red-500/90 text-white text-[10px] font-bold px-2 py-0.5 rounded">
+            Esgotado
           </div>
         )}
       </div>
@@ -532,11 +543,12 @@ function FeaturedCard({ item, index, effectivePrice, onView, onAdd }: {
           {item.discountPercent > 0 && (
             <p className="text-xs text-gray-500 line-through">{currency.format(item.price)}</p>
           )}
-          <p className="text-lg font-semibold">{currency.format(effectivePrice)}</p>
+          <p className={`text-lg font-semibold ${item.stock === 0 ? 'text-white/40' : ''}`}>{currency.format(effectivePrice)}</p>
         </div>
         <button
           onClick={(e) => { e.stopPropagation(); onAdd(); }}
-          className="p-2 rounded-full border border-gray-700 hover:border-white/60 hover:bg-white/10 hover:shadow-[0_0_14px_rgba(255,255,255,0.15)] transition-all duration-300">
+          disabled={item.stock === 0}
+          className="p-2 rounded-full border border-gray-700 hover:border-white/60 hover:bg-white/10 hover:shadow-[0_0_14px_rgba(255,255,255,0.15)] transition-all duration-300 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:border-gray-700 disabled:hover:bg-transparent disabled:hover:shadow-none">
           <ShoppingCart className="w-4 h-4" />
         </button>
       </div>
@@ -572,9 +584,14 @@ function CatalogCard({ item, index, effectivePrice, onView, onAdd }: {
           className="absolute top-3 right-3 bg-black/50 p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
           <Heart className={`w-4 h-4 transition-colors ${liked ? 'fill-white text-white' : ''}`} />
         </button>
-        {item.discountPercent > 0 && (
+        {item.discountPercent > 0 && item.stock > 0 && (
           <div className="absolute top-3 left-3 bg-white text-black text-[9px] font-bold px-1.5 py-0.5 rounded">
             -{Math.round(item.discountPercent)}%
+          </div>
+        )}
+        {item.stock === 0 && (
+          <div className="absolute top-3 left-3 bg-red-500/90 text-white text-[9px] font-bold px-1.5 py-0.5 rounded">
+            Esgotado
           </div>
         )}
       </div>
@@ -584,11 +601,12 @@ function CatalogCard({ item, index, effectivePrice, onView, onAdd }: {
           {item.discountPercent > 0 && (
             <p className="text-[10px] text-gray-600 line-through">{currency.format(item.price)}</p>
           )}
-          <p className="font-semibold">{currency.format(effectivePrice)}</p>
+          <p className={`font-semibold ${item.stock === 0 ? 'text-white/40' : ''}`}>{currency.format(effectivePrice)}</p>
         </div>
         <button
           onClick={(e) => { e.stopPropagation(); onAdd(); }}
-          className="p-1.5 rounded-full border border-gray-800 hover:border-white/50 hover:bg-white/8 hover:shadow-[0_0_12px_rgba(255,255,255,0.12)] transition-all duration-300">
+          disabled={item.stock === 0}
+          className="p-1.5 rounded-full border border-gray-800 hover:border-white/50 hover:bg-white/8 hover:shadow-[0_0_12px_rgba(255,255,255,0.12)] transition-all duration-300 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:border-gray-800 disabled:hover:bg-transparent disabled:hover:shadow-none">
           <Plus className="w-3.5 h-3.5" />
         </button>
       </div>
