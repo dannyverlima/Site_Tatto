@@ -1688,7 +1688,7 @@ app.delete('/api/course/extra-info/:id', requireAdmin, async (req, res) => {
   }
 });
 
-// Serve frontend/dist em produção (quando Vite dev server não está rodando)
+// Serve frontend compilado
 const frontendDist = path.resolve(__dirname, '..', '..', 'frontend', 'dist');
 app.use(express.static(frontendDist, { extensions: ['html'] }));
 
