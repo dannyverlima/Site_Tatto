@@ -787,10 +787,11 @@ const createMailTransporter = () => {
     console.warn('Email não configurado: defina SMTP_USER e SMTP_PASS no .env');
     return null;
   }
+  const port = Number(process.env.SMTP_PORT || 465);
   return nodemailer.createTransport({
     host: process.env.SMTP_HOST || 'smtp.gmail.com',
-    port: Number(process.env.SMTP_PORT || 587),
-    secure: false,
+    port,
+    secure: port === 465, // SSL na 465, STARTTLS na 587
     auth: { user: smtpUser, pass: smtpPass },
   });
 };
@@ -1199,6 +1200,29 @@ app.post('/api/admin/login', authLimiter, (req, res) => {
   res.json({ token });
 });
 // ============= END ADMIN AUTH =============
+
+app.get('/api/admin/test-email', requireAdmin, async (_req, res) => {
+  res.set('Content-Type', 'text/html');
+  const user = process.env.SMTP_USER || '(não definido)';
+  const pass = process.env.SMTP_PASS;
+  const host = process.env.SMTP_HOST || 'smtp.gmail.com';
+  const port = Number(process.env.SMTP_PORT || 465);
+  const to   = process.env.CONTACT_EMAIL || 'studiostattoadmin@gmail.com';
+
+  if (!pass) {
+    return res.send(`<h2>❌ SMTP_PASS não definido</h2><p>Vai ao Hostinger → Variáveis de Ambiente e adiciona SMTP_PASS</p><p>User: ${user} | Host: ${host}:${port}</p>`);
+  }
+
+  const secure = port === 465;
+  const transporter = nodemailer.createTransport({ host, port, secure, auth: { user, pass } });
+  try {
+    await transporter.verify();
+    await transporter.sendMail({ from: `"Studio" <${user}>`, to, subject: '✅ Teste SMTP', text: 'SMTP funciona!' });
+    return res.send(`<h2>✅ Email enviado para ${to}</h2><p>User: ${user} | Host: ${host}:${port} | SSL: ${secure}</p>`);
+  } catch (err) {
+    return res.send(`<h2>❌ Erro: ${err.message}</h2><p>User: ${user} | Host: ${host}:${port} | SSL: ${secure}</p><p>Código: ${err.code || '—'}</p>`);
+  }
+});
 
 app.post('/api/admin/test-email', requireAdmin, async (_req, res) => {
   const user = process.env.SMTP_USER || '(não definido)';
