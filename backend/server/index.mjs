@@ -1201,17 +1201,7 @@ app.post('/api/admin/login', authLimiter, (req, res) => {
 });
 // ============= END ADMIN AUTH =============
 
-app.get('/api/admin/test-email', async (req, res) => {
-  // Aceita token via query param (?token=...) ou header Authorization
-  const qToken = req.query.token;
-  if (qToken) {
-    try { jwt.verify(qToken, ADMIN_JWT_SECRET); } catch { return res.send('<h2>❌ Token inválido</h2>'); }
-  } else {
-    const auth = req.headers.authorization?.replace('Bearer ', '');
-    if (!auth) return res.send('<h2>❌ Falta token — adiciona ?token=... ao URL</h2>');
-    try { jwt.verify(auth, ADMIN_JWT_SECRET); } catch { return res.send('<h2>❌ Token inválido</h2>'); }
-  }
-
+app.get('/api/admin/test-email', async (_req, res) => {
   res.set('Content-Type', 'text/html');
   const user = process.env.SMTP_USER || '(não definido)';
   const pass = process.env.SMTP_PASS;
