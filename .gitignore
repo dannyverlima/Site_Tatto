@@ -15,3 +15,5 @@ backend-*.txt
 logs/
 backend/media/
 db_supabase_import.sql
+
+supabase_sync.sql

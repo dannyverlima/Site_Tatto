@@ -168,8 +168,8 @@ export const getLocation = async () => {
       parkingInfo: location.parking_info,
       openingHours: hoursResult.rows.map((row) => ({
         dayOfWeek: row.day_of_week,
-        opensAt: row.opens_at,
-        closesAt: row.closes_at,
+        opensAt: row.opens_at ? String(row.opens_at).slice(0, 5) : null,
+        closesAt: row.closes_at ? String(row.closes_at).slice(0, 5) : null,
         note: row.note,
         isClosed: row.is_closed,
       })),
