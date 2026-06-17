@@ -230,7 +230,7 @@ function SpecialistModal({
 
             {/* linha 2: Portfólio — fullwidth elegante */}
             <motion.a
-              href={`/portifolio/${slugify(specialist.name)}`}
+              href={`/portifolio/${slug}`}
               whileHover={{ scale: 1.015, y: -1 }}
               whileTap={{ scale: 0.985 }}
               transition={spring}

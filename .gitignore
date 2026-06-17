@@ -9,7 +9,8 @@ db/exports/
 *.mp4
 *.mov
 *.webm
-backend/server.err
 *.err
+*.log
+backend-*.txt
 logs/
 backend/media/
