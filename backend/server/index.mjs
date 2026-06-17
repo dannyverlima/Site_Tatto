@@ -1512,7 +1512,7 @@ app.put('/api/jewelry-sales/:id/status', requireAdmin, async (req, res) => {
 app.get('/api/course-enrollments', requireAdmin, async (_req, res) => {
   try {
     const result = await pool.query(
-      'SELECT id, name, email, phone, message, created_at FROM app.course_enrollment ORDER BY created_at DESC'
+      'SELECT id, name, email, phone, message, status, submitted_at AS created_at FROM app.course_enrollment ORDER BY submitted_at DESC'
     );
     res.json(result.rows);
   } catch (error) {
