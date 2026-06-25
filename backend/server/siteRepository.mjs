@@ -289,6 +289,21 @@ export const getSiteConfig = async () => {
     );
 
     const heroRow = heroResult.rows[0];
+
+    // Resolve /api/uploads/{id} → URL direta do Supabase CDN (melhor para mobile)
+    let resolvedBgUrl = heroRow?.background_url || '';
+    const proxyMatch = resolvedBgUrl.match(/\/api\/uploads\/([^/?#]+)/);
+    if (proxyMatch) {
+      try {
+        const mediaRes = await client.query(
+          'SELECT disk_path FROM app.media_asset WHERE id = $1',
+          [proxyMatch[1]]
+        );
+        const dp = mediaRes.rows[0]?.disk_path;
+        if (dp?.startsWith('https://')) resolvedBgUrl = dp;
+      } catch { /* fallback para URL original */ }
+    }
+
     const courseRow = courseResult.rows[0];
 
     const features = [];
@@ -347,7 +362,7 @@ export const getSiteConfig = async () => {
     return {
       hero: {
         backgroundType: heroRow?.background_type || defaultSiteConfig.hero.backgroundType,
-        backgroundUrl: heroRow?.background_url || defaultSiteConfig.hero.backgroundUrl,
+        backgroundUrl: resolvedBgUrl || defaultSiteConfig.hero.backgroundUrl,
       },
       course: {
         title: courseRow?.title || defaultSiteConfig.course.title,

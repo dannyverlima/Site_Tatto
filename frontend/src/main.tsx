@@ -12,8 +12,8 @@
   const pathname = window.location.pathname;
   const decoded = (() => { try { return decodeURIComponent(pathname); } catch { return pathname; } })();
 
-  const isAdminRoute = pathname.startsWith('/Admin@tatto');
-  const isJoalheriaAdminRoute = pathname.startsWith('/Admin@joalheria');
+  const isAdminRoute = pathname.startsWith('/painel-studio-mk9x');
+  const isJoalheriaAdminRoute = pathname.startsWith('/painel-joias-mk9x');
   const isSpecialistRoute = pathname === '/markin' || pathname.startsWith('/especialista/');
   const isPortfolioAlbumRoute = pathname.startsWith('/portifolio/') || pathname.startsWith('/portfolio/');
   const isLocationRoute = pathname === '/localizacao';

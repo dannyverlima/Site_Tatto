@@ -12,23 +12,17 @@ export function ImageWithFallback(props: React.ImgHTMLAttributes<HTMLImageElemen
     if (!ref.current) return
     const obs = new IntersectionObserver(
       (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            setVisible(true)
-            obs.disconnect()
-          }
-        })
+        if (entries[0]?.isIntersecting) {
+          setVisible(true)
+          obs.disconnect()
+        }
       },
-      { threshold: 0.12 }
+      // rootMargin pre-loads images 200px before they enter the viewport
+      { threshold: 0, rootMargin: '200px' },
     )
-
     obs.observe(ref.current)
     return () => obs.disconnect()
   }, [])
-
-  const handleError = () => {
-    setDidError(true)
-  }
 
   const { src, alt, style, className, ...rest } = props
 
@@ -37,15 +31,25 @@ export function ImageWithFallback(props: React.ImgHTMLAttributes<HTMLImageElemen
     : 'opacity-0 translate-y-6'
 
   return (
-    <div ref={ref} className={`inline-block w-full ${revealClass} ${className ?? ''}`} style={style}>
+    <div ref={ref} className={`w-full ${revealClass} ${className ?? ''}`} style={style}>
       {didError ? (
-        <div className="inline-block bg-gray-100 text-center align-middle w-full h-full">
-          <div className="flex items-center justify-center w-full h-full">
-            <img src={ERROR_IMG_SRC} alt="Error loading image" {...rest} data-original-url={src} />
-          </div>
+        <div className="flex items-center justify-center w-full h-full min-h-[80px] bg-neutral-900">
+          <img src={ERROR_IMG_SRC} alt="Imagem indisponível" />
         </div>
+      ) : visible ? (
+        // Only render <img> after the element enters the viewport.
+        // Previously, src={undefined} was set when not visible, which caused Firefox
+        // and Safari to fire onError immediately, permanently breaking the image.
+        <img
+          src={src}
+          alt={alt}
+          decoding="async"
+          className="w-full h-full object-cover"
+          {...rest}
+          onError={() => setDidError(true)}
+        />
       ) : (
-        <img src={visible ? src : undefined} alt={alt} loading="lazy" className="w-full h-full object-cover" {...rest} onError={handleError} />
+        <span className="block w-full h-full min-h-[inherit] bg-neutral-900" aria-hidden="true" />
       )}
     </div>
   )

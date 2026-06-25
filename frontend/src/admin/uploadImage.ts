@@ -20,7 +20,7 @@ export async function uploadImageFile(file: File, token?: string): Promise<strin
       } catch (_) {
         // ignore json parse errors
       }
-      if (response.status === 413 || /too large|grande/i.test(message)) {
+      if (response.status === 413) {
         message = 'O arquivo do vídeo/imagem está grande demais. Tente um arquivo menor.';
       }
       throw new Error(message);

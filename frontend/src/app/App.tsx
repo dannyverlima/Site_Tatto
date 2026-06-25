@@ -12,23 +12,28 @@ export default function App() {
   const [showLoading, setShowLoading] = useState(true);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => setShowLoading(false), 1100);
-    return () => window.clearTimeout(timer);
+    let mounted = true;
+    window.setTimeout(() => { if (mounted) setShowLoading(false); }, 1100);
+    return () => { mounted = false; };
   }, []);
 
-  if (showLoading) {
-    return <LoadingScreen />;
-  }
-
   return (
-    <div className="min-h-screen bg-black">
-      <Navigation />
-      <Hero />
-      <Specialists />
-      <Course />
-      <Reviews />
-      <ContatoLocalizacao />
-      <Footer />
-    </div>
+    <>
+      <div className="min-h-screen bg-black">
+        <Navigation />
+        <Hero />
+        <Specialists />
+        <Course />
+        <Reviews />
+        <ContatoLocalizacao />
+        <Footer />
+      </div>
+
+      {showLoading && (
+        <div className="fixed inset-0 z-[9999] bg-black">
+          <LoadingScreen />
+        </div>
+      )}
+    </>
   );
 }

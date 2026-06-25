@@ -9,6 +9,7 @@ import os from 'node:os';
 import { spawn } from 'node:child_process';
 import fs from 'node:fs/promises';
 import { createReadStream } from 'node:fs';
+import { Readable } from 'node:stream';
 import { fileURLToPath } from 'node:url';
 import multer from 'multer';
 import ffmpegPath from 'ffmpeg-static';
@@ -96,30 +97,38 @@ const runCommand = (command, args) =>
   });
 
 const transcodeVideoBuffer = async (file) => {
-  if (!ffmpegPath) {
-    throw new Error('Transcodificador de vídeo indisponível');
-  }
+  if (!ffmpegPath) throw new Error('Transcodificador de vídeo indisponível');
+
+  // Garantir permissão de execução do ffmpeg (necessário em alguns servidores Linux)
+  try { await fs.chmod(ffmpegPath, 0o755); } catch { /* ignora se não tiver permissão para chmod */ }
 
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'site-tatto-'));
-  const inputPath = path.join(tempDir, `input${path.extname(file.originalname || '') || '.bin'}`);
+  const ext = path.extname(file.originalname || '') || '.bin';
+  const inputPath = path.join(tempDir, `input${ext}`);
   const outputPath = path.join(tempDir, 'output.mp4');
 
   try {
     await fs.writeFile(inputPath, file.buffer);
+    // 720p + 1Mbps teto → garante output < 45MB para vídeos de até ~5 minutos
     await runCommand(ffmpegPath, [
       '-y',
       '-i', inputPath,
-      '-movflags', '+faststart',
-      '-pix_fmt', 'yuv420p',
+      '-vf', 'scale=-2:720',
       '-c:v', 'libx264',
       '-preset', 'veryfast',
-      '-crf', '28',
+      '-crf', '30',
+      '-maxrate', '1000k',
+      '-bufsize', '2000k',
+      '-movflags', '+faststart',
+      '-pix_fmt', 'yuv420p',
       '-c:a', 'aac',
-      '-b:a', '128k',
+      '-b:a', '64k',
+      '-ac', '1',
       outputPath,
     ]);
 
     const data = await fs.readFile(outputPath);
+    console.log(`ffmpeg: ${file.buffer.length} → ${data.length} bytes (${Math.round(data.length/1024/1024*10)/10}MB)`);
     return {
       buffer: data,
       filename: `${path.parse(file.originalname || 'video').name}.mp4`,
@@ -229,6 +238,33 @@ const extensionByMime = new Map([
   ['video/quicktime', '.mov'],
   ['video/webm', '.webm'],
 ]);
+
+// Supabase Storage — upload direto (vídeos são comprimidos antes para ficarem < 45MB)
+const uploadToSupabaseStorage = async (buffer, filename, mimetype) => {
+  const supabaseUrl = (process.env.SUPABASE_URL || '').replace(/\/$/, '');
+  const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
+  if (!supabaseUrl || !supabaseKey) return null;
+
+  const bucket = process.env.SUPABASE_BUCKET || 'media';
+  const safeName = `${Date.now()}-${String(filename).replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 100)}`;
+
+  const res = await fetch(`${supabaseUrl}/storage/v1/object/${bucket}/${safeName}`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${supabaseKey}`,
+      'Content-Type': mimetype,
+      'x-upsert': 'true',
+    },
+    body: buffer,
+  });
+
+  if (!res.ok) {
+    const errBody = await res.text().catch(() => '');
+    throw new Error(`Supabase Storage ${res.status}: ${errBody}`);
+  }
+
+  return `${supabaseUrl}/storage/v1/object/public/${bucket}/${safeName}`;
+};
 
 const detectMimeType = (filename) => {
   const extension = path.extname(filename || '').toLowerCase();
@@ -467,12 +503,54 @@ const ensureDatabaseSchema = async () => {
 
 const bootstrapAdminMedia = async () => {
   try { await ensureAdminMediaDir(); } catch (e) { console.warn('ensureAdminMediaDir falhou:', e.message); }
-  try { await exportDatabaseMediaToDisk(); } catch (e) { console.warn('exportDatabaseMediaToDisk falhou:', e.message); }
+  // exportDatabaseMediaToDisk removido: disco é efémero no Hostinger e a leitura de todos os media na inicialização é desnecessária
   try { await ingestAdminMediaFiles(); } catch (e) { console.warn('ingestAdminMediaFiles falhou:', e.message); }
 };
 
+const SERVER_START_TIME = new Date().toISOString();
+
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok' });
+});
+
+app.get('/api/admin/test-storage', async (req, res) => {
+  // Aceita token via query param (?token=...) para facilitar diagnóstico pelo browser
+  const qToken = String(req.query.token || '');
+  const authHeader = req.headers.authorization;
+  const hToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : (req.headers['x-admin-token'] || '');
+  const rawToken = qToken || hToken;
+  if (!rawToken) {
+    return res.status(401).json({ error: 'Não autorizado. Faça login no admin e use ?token=SEU_TOKEN' });
+  }
+  try { jwt.verify(rawToken, ADMIN_JWT_SECRET); } catch { return res.status(401).json({ error: 'Token inválido ou expirado' }); }
+
+  const supabaseUrl = (process.env.SUPABASE_URL || '').replace(/\/$/, '');
+  const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
+  const bucket = process.env.SUPABASE_BUCKET || 'media';
+
+  if (!supabaseUrl || !supabaseKey) {
+    const missing = [!supabaseUrl && 'SUPABASE_URL', !supabaseKey && 'SUPABASE_SERVICE_KEY'].filter(Boolean);
+    return res.json({ ok: false, error: `Variáveis ausentes: ${missing.join(', ')}` });
+  }
+
+  const testName = `_test-${Date.now()}.txt`;
+  try {
+    const up = await fetch(`${supabaseUrl}/storage/v1/object/${bucket}/${testName}`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${supabaseKey}`, 'Content-Type': 'text/plain', 'x-upsert': 'true' },
+      body: Buffer.from('storage-ok'),
+    });
+    if (!up.ok) {
+      const body = await up.text().catch(() => '');
+      return res.json({ ok: false, error: `Supabase ${up.status}: ${body}`, supabaseUrl, bucket });
+    }
+    await fetch(`${supabaseUrl}/storage/v1/object/${bucket}/${testName}`, {
+      method: 'DELETE', headers: { Authorization: `Bearer ${supabaseKey}` },
+    }).catch(() => {});
+    return res.json({ ok: true, message: 'Supabase Storage funcionando!', supabaseUrl, bucket });
+  } catch (err) {
+    return res.json({ ok: false, error: err.message, supabaseUrl, bucket });
+  }
 });
 
 app.get('/api/site', async (_req, res) => {
@@ -526,35 +604,66 @@ app.post('/api/uploads', requireAdmin, (req, res) => {
       let finalMimetype = originalMimetype;
       let finalFilename = originalFilename;
 
-      // Tentar transcodar vídeos não-MP4 para MP4; se ffmpeg falhar (ex: EACCES no servidor),
-      // guarda o ficheiro original sem transcodificação
-      const isMp4 =
-        originalMimetype === 'video/mp4' ||
-        path.extname(originalFilename).toLowerCase() === '.mp4';
-      if (originalMimetype.startsWith('video/') && !isMp4) {
+      // Comprimir todos os vídeos via ffmpeg → 720p, 1Mbps teto, garante output < 45MB
+      if (originalMimetype.startsWith('video/')) {
         try {
           const transcoded = await transcodeVideoBuffer(req.file);
           finalBuffer = transcoded.buffer;
           finalMimetype = transcoded.mimetype;
           finalFilename = transcoded.filename;
         } catch (ffmpegErr) {
-          console.warn('ffmpeg indisponível, guardando vídeo original:', ffmpegErr.message);
-          // Aceitar MOV/WebM/etc. directamente — o browser moderno reproduz
-          finalMimetype = originalMimetype === 'video/quicktime' ? 'video/mp4' : originalMimetype;
+          console.warn('ffmpeg falhou, mantendo original:', ffmpegErr.message);
+          // Se sem compressão o vídeo for muito grande, rejeitar com aviso claro
+          if (finalBuffer.length > 45 * 1024 * 1024) {
+            return res.status(413).json({
+              error: `Vídeo muito grande (${Math.round(finalBuffer.length/1024/1024)}MB). O servidor não conseguiu comprimir. Comprima o vídeo no telemóvel antes de enviar (máx 45MB).`,
+            });
+          }
+        }
+        // Mesmo após compressão, verificar tamanho
+        if (finalBuffer.length > 45 * 1024 * 1024) {
+          return res.status(413).json({
+            error: `Vídeo muito longo. Após compressão ficou ${Math.round(finalBuffer.length/1024/1024)}MB. Use um clip mais curto (máx ~5 minutos).`,
+          });
         }
       }
 
       const siteId = await ensureSiteId();
-      console.log('Upload: inserindo no DB, siteId=', siteId, 'arquivo=', finalFilename, 'tamanho=', finalBuffer.length);
-      const insertResult = await pool.query(
-        'INSERT INTO app.media_asset (site_id, filename, mimetype, data) VALUES ($1, $2, $3, $4) RETURNING id',
-        [siteId, finalFilename, finalMimetype, finalBuffer]
-      );
-      const mediaId = insertResult.rows[0].id;
+
+      // Tentar Supabase Storage primeiro (sem limite de tamanho, sem passar por pgBouncer)
+      let supabaseError = null;
+      const storageUrl = await uploadToSupabaseStorage(finalBuffer, finalFilename, finalMimetype).catch((e) => {
+        supabaseError = e.message;
+        console.warn('Supabase Storage falhou:', e.message);
+        return null;
+      });
+
+      let mediaId;
+      if (storageUrl) {
+        console.log('Upload: Supabase Storage OK, url=', storageUrl);
+        const insertResult = await pool.query(
+          'INSERT INTO app.media_asset (site_id, filename, mimetype, disk_path) VALUES ($1, $2, $3, $4) RETURNING id',
+          [siteId, finalFilename, finalMimetype, storageUrl]
+        );
+        mediaId = insertResult.rows[0].id;
+      } else if (finalBuffer.length > 1 * 1024 * 1024) {
+        // Arquivo grande — bytea falha no pgBouncer. Mostrar erro específico do Supabase.
+        const reason = supabaseError
+          ? `Supabase Storage: ${supabaseError}`
+          : 'Supabase Storage: variáveis SUPABASE_URL / SUPABASE_SERVICE_KEY ausentes no servidor';
+        return res.status(422).json({ error: reason });
+      } else {
+        console.log('Upload: inserindo bytea no DB, siteId=', siteId, 'arquivo=', finalFilename, 'tamanho=', finalBuffer.length);
+        const insertResult = await pool.query(
+          'INSERT INTO app.media_asset (site_id, filename, mimetype, data) VALUES ($1, $2, $3, $4) RETURNING id',
+          [siteId, finalFilename, finalMimetype, finalBuffer]
+        );
+        mediaId = insertResult.rows[0].id;
+      }
       console.log('Upload: sucesso, id=', mediaId);
 
       res.status(201).json({
-        url: `/api/uploads/${mediaId}`,
+        url: storageUrl || `/api/uploads/${mediaId}`,
         id: mediaId,
         name: finalFilename,
         size: finalBuffer.length,
@@ -614,6 +723,13 @@ app.get('/api/uploads/:id', async (req, res) => {
     const safeFilename = String(media.filename || 'arquivo')
       .replace(/[\r\n"]/g, '_')
       .replace(/[^\x20-\x7E]/g, '_');
+
+    // Supabase Storage URL — redirect direto para o CDN público (melhor para streaming/mobile)
+    if (media.disk_path && media.disk_path.startsWith('https://')) {
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+      return res.redirect(302, media.disk_path);
+    }
+
     res.setHeader('Content-Type', media.mimetype);
     res.setHeader('Content-Disposition', `inline; filename="${safeFilename}"`);
     res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
@@ -796,8 +912,11 @@ const createMailTransporter = () => {
   });
 };
 
+const escapeHtml = (str) =>
+  String(str ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
 const row = (label, value) =>
-  `<tr><td style="padding:6px 12px;color:#888;font-size:13px;white-space:nowrap">${label}</td><td style="padding:6px 12px;font-size:13px">${value || '—'}</td></tr>`;
+  `<tr><td style="padding:6px 12px;color:#888;font-size:13px;white-space:nowrap">${label}</td><td style="padding:6px 12px;font-size:13px">${escapeHtml(value) || '—'}</td></tr>`;
 
 const emailWrap = (title, badge, bodyHtml) => `
 <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f4f4f4;font-family:Arial,sans-serif">
@@ -819,7 +938,7 @@ const emailWrap = (title, badge, bodyHtml) => `
 const sendContactEmail = async ({ name, email, phone, message }) => {
   const transporter = createMailTransporter();
   if (!transporter) return;
-  const bodyHtml = row('Nome', name) + row('Email', email) + row('Telefone', phone) + row('Mensagem', message.replace(/\n/g, '<br>'));
+  const bodyHtml = row('Nome', name) + row('Email', email) + row('Telefone', phone) + row('Mensagem', escapeHtml(message).replace(/\n/g, '<br>'));
   await transporter.sendMail({
     from: `"Studio Markin Tattoo" <${process.env.SMTP_USER}>`,
     to: ADMIN_EMAIL,
@@ -871,7 +990,7 @@ const sendJewelryOrderEmail = async ({ orderId, customerName, email, phone, deli
     ? items.reduce((s, i) => s + (Number(i.price) || 0) * (Number(i.quantity) || 1), 0)
     : 0;
   const itemsHtml = Array.isArray(items)
-    ? items.map((i) => `<li style="font-size:13px;padding:2px 0">${i.name} × ${i.quantity || 1} — R$ ${Number(i.price).toFixed(2)}</li>`).join('')
+    ? items.map((i) => `<li style="font-size:13px;padding:2px 0">${escapeHtml(i.name)} × ${Number(i.quantity) || 1} — R$ ${Number(i.price).toFixed(2)}</li>`).join('')
     : '';
   const addressStr = [addressLine1, city, state, postalCode].filter(Boolean).join(', ');
   const bodyHtml =
@@ -1177,7 +1296,13 @@ function requireAdmin(req, res, next) {
   const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : req.headers['x-admin-token'];
   if (!token) return res.status(401).json({ error: 'Não autorizado' });
   try {
-    req.adminPayload = jwt.verify(token, ADMIN_JWT_SECRET);
+    const payload = jwt.verify(token, ADMIN_JWT_SECRET);
+    // Guard: only tokens issued by admin login (with role field) are accepted.
+    // Prevents customer JWTs from being used as admin tokens if secrets happen to match.
+    if (!payload.role || !['admin', 'joalheria'].includes(payload.role)) {
+      return res.status(401).json({ error: 'Não autorizado' });
+    }
+    req.adminPayload = payload;
     next();
   } catch {
     res.status(401).json({ error: 'Token inválido ou expirado' });
@@ -1201,7 +1326,7 @@ app.post('/api/admin/login', authLimiter, (req, res) => {
 });
 // ============= END ADMIN AUTH =============
 
-app.get('/api/admin/test-email', async (_req, res) => {
+app.get('/api/admin/test-email', requireAdmin, async (_req, res) => {
   res.set('Content-Type', 'text/html');
   const user = process.env.SMTP_USER || '(não definido)';
   const pass = process.env.SMTP_PASS;
@@ -1218,9 +1343,9 @@ app.get('/api/admin/test-email', async (_req, res) => {
   try {
     await transporter.verify();
     await transporter.sendMail({ from: `"Studio" <${user}>`, to, subject: '✅ Teste SMTP', text: 'SMTP funciona!' });
-    return res.send(`<h2>✅ Email enviado para ${to}</h2><p>User: ${user} | Host: ${host}:${port} | SSL: ${secure}</p>`);
+    return res.send(`<h2>✅ Email enviado para ${escapeHtml(to)}</h2><p>User: ${escapeHtml(user)} | Host: ${escapeHtml(host)}:${port} | SSL: ${secure}</p>`);
   } catch (err) {
-    return res.send(`<h2>❌ Erro: ${err.message}</h2><p>User: ${user} | Host: ${host}:${port} | SSL: ${secure}</p><p>Código: ${err.code || '—'}</p>`);
+    return res.send(`<h2>❌ Erro: ${escapeHtml(err.message)}</h2><p>User: ${escapeHtml(user)} | Host: ${escapeHtml(host)}:${port} | SSL: ${secure}</p><p>Código: ${escapeHtml(err.code || '—')}</p>`);
   }
 });
 
@@ -1228,14 +1353,14 @@ app.post('/api/admin/test-email', requireAdmin, async (_req, res) => {
   const user = process.env.SMTP_USER || '(não definido)';
   const pass = process.env.SMTP_PASS;
   const host = process.env.SMTP_HOST || 'smtp.gmail.com';
-  const port = Number(process.env.SMTP_PORT || 587);
+  const port = Number(process.env.SMTP_PORT || 465);
   const to   = process.env.CONTACT_EMAIL || 'studiostattoadmin@gmail.com';
 
   if (!pass) {
     return res.json({ ok: false, config: { user, host, port, to }, error: 'SMTP_PASS não definido nas variáveis de ambiente' });
   }
 
-  const transporter = nodemailer.createTransport({ host, port, secure: false, auth: { user, pass } });
+  const transporter = nodemailer.createTransport({ host, port, secure: port === 465, auth: { user, pass } });
   try {
     await transporter.verify();
     await transporter.sendMail({

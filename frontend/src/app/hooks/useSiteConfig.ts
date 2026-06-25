@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { defaultSiteConfig, loadSiteConfig, SiteConfig } from '../data/siteConfig';
+import { bustSiteConfigCache, defaultSiteConfig, loadSiteConfig, SiteConfig } from '../data/siteConfig';
 
 const SITE_CONFIG_UPDATED_KEY = 'site-config-updated-at';
 
@@ -19,17 +19,20 @@ export const useSiteConfig = () => {
     refreshConfig();
 
     const handleUpdate = () => {
+      bustSiteConfigCache();
       refreshConfig();
     };
 
     const handleStorageUpdate = (event: StorageEvent) => {
       if (event.key === SITE_CONFIG_UPDATED_KEY) {
+        bustSiteConfigCache();
         refreshConfig();
       }
     };
 
     const broadcastChannel = 'BroadcastChannel' in window ? new BroadcastChannel('site-config') : null;
     const handleBroadcastMessage = () => {
+      bustSiteConfigCache();
       refreshConfig();
     };
 

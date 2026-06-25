@@ -1,10 +1,8 @@
 import { motion, useScroll, useTransform } from 'framer-motion';
 const logoImg = '/media/Logo.png';
 import { HeroBackground } from './HeroBackground';
-import { useSiteConfig } from '../hooks/useSiteConfig';
 
 export function Hero() {
-  const { config } = useSiteConfig();
   const { scrollY } = useScroll();
   const opacity = useTransform(scrollY, [0, 300], [1, 0]);
   const scale = useTransform(scrollY, [0, 300], [1, 0.8]);
@@ -29,10 +27,7 @@ export function Hero() {
     <section id="home" className="relative h-screen w-full overflow-hidden flex items-center justify-center bg-black">
       {/* Background Image com Opacidade Baixa */}
       <div className="absolute inset-0 z-0">
-        <HeroBackground
-          type={config.hero.backgroundType}
-          url={config.hero.backgroundUrl}
-        />
+        <HeroBackground />
         <div className="absolute inset-0 bg-black opacity-50"></div>
       </div>
 

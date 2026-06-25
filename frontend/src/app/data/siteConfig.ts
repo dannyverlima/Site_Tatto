@@ -192,11 +192,14 @@ const mergeConfig = (base: SiteConfig, partial: Partial<SiteConfig>): SiteConfig
   };
 };
 
-export const loadSiteConfig = async (): Promise<SiteConfig> => {
-  if (typeof window === 'undefined') {
-    return defaultSiteConfig;
-  }
+let _configCache: { config: SiteConfig; ts: number } | null = null;
+let _configInflight: Promise<SiteConfig> | null = null;
+const CONFIG_CACHE_TTL = 30_000;
 
+export const bustSiteConfigCache = () => { _configCache = null; };
+
+const _fetchConfig = async (): Promise<SiteConfig> => {
+  if (typeof window === 'undefined') return defaultSiteConfig;
   try {
     const response = await fetch('/api/site-config');
     if (!response.ok) {
@@ -282,6 +285,21 @@ export const loadSiteConfig = async (): Promise<SiteConfig> => {
   } catch {
     return defaultSiteConfig;
   }
+};
+
+export const loadSiteConfig = async (): Promise<SiteConfig> => {
+  if (typeof window === 'undefined') return defaultSiteConfig;
+  if (_configCache && Date.now() - _configCache.ts < CONFIG_CACHE_TTL) return _configCache.config;
+  if (_configInflight) return _configInflight;
+  _configInflight = _fetchConfig().then(config => {
+    _configCache = { config, ts: Date.now() };
+    _configInflight = null;
+    return config;
+  }).catch(err => {
+    _configInflight = null;
+    throw err;
+  });
+  return _configInflight;
 };
 
 export const saveSiteConfig = async (config: SiteConfig, token?: string): Promise<void> => {
