@@ -1,22 +1,22 @@
-import express from 'express';
-import cors from 'cors';
-import helmet from 'helmet';
-import rateLimit from 'express-rate-limit';
-import cookieParser from 'cookie-parser';
-import dotenv from 'dotenv';
-import path from 'node:path';
-import os from 'node:os';
-import { spawn } from 'node:child_process';
-import fs from 'node:fs/promises';
-import { createReadStream } from 'node:fs';
-import { Readable } from 'node:stream';
-import { fileURLToPath } from 'node:url';
-import multer from 'multer';
-import ffmpegPath from 'ffmpeg-static';
-import bcryptjs from 'bcryptjs';
-import jwt from 'jsonwebtoken';
-import nodemailer from 'nodemailer';
-import { pool } from './db.mjs';
+import express from "express";
+import cors from "cors";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
+import cookieParser from "cookie-parser";
+import dotenv from "dotenv";
+import path from "node:path";
+import os from "node:os";
+import { spawn } from "node:child_process";
+import fs from "node:fs/promises";
+import { createReadStream } from "node:fs";
+import { Readable } from "node:stream";
+import { fileURLToPath } from "node:url";
+import multer from "multer";
+import ffmpegPath from "ffmpeg-static";
+import bcryptjs from "bcryptjs";
+import jwt from "jsonwebtoken";
+import nodemailer from "nodemailer";
+import { pool } from "./db.mjs";
 import {
   getSiteConfig,
   saveSiteConfig,
@@ -61,32 +61,33 @@ import {
   getSiteSettings,
   setSiteSetting,
   getJewelrySales,
-} from './siteRepository.mjs';
+} from "./siteRepository.mjs";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const envPath = process.env.DOTENV_CONFIG_PATH || path.resolve(__dirname, '..', '.env');
+const envPath =
+  process.env.DOTENV_CONFIG_PATH || path.resolve(__dirname, "..", ".env");
 dotenv.config({ path: envPath });
 
 const app = express();
 // Necessário para rate limiting e cookies seguros atrás do Nginx (proxy reverso)
-app.set('trust proxy', 1);
+app.set("trust proxy", 1);
 const port = Number(process.env.PORT || 5175);
-const projectRoot = path.resolve(__dirname, '..');
-const adminMediaDir = path.join(projectRoot, 'media');
+const projectRoot = path.resolve(__dirname, "..");
+const adminMediaDir = path.join(projectRoot, "media");
 
 const storage = multer.memoryStorage();
 
 const runCommand = (command, args) =>
   new Promise((resolve, reject) => {
-    const child = spawn(command, args, { stdio: ['ignore', 'ignore', 'pipe'] });
-    let stderr = '';
+    const child = spawn(command, args, { stdio: ["ignore", "ignore", "pipe"] });
+    let stderr = "";
 
-    child.stderr.on('data', (chunk) => {
+    child.stderr.on("data", (chunk) => {
       stderr += chunk.toString();
     });
 
-    child.on('error', reject);
-    child.on('close', (code) => {
+    child.on("error", reject);
+    child.on("close", (code) => {
       if (code === 0) {
         resolve();
         return;
@@ -97,42 +98,62 @@ const runCommand = (command, args) =>
   });
 
 const transcodeVideoBuffer = async (file) => {
-  if (!ffmpegPath) throw new Error('Transcodificador de vídeo indisponível');
+  if (!ffmpegPath) throw new Error("Transcodificador de vídeo indisponível");
 
   // Garantir permissão de execução do ffmpeg (necessário em alguns servidores Linux)
-  try { await fs.chmod(ffmpegPath, 0o755); } catch { /* ignora se não tiver permissão para chmod */ }
+  try {
+    await fs.chmod(ffmpegPath, 0o755);
+  } catch {
+    /* ignora se não tiver permissão para chmod */
+  }
 
-  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'site-tatto-'));
-  const ext = path.extname(file.originalname || '') || '.bin';
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "site-tatto-"));
+  const ext = path.extname(file.originalname || "") || ".bin";
   const inputPath = path.join(tempDir, `input${ext}`);
-  const outputPath = path.join(tempDir, 'output.mp4');
+  const outputPath = path.join(tempDir, "output.mp4");
 
   try {
     await fs.writeFile(inputPath, file.buffer);
     // 720p + 1Mbps teto → garante output < 45MB para vídeos de até ~5 minutos
     await runCommand(ffmpegPath, [
-      '-y',
-      '-i', inputPath,
-      '-vf', 'scale=-2:720',
-      '-c:v', 'libx264',
-      '-preset', 'veryfast',
-      '-crf', '30',
-      '-maxrate', '1000k',
-      '-bufsize', '2000k',
-      '-movflags', '+faststart',
-      '-pix_fmt', 'yuv420p',
-      '-c:a', 'aac',
-      '-b:a', '64k',
-      '-ac', '1',
+      "-y",
+      "-i",
+      inputPath,
+      "-vf",
+      "scale=-2:720",
+      "-c:v",
+      "libx264",
+      "-preset",
+      "veryfast",
+      "-crf",
+      "30",
+      "-maxrate",
+      "1000k",
+      "-bufsize",
+      "2000k",
+      "-movflags",
+      "+faststart",
+      "-pix_fmt",
+      "yuv420p",
+      "-c:a",
+      "aac",
+      "-b:a",
+      "64k",
+      "-ac",
+      "1",
       outputPath,
     ]);
 
     const data = await fs.readFile(outputPath);
-    console.log(`ffmpeg: ${file.buffer.length} → ${data.length} bytes (${Math.round(data.length/1024/1024*10)/10}MB)`);
+    console.log(
+      `ffmpeg: ${file.buffer.length} → ${data.length} bytes (${
+        Math.round((data.length / 1024 / 1024) * 10) / 10
+      }MB)`
+    );
     return {
       buffer: data,
-      filename: `${path.parse(file.originalname || 'video').name}.mp4`,
-      mimetype: 'video/mp4',
+      filename: `${path.parse(file.originalname || "video").name}.mp4`,
+      mimetype: "video/mp4",
     };
   } finally {
     await fs.rm(tempDir, { recursive: true, force: true });
@@ -145,28 +166,37 @@ const upload = multer({
     fileSize: 500 * 1024 * 1024, // 500MB (memoryStorage — fica em RAM durante upload)
   },
   fileFilter: (_req, file, callback) => {
-    if (file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/')) {
+    if (
+      file.mimetype.startsWith("image/") ||
+      file.mimetype.startsWith("video/")
+    ) {
       callback(null, true);
       return;
     }
 
-    callback(new Error('Apenas imagens e vídeos são permitidos'));
+    callback(new Error("Apenas imagens e vídeos são permitidos"));
   },
 });
 
-const allowedOrigins = (process.env.CORS_ORIGINS || 'http://localhost:5173').split(',').map((o) => o.trim());
-app.use(helmet({
-  crossOriginResourcePolicy: { policy: 'cross-origin' },
-  contentSecurityPolicy: false, // frontend usa inline styles/scripts via Vite
-}));
-app.use(cors({
-  origin: (origin, cb) => {
-    if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
-    cb(null, false); // rejeita sem lançar erro 500
-  },
-  credentials: true,
-}));
-app.use(express.json({ limit: '1mb' }));
+const allowedOrigins = (process.env.CORS_ORIGINS || "http://localhost:5173")
+  .split(",")
+  .map((o) => o.trim());
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+    contentSecurityPolicy: false, // frontend usa inline styles/scripts via Vite
+  })
+);
+app.use(
+  cors({
+    origin: (origin, cb) => {
+      if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
+      cb(null, false); // rejeita sem lançar erro 500
+    },
+    credentials: true,
+  })
+);
+app.use(express.json({ limit: "1mb" }));
 app.use(cookieParser());
 
 // Rate limiting para endpoints de autenticação (máx 10 tentativas por 15 min por IP)
@@ -175,7 +205,7 @@ const authLimiter = rateLimit({
   max: 10,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { error: 'Demasiadas tentativas. Tente novamente em 15 minutos.' },
+  message: { error: "Demasiadas tentativas. Tente novamente em 15 minutos." },
 });
 
 // Rate limiting para formulários públicos (máx 20 por hora por IP)
@@ -184,10 +214,10 @@ const formLimiter = rateLimit({
   max: 20,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { error: 'Limite de envios atingido. Tente mais tarde.' },
+  message: { error: "Limite de envios atingido. Tente mais tarde." },
 });
-app.use('/media', express.static(adminMediaDir));
-app.use('/admin-media', express.static(adminMediaDir));
+app.use("/media", express.static(adminMediaDir));
+app.use("/admin-media", express.static(adminMediaDir));
 
 const badRequest = (res, message) => res.status(400).json({ error: message });
 
@@ -196,70 +226,80 @@ const ensureAdminMediaDir = async () => {
 };
 
 const ensureSiteId = async () => {
-  const result = await pool.query('SELECT id FROM app.site ORDER BY created_at LIMIT 1');
+  const result = await pool.query(
+    "SELECT id FROM app.site ORDER BY created_at LIMIT 1"
+  );
   if (result.rowCount > 0) {
     return result.rows[0].id;
   }
 
   const inserted = await pool.query(
-    'INSERT INTO app.site (name, domain) VALUES ($1, $2) RETURNING id',
-    ['Studios Tatto', null]
+    "INSERT INTO app.site (name, domain) VALUES ($1, $2) RETURNING id",
+    ["Studios Tatto", null]
   );
   return inserted.rows[0].id;
 };
 
 const safeDiskFilename = (filename, mimetype) => {
-  const parsed = path.parse(filename || 'arquivo');
-  const base = parsed.name
-    .replace(/[^a-z0-9-_]+/gi, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 64) || 'arquivo';
-  const extension = parsed.ext || (String(mimetype || '').startsWith('video/') ? '.mp4' : '.bin');
+  const parsed = path.parse(filename || "arquivo");
+  const base =
+    parsed.name
+      .replace(/[^a-z0-9-_]+/gi, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 64) || "arquivo";
+  const extension =
+    parsed.ext ||
+    (String(mimetype || "").startsWith("video/") ? ".mp4" : ".bin");
   return `${Date.now()}-${base}${extension}`;
 };
 
 const mimeByExtension = new Map([
-  ['.png', 'image/png'],
-  ['.jpg', 'image/jpeg'],
-  ['.jpeg', 'image/jpeg'],
-  ['.webp', 'image/webp'],
-  ['.gif', 'image/gif'],
-  ['.mp4', 'video/mp4'],
-  ['.mov', 'video/quicktime'],
-  ['.webm', 'video/webm'],
+  [".png", "image/png"],
+  [".jpg", "image/jpeg"],
+  [".jpeg", "image/jpeg"],
+  [".webp", "image/webp"],
+  [".gif", "image/gif"],
+  [".mp4", "video/mp4"],
+  [".mov", "video/quicktime"],
+  [".webm", "video/webm"],
 ]);
 
 const extensionByMime = new Map([
-  ['image/png', '.png'],
-  ['image/jpeg', '.jpg'],
-  ['image/webp', '.webp'],
-  ['image/gif', '.gif'],
-  ['video/mp4', '.mp4'],
-  ['video/quicktime', '.mov'],
-  ['video/webm', '.webm'],
+  ["image/png", ".png"],
+  ["image/jpeg", ".jpg"],
+  ["image/webp", ".webp"],
+  ["image/gif", ".gif"],
+  ["video/mp4", ".mp4"],
+  ["video/quicktime", ".mov"],
+  ["video/webm", ".webm"],
 ]);
 
 // Supabase Storage — upload direto (vídeos são comprimidos antes para ficarem < 45MB)
 const uploadToSupabaseStorage = async (buffer, filename, mimetype) => {
-  const supabaseUrl = (process.env.SUPABASE_URL || '').replace(/\/$/, '');
+  const supabaseUrl = (process.env.SUPABASE_URL || "").replace(/\/$/, "");
   const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
   if (!supabaseUrl || !supabaseKey) return null;
 
-  const bucket = process.env.SUPABASE_BUCKET || 'media';
-  const safeName = `${Date.now()}-${String(filename).replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 100)}`;
+  const bucket = process.env.SUPABASE_BUCKET || "media";
+  const safeName = `${Date.now()}-${String(filename)
+    .replace(/[^a-zA-Z0-9._-]/g, "_")
+    .slice(0, 100)}`;
 
-  const res = await fetch(`${supabaseUrl}/storage/v1/object/${bucket}/${safeName}`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${supabaseKey}`,
-      'Content-Type': mimetype,
-      'x-upsert': 'true',
-    },
-    body: buffer,
-  });
+  const res = await fetch(
+    `${supabaseUrl}/storage/v1/object/${bucket}/${safeName}`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${supabaseKey}`,
+        "Content-Type": mimetype,
+        "x-upsert": "true",
+      },
+      body: buffer,
+    }
+  );
 
   if (!res.ok) {
-    const errBody = await res.text().catch(() => '');
+    const errBody = await res.text().catch(() => "");
     throw new Error(`Supabase Storage ${res.status}: ${errBody}`);
   }
 
@@ -267,17 +307,21 @@ const uploadToSupabaseStorage = async (buffer, filename, mimetype) => {
 };
 
 const detectMimeType = (filename) => {
-  const extension = path.extname(filename || '').toLowerCase();
-  return mimeByExtension.get(extension) || 'application/octet-stream';
+  const extension = path.extname(filename || "").toLowerCase();
+  return mimeByExtension.get(extension) || "application/octet-stream";
 };
 
 const buildDiskFilename = (originalName, mimetype, id) => {
-  const parsed = path.parse(originalName || 'arquivo');
-  const base = parsed.name
-    .replace(/[^a-z0-9-_]+/gi, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 64) || (id ? String(id).slice(0, 8) : 'arquivo');
-  const ext = parsed.ext || extensionByMime.get(String(mimetype || '').toLowerCase()) || '.bin';
+  const parsed = path.parse(originalName || "arquivo");
+  const base =
+    parsed.name
+      .replace(/[^a-z0-9-_]+/gi, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 64) || (id ? String(id).slice(0, 8) : "arquivo");
+  const ext =
+    parsed.ext ||
+    extensionByMime.get(String(mimetype || "").toLowerCase()) ||
+    ".bin";
   return `${base}-${id || Date.now()}${ext}`;
 };
 
@@ -286,17 +330,19 @@ const ingestAdminMediaFiles = async () => {
   try {
     entries = await fs.readdir(adminMediaDir, { withFileTypes: true });
   } catch (error) {
-    console.warn('Nao foi possivel ler a pasta de midia do admin', error);
+    console.warn("Nao foi possivel ler a pasta de midia do admin", error);
     return { inserted: 0, skipped: 0 };
   }
 
-  const files = entries.filter((entry) => entry.isFile()).map((entry) => entry.name);
+  const files = entries
+    .filter((entry) => entry.isFile())
+    .map((entry) => entry.name);
   if (files.length === 0) {
     return { inserted: 0, skipped: 0 };
   }
 
   const existing = await pool.query(
-    'SELECT disk_filename FROM app.media_asset WHERE disk_filename IS NOT NULL'
+    "SELECT disk_filename FROM app.media_asset WHERE disk_filename IS NOT NULL"
   );
   const existingNames = new Set(existing.rows.map((row) => row.disk_filename));
   const siteId = await ensureSiteId();
@@ -313,7 +359,7 @@ const ingestAdminMediaFiles = async () => {
     const mimetype = detectMimeType(filename);
 
     await pool.query(
-      'INSERT INTO app.media_asset (site_id, filename, mimetype, disk_filename, disk_path) VALUES ($1, $2, $3, $4, $5)',
+      "INSERT INTO app.media_asset (site_id, filename, mimetype, disk_filename, disk_path) VALUES ($1, $2, $3, $4, $5)",
       [siteId, filename, mimetype, filename, diskPath]
     );
     inserted += 1;
@@ -321,23 +367,29 @@ const ingestAdminMediaFiles = async () => {
 
   // Reparar disk_path de entradas que apontam para o diretório antigo
   const toRepair = await pool.query(
-    'SELECT id, disk_filename, disk_path FROM app.media_asset WHERE disk_filename IS NOT NULL'
+    "SELECT id, disk_filename, disk_path FROM app.media_asset WHERE disk_filename IS NOT NULL"
   );
   let repaired = 0;
   for (const row of toRepair.rows) {
     const correctPath = path.join(adminMediaDir, row.disk_filename);
-    const alreadyCorrect = row.disk_path && path.resolve(row.disk_path) === path.resolve(correctPath);
+    const alreadyCorrect =
+      row.disk_path &&
+      path.resolve(row.disk_path) === path.resolve(correctPath);
     if (!alreadyCorrect) {
       try {
         await fs.stat(correctPath);
-        await pool.query('UPDATE app.media_asset SET disk_path = $1 WHERE id = $2', [correctPath, row.id]);
+        await pool.query(
+          "UPDATE app.media_asset SET disk_path = $1 WHERE id = $2",
+          [correctPath, row.id]
+        );
         repaired += 1;
       } catch {
         // arquivo não existe no novo local, mantém o caminho atual
       }
     }
   }
-  if (repaired > 0) console.log(`✅ Reparados ${repaired} caminhos de arquivo no banco.`);
+  if (repaired > 0)
+    console.log(`✅ Reparados ${repaired} caminhos de arquivo no banco.`);
 
   return { inserted, skipped };
 };
@@ -346,15 +398,16 @@ const exportDatabaseMediaToDisk = async () => {
   await ensureAdminMediaDir();
 
   const result = await pool.query(
-    'SELECT id, filename, mimetype, disk_filename, disk_path FROM app.media_asset ORDER BY created_at'
+    "SELECT id, filename, mimetype, disk_filename, disk_path FROM app.media_asset ORDER BY created_at"
   );
 
   let exported = 0;
   let skipped = 0;
 
   for (const row of result.rows) {
-    const existingFilename = row.disk_filename || '';
-    const diskFilename = existingFilename || buildDiskFilename(row.filename, row.mimetype, row.id);
+    const existingFilename = row.disk_filename || "";
+    const diskFilename =
+      existingFilename || buildDiskFilename(row.filename, row.mimetype, row.id);
     const diskPath = path.join(adminMediaDir, diskFilename);
 
     try {
@@ -362,7 +415,7 @@ const exportDatabaseMediaToDisk = async () => {
       skipped += 1;
     } catch {
       const sizeResult = await pool.query(
-        'SELECT octet_length(data) AS size FROM app.media_asset WHERE id = $1',
+        "SELECT octet_length(data) AS size FROM app.media_asset WHERE id = $1",
         [row.id]
       );
       const totalSize = Number(sizeResult.rows[0]?.size || 0);
@@ -372,7 +425,7 @@ const exportDatabaseMediaToDisk = async () => {
       }
 
       const chunkSize = 1024 * 1024;
-      const fileHandle = await fs.open(diskPath, 'w');
+      const fileHandle = await fs.open(diskPath, "w");
       try {
         for (let offset = 0; offset < totalSize; offset += chunkSize) {
           const length = Math.min(chunkSize, totalSize - offset);
@@ -384,7 +437,7 @@ const exportDatabaseMediaToDisk = async () => {
           if (!chunkBase64) {
             continue;
           }
-          const buffer = Buffer.from(chunkBase64, 'base64');
+          const buffer = Buffer.from(chunkBase64, "base64");
           await fileHandle.write(buffer);
         }
       } finally {
@@ -396,7 +449,7 @@ const exportDatabaseMediaToDisk = async () => {
 
     if (!existingFilename) {
       await pool.query(
-        'UPDATE app.media_asset SET disk_filename = $1, disk_path = $2 WHERE id = $3',
+        "UPDATE app.media_asset SET disk_filename = $1, disk_path = $2 WHERE id = $3",
         [diskFilename, diskPath, row.id]
       );
     }
@@ -406,7 +459,7 @@ const exportDatabaseMediaToDisk = async () => {
 };
 
 const ensureDatabaseSchema = async () => {
-  await pool.query('CREATE SCHEMA IF NOT EXISTS app');
+  await pool.query("CREATE SCHEMA IF NOT EXISTS app");
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS app.media_asset (
@@ -419,12 +472,22 @@ const ensureDatabaseSchema = async () => {
     )
   `);
 
-  await pool.query('ALTER TABLE app.media_asset ADD COLUMN IF NOT EXISTS disk_filename text');
-  await pool.query('ALTER TABLE app.media_asset ADD COLUMN IF NOT EXISTS disk_path text');
-  await pool.query('CREATE INDEX IF NOT EXISTS media_asset_disk_filename_idx ON app.media_asset (disk_filename)');
+  await pool.query(
+    "ALTER TABLE app.media_asset ADD COLUMN IF NOT EXISTS disk_filename text"
+  );
+  await pool.query(
+    "ALTER TABLE app.media_asset ADD COLUMN IF NOT EXISTS disk_path text"
+  );
+  await pool.query(
+    "CREATE INDEX IF NOT EXISTS media_asset_disk_filename_idx ON app.media_asset (disk_filename)"
+  );
   // Tornar data nullable e limpar binários já armazenados em disco (evita OOM no pg_dump)
-  await pool.query('ALTER TABLE app.media_asset ALTER COLUMN data DROP NOT NULL');
-  await pool.query("UPDATE app.media_asset SET data = NULL WHERE disk_path IS NOT NULL AND disk_path <> '' AND data IS NOT NULL");
+  await pool.query(
+    "ALTER TABLE app.media_asset ALTER COLUMN data DROP NOT NULL"
+  );
+  await pool.query(
+    "UPDATE app.media_asset SET data = NULL WHERE disk_path IS NOT NULL AND disk_path <> '' AND data IS NOT NULL"
+  );
 
   await pool.query(`
     DO $$
@@ -481,8 +544,12 @@ const ensureDatabaseSchema = async () => {
   `);
 
   // Adiciona colunas em falta na jewelry_order
-  await pool.query(`ALTER TABLE app.jewelry_order ADD COLUMN IF NOT EXISTS pickup_date text`);
-  await pool.query(`ALTER TABLE app.jewelry_order ADD COLUMN IF NOT EXISTS payment_method text NOT NULL DEFAULT 'dinheiro'`);
+  await pool.query(
+    `ALTER TABLE app.jewelry_order ADD COLUMN IF NOT EXISTS pickup_date text`
+  );
+  await pool.query(
+    `ALTER TABLE app.jewelry_order ADD COLUMN IF NOT EXISTS payment_method text NOT NULL DEFAULT 'dinheiro'`
+  );
 
   // Converte status de ENUM para text (para suportar novos estados: nulo, pago, etc.)
   await pool.query(`
@@ -502,128 +569,176 @@ const ensureDatabaseSchema = async () => {
 };
 
 const bootstrapAdminMedia = async () => {
-  try { await ensureAdminMediaDir(); } catch (e) { console.warn('ensureAdminMediaDir falhou:', e.message); }
+  try {
+    await ensureAdminMediaDir();
+  } catch (e) {
+    console.warn("ensureAdminMediaDir falhou:", e.message);
+  }
   // exportDatabaseMediaToDisk removido: disco é efémero no Hostinger e a leitura de todos os media na inicialização é desnecessária
-  try { await ingestAdminMediaFiles(); } catch (e) { console.warn('ingestAdminMediaFiles falhou:', e.message); }
+  try {
+    await ingestAdminMediaFiles();
+  } catch (e) {
+    console.warn("ingestAdminMediaFiles falhou:", e.message);
+  }
 };
 
 const SERVER_START_TIME = new Date().toISOString();
 
-app.get('/api/health', (_req, res) => {
-  res.json({ status: 'ok' });
+app.get("/api/health", (_req, res) => {
+  res.json({ status: "ok" });
 });
 
-app.get('/api/admin/test-storage', async (req, res) => {
+app.get("/api/admin/test-storage", async (req, res) => {
   // Aceita token via query param (?token=...) para facilitar diagnóstico pelo browser
-  const qToken = String(req.query.token || '');
+  const qToken = String(req.query.token || "");
   const authHeader = req.headers.authorization;
-  const hToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : (req.headers['x-admin-token'] || '');
+  const hToken = authHeader?.startsWith("Bearer ")
+    ? authHeader.slice(7)
+    : req.headers["x-admin-token"] || "";
   const rawToken = qToken || hToken;
   if (!rawToken) {
-    return res.status(401).json({ error: 'Não autorizado. Faça login no admin e use ?token=SEU_TOKEN' });
+    return res
+      .status(401)
+      .json({
+        error: "Não autorizado. Faça login no admin e use ?token=SEU_TOKEN",
+      });
   }
-  try { jwt.verify(rawToken, ADMIN_JWT_SECRET); } catch { return res.status(401).json({ error: 'Token inválido ou expirado' }); }
+  try {
+    jwt.verify(rawToken, ADMIN_JWT_SECRET);
+  } catch {
+    return res.status(401).json({ error: "Token inválido ou expirado" });
+  }
 
-  const supabaseUrl = (process.env.SUPABASE_URL || '').replace(/\/$/, '');
+  const supabaseUrl = (process.env.SUPABASE_URL || "").replace(/\/$/, "");
   const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
-  const bucket = process.env.SUPABASE_BUCKET || 'media';
+  const bucket = process.env.SUPABASE_BUCKET || "media";
 
   if (!supabaseUrl || !supabaseKey) {
-    const missing = [!supabaseUrl && 'SUPABASE_URL', !supabaseKey && 'SUPABASE_SERVICE_KEY'].filter(Boolean);
-    return res.json({ ok: false, error: `Variáveis ausentes: ${missing.join(', ')}` });
+    const missing = [
+      !supabaseUrl && "SUPABASE_URL",
+      !supabaseKey && "SUPABASE_SERVICE_KEY",
+    ].filter(Boolean);
+    return res.json({
+      ok: false,
+      error: `Variáveis ausentes: ${missing.join(", ")}`,
+    });
   }
 
   const testName = `_test-${Date.now()}.txt`;
   try {
-    const up = await fetch(`${supabaseUrl}/storage/v1/object/${bucket}/${testName}`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${supabaseKey}`, 'Content-Type': 'text/plain', 'x-upsert': 'true' },
-      body: Buffer.from('storage-ok'),
-    });
+    const up = await fetch(
+      `${supabaseUrl}/storage/v1/object/${bucket}/${testName}`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${supabaseKey}`,
+          "Content-Type": "text/plain",
+          "x-upsert": "true",
+        },
+        body: Buffer.from("storage-ok"),
+      }
+    );
     if (!up.ok) {
-      const body = await up.text().catch(() => '');
-      return res.json({ ok: false, error: `Supabase ${up.status}: ${body}`, supabaseUrl, bucket });
+      const body = await up.text().catch(() => "");
+      return res.json({
+        ok: false,
+        error: `Supabase ${up.status}: ${body}`,
+        supabaseUrl,
+        bucket,
+      });
     }
     await fetch(`${supabaseUrl}/storage/v1/object/${bucket}/${testName}`, {
-      method: 'DELETE', headers: { Authorization: `Bearer ${supabaseKey}` },
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${supabaseKey}` },
     }).catch(() => {});
-    return res.json({ ok: true, message: 'Supabase Storage funcionando!', supabaseUrl, bucket });
+    return res.json({
+      ok: true,
+      message: "Supabase Storage funcionando!",
+      supabaseUrl,
+      bucket,
+    });
   } catch (err) {
     return res.json({ ok: false, error: err.message, supabaseUrl, bucket });
   }
 });
 
-app.get('/api/site', async (_req, res) => {
+app.get("/api/site", async (_req, res) => {
   try {
     const site = await getSiteSummary();
     res.json(site);
   } catch (error) {
-    console.error('Erro ao carregar site', error);
-    res.status(500).json({ error: 'Falha ao carregar site' });
+    console.error("Erro ao carregar site", error);
+    res.status(500).json({ error: "Falha ao carregar site" });
   }
 });
 
-app.get('/api/site-config', async (_req, res) => {
+app.get("/api/site-config", async (_req, res) => {
   try {
     const config = await getSiteConfig();
     res.json(config);
   } catch (error) {
-    console.error('Erro ao carregar configuracao', error);
-    res.status(500).json({ error: 'Falha ao carregar configuracao' });
+    console.error("Erro ao carregar configuracao", error);
+    res.status(500).json({ error: "Falha ao carregar configuracao" });
   }
 });
 
-app.put('/api/site-config', requireAdmin, async (req, res) => {
+app.put("/api/site-config", requireAdmin, async (req, res) => {
   try {
     await saveSiteConfig(req.body);
     const config = await getSiteConfig();
     res.json(config);
   } catch (error) {
-    console.error('Erro ao salvar configuracao', error);
-    res.status(500).json({ error: 'Falha ao salvar configuracao' });
+    console.error("Erro ao salvar configuracao", error);
+    res.status(500).json({ error: "Falha ao salvar configuracao" });
   }
 });
 
-app.post('/api/uploads', requireAdmin, (req, res) => {
-  upload.single('file')(req, res, async (error) => {
+app.post("/api/uploads", requireAdmin, (req, res) => {
+  upload.single("file")(req, res, async (error) => {
     if (error) {
-      const status = error.code === 'LIMIT_FILE_SIZE' ? 413 : 400;
-      console.error('Erro multer no upload:', error.message);
-      return res.status(status).json({ error: error.message || 'Falha ao enviar arquivo' });
+      const status = error.code === "LIMIT_FILE_SIZE" ? 413 : 400;
+      console.error("Erro multer no upload:", error.message);
+      return res
+        .status(status)
+        .json({ error: error.message || "Falha ao enviar arquivo" });
     }
 
     try {
       if (!req.file) {
-        return badRequest(res, 'Arquivo não enviado');
+        return badRequest(res, "Arquivo não enviado");
       }
 
-      const originalMimetype = req.file.mimetype || 'application/octet-stream';
-      const originalFilename = req.file.originalname || 'arquivo';
+      const originalMimetype = req.file.mimetype || "application/octet-stream";
+      const originalFilename = req.file.originalname || "arquivo";
 
       let finalBuffer = req.file.buffer;
       let finalMimetype = originalMimetype;
       let finalFilename = originalFilename;
 
       // Comprimir todos os vídeos via ffmpeg → 720p, 1Mbps teto, garante output < 45MB
-      if (originalMimetype.startsWith('video/')) {
+      if (originalMimetype.startsWith("video/")) {
         try {
           const transcoded = await transcodeVideoBuffer(req.file);
           finalBuffer = transcoded.buffer;
           finalMimetype = transcoded.mimetype;
           finalFilename = transcoded.filename;
         } catch (ffmpegErr) {
-          console.warn('ffmpeg falhou, mantendo original:', ffmpegErr.message);
+          console.warn("ffmpeg falhou, mantendo original:", ffmpegErr.message);
           // Se sem compressão o vídeo for muito grande, rejeitar com aviso claro
           if (finalBuffer.length > 45 * 1024 * 1024) {
             return res.status(413).json({
-              error: `Vídeo muito grande (${Math.round(finalBuffer.length/1024/1024)}MB). O servidor não conseguiu comprimir. Comprima o vídeo no telemóvel antes de enviar (máx 45MB).`,
+              error: `Vídeo muito grande (${Math.round(
+                finalBuffer.length / 1024 / 1024
+              )}MB). O servidor não conseguiu comprimir. Comprima o vídeo no telemóvel antes de enviar (máx 45MB).`,
             });
           }
         }
         // Mesmo após compressão, verificar tamanho
         if (finalBuffer.length > 45 * 1024 * 1024) {
           return res.status(413).json({
-            error: `Vídeo muito longo. Após compressão ficou ${Math.round(finalBuffer.length/1024/1024)}MB. Use um clip mais curto (máx ~5 minutos).`,
+            error: `Vídeo muito longo. Após compressão ficou ${Math.round(
+              finalBuffer.length / 1024 / 1024
+            )}MB. Use um clip mais curto (máx ~5 minutos).`,
           });
         }
       }
@@ -632,17 +747,21 @@ app.post('/api/uploads', requireAdmin, (req, res) => {
 
       // Tentar Supabase Storage primeiro (sem limite de tamanho, sem passar por pgBouncer)
       let supabaseError = null;
-      const storageUrl = await uploadToSupabaseStorage(finalBuffer, finalFilename, finalMimetype).catch((e) => {
+      const storageUrl = await uploadToSupabaseStorage(
+        finalBuffer,
+        finalFilename,
+        finalMimetype
+      ).catch((e) => {
         supabaseError = e.message;
-        console.warn('Supabase Storage falhou:', e.message);
+        console.warn("Supabase Storage falhou:", e.message);
         return null;
       });
 
       let mediaId;
       if (storageUrl) {
-        console.log('Upload: Supabase Storage OK, url=', storageUrl);
+        console.log("Upload: Supabase Storage OK, url=", storageUrl);
         const insertResult = await pool.query(
-          'INSERT INTO app.media_asset (site_id, filename, mimetype, disk_path) VALUES ($1, $2, $3, $4) RETURNING id',
+          "INSERT INTO app.media_asset (site_id, filename, mimetype, disk_path) VALUES ($1, $2, $3, $4) RETURNING id",
           [siteId, finalFilename, finalMimetype, storageUrl]
         );
         mediaId = insertResult.rows[0].id;
@@ -650,17 +769,24 @@ app.post('/api/uploads', requireAdmin, (req, res) => {
         // Arquivo grande — bytea falha no pgBouncer. Mostrar erro específico do Supabase.
         const reason = supabaseError
           ? `Supabase Storage: ${supabaseError}`
-          : 'Supabase Storage: variáveis SUPABASE_URL / SUPABASE_SERVICE_KEY ausentes no servidor';
+          : "Supabase Storage: variáveis SUPABASE_URL / SUPABASE_SERVICE_KEY ausentes no servidor";
         return res.status(422).json({ error: reason });
       } else {
-        console.log('Upload: inserindo bytea no DB, siteId=', siteId, 'arquivo=', finalFilename, 'tamanho=', finalBuffer.length);
+        console.log(
+          "Upload: inserindo bytea no DB, siteId=",
+          siteId,
+          "arquivo=",
+          finalFilename,
+          "tamanho=",
+          finalBuffer.length
+        );
         const insertResult = await pool.query(
-          'INSERT INTO app.media_asset (site_id, filename, mimetype, data) VALUES ($1, $2, $3, $4) RETURNING id',
+          "INSERT INTO app.media_asset (site_id, filename, mimetype, data) VALUES ($1, $2, $3, $4) RETURNING id",
           [siteId, finalFilename, finalMimetype, finalBuffer]
         );
         mediaId = insertResult.rows[0].id;
       }
-      console.log('Upload: sucesso, id=', mediaId);
+      console.log("Upload: sucesso, id=", mediaId);
 
       res.status(201).json({
         url: storageUrl || `/api/uploads/${mediaId}`,
@@ -670,16 +796,18 @@ app.post('/api/uploads', requireAdmin, (req, res) => {
         mimetype: finalMimetype,
       });
     } catch (uploadError) {
-      console.error('Erro ao enviar arquivo', uploadError);
-      res.status(500).json({ error: uploadError.message || 'Falha ao enviar arquivo' });
+      console.error("Erro ao enviar arquivo", uploadError);
+      res
+        .status(500)
+        .json({ error: uploadError.message || "Falha ao enviar arquivo" });
     }
   });
 });
 
-app.get('/api/uploads', requireAdmin, async (_req, res) => {
+app.get("/api/uploads", requireAdmin, async (_req, res) => {
   try {
     const result = await pool.query(
-      'SELECT id, filename, mimetype, created_at FROM app.media_asset ORDER BY created_at DESC LIMIT 200'
+      "SELECT id, filename, mimetype, created_at FROM app.media_asset ORDER BY created_at DESC LIMIT 200"
     );
 
     res.json(
@@ -692,67 +820,67 @@ app.get('/api/uploads', requireAdmin, async (_req, res) => {
       }))
     );
   } catch (error) {
-    console.error('Erro ao listar arquivos', error);
-    res.status(500).json({ error: 'Falha ao listar arquivos' });
+    console.error("Erro ao listar arquivos", error);
+    res.status(500).json({ error: "Falha ao listar arquivos" });
   }
 });
 
-app.post('/api/admin-media/ingest', requireAdmin, async (_req, res) => {
+app.post("/api/admin-media/ingest", requireAdmin, async (_req, res) => {
   try {
     const result = await ingestAdminMediaFiles();
     res.json({ ok: true, ...result });
   } catch (error) {
-    console.error('Erro ao ingerir midia do admin', error);
-    res.status(500).json({ error: 'Falha ao ingerir midia do admin' });
+    console.error("Erro ao ingerir midia do admin", error);
+    res.status(500).json({ error: "Falha ao ingerir midia do admin" });
   }
 });
 
-app.get('/api/uploads/:id', async (req, res) => {
+app.get("/api/uploads/:id", async (req, res) => {
   try {
     const { id } = req.params;
     const result = await pool.query(
-      'SELECT filename, mimetype, data, disk_path FROM app.media_asset WHERE id = $1',
+      "SELECT filename, mimetype, data, disk_path FROM app.media_asset WHERE id = $1",
       [id]
     );
 
     if (result.rowCount === 0) {
-      return res.status(404).json({ error: 'Arquivo não encontrado' });
+      return res.status(404).json({ error: "Arquivo não encontrado" });
     }
 
     const media = result.rows[0];
-    const safeFilename = String(media.filename || 'arquivo')
-      .replace(/[\r\n"]/g, '_')
-      .replace(/[^\x20-\x7E]/g, '_');
+    const safeFilename = String(media.filename || "arquivo")
+      .replace(/[\r\n"]/g, "_")
+      .replace(/[^\x20-\x7E]/g, "_");
 
     // Supabase Storage URL — redirect direto para o CDN público (melhor para streaming/mobile)
-    if (media.disk_path && media.disk_path.startsWith('https://')) {
-      res.setHeader('Cache-Control', 'public, max-age=3600');
+    if (media.disk_path && media.disk_path.startsWith("https://")) {
+      res.setHeader("Cache-Control", "public, max-age=3600");
       return res.redirect(302, media.disk_path);
     }
 
-    res.setHeader('Content-Type', media.mimetype);
-    res.setHeader('Content-Disposition', `inline; filename="${safeFilename}"`);
-    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
-    res.setHeader('ETag', `"${id}"`);
+    res.setHeader("Content-Type", media.mimetype);
+    res.setHeader("Content-Disposition", `inline; filename="${safeFilename}"`);
+    res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+    res.setHeader("ETag", `"${id}"`);
 
     // Arquivo armazenado no banco — suporta range requests para vídeo
     if (media.data) {
       const total = media.data.length;
       const range = req.headers.range;
-      res.setHeader('Accept-Ranges', 'bytes');
+      res.setHeader("Accept-Ranges", "bytes");
 
       if (range) {
-        const [startStr, endStr] = range.replace(/bytes=/, '').split('-');
+        const [startStr, endStr] = range.replace(/bytes=/, "").split("-");
         const start = parseInt(startStr, 10);
         const end = endStr ? parseInt(endStr, 10) : total - 1;
         const chunkSize = end - start + 1;
         res.status(206);
-        res.setHeader('Content-Range', `bytes ${start}-${end}/${total}`);
-        res.setHeader('Content-Length', chunkSize);
+        res.setHeader("Content-Range", `bytes ${start}-${end}/${total}`);
+        res.setHeader("Content-Length", chunkSize);
         return res.end(media.data.slice(start, end + 1));
       }
 
-      res.setHeader('Content-Length', total);
+      res.setHeader("Content-Length", total);
       return res.end(media.data);
     }
 
@@ -764,43 +892,58 @@ app.get('/api/uploads/:id', async (req, res) => {
       ];
       let filePath = null;
       for (const candidate of candidates) {
-        try { await fs.stat(candidate); filePath = candidate; break; } catch { /* try next */ }
+        try {
+          await fs.stat(candidate);
+          filePath = candidate;
+          break;
+        } catch {
+          /* try next */
+        }
       }
       if (!filePath) {
-        return res.status(404).json({ error: 'Arquivo não encontrado em disco' });
+        return res
+          .status(404)
+          .json({ error: "Arquivo não encontrado em disco" });
       }
       const stat = await fs.stat(filePath);
       const fileSize = stat.size;
       const range = req.headers.range;
 
       if (range) {
-        const [startStr, endStr] = range.replace(/bytes=/, '').split('-');
+        const [startStr, endStr] = range.replace(/bytes=/, "").split("-");
         const start = parseInt(startStr, 10);
         const end = endStr ? parseInt(endStr, 10) : fileSize - 1;
         const chunkSize = end - start + 1;
 
         res.status(206);
-        res.setHeader('Content-Range', `bytes ${start}-${end}/${fileSize}`);
-        res.setHeader('Accept-Ranges', 'bytes');
-        res.setHeader('Content-Length', chunkSize);
+        res.setHeader("Content-Range", `bytes ${start}-${end}/${fileSize}`);
+        res.setHeader("Accept-Ranges", "bytes");
+        res.setHeader("Content-Length", chunkSize);
         createReadStream(filePath, { start, end }).pipe(res);
       } else {
-        res.setHeader('Accept-Ranges', 'bytes');
-        res.setHeader('Content-Length', fileSize);
+        res.setHeader("Accept-Ranges", "bytes");
+        res.setHeader("Content-Length", fileSize);
         createReadStream(filePath).pipe(res);
       }
 
       // Migração lazy: mover para o banco em background para garantir persistência futura
-      fs.readFile(filePath).then((buf) =>
-        pool.query('UPDATE app.media_asset SET data = $1 WHERE id = $2 AND data IS NULL', [buf, id])
-      ).catch(() => {});
+      fs.readFile(filePath)
+        .then((buf) =>
+          pool.query(
+            "UPDATE app.media_asset SET data = $1 WHERE id = $2 AND data IS NULL",
+            [buf, id]
+          )
+        )
+        .catch(() => {});
       return;
     }
 
-    return res.status(404).json({ error: 'Conteúdo do arquivo não encontrado' });
+    return res
+      .status(404)
+      .json({ error: "Conteúdo do arquivo não encontrado" });
   } catch (error) {
-    console.error('Erro ao recuperar arquivo', error);
-    res.status(500).json({ error: 'Falha ao recuperar arquivo' });
+    console.error("Erro ao recuperar arquivo", error);
+    res.status(500).json({ error: "Falha ao recuperar arquivo" });
   }
 });
 
@@ -809,103 +952,109 @@ app.use((error, _req, res, next) => {
     return next(error);
   }
 
-  if (error.code === 'LIMIT_FILE_SIZE') {
-    return res.status(413).json({ error: 'Arquivo muito grande para envio' });
+  if (error.code === "LIMIT_FILE_SIZE") {
+    return res.status(413).json({ error: "Arquivo muito grande para envio" });
   }
 
-  return res.status(400).json({ error: error.message || 'Falha ao enviar arquivo' });
+  return res
+    .status(400)
+    .json({ error: error.message || "Falha ao enviar arquivo" });
 });
 
-app.get('/api/contact-info', async (_req, res) => {
+app.get("/api/contact-info", async (_req, res) => {
   try {
     const info = await getContactInfo();
     res.json(info);
   } catch (error) {
-    console.error('Erro ao carregar contatos', error);
-    res.status(500).json({ error: 'Falha ao carregar contatos' });
+    console.error("Erro ao carregar contatos", error);
+    res.status(500).json({ error: "Falha ao carregar contatos" });
   }
 });
 
-app.get('/api/location', async (_req, res) => {
+app.get("/api/location", async (_req, res) => {
   try {
     const location = await getLocation();
     res.json(location);
   } catch (error) {
-    console.error('Erro ao carregar localizacao', error);
-    res.status(500).json({ error: 'Falha ao carregar localizacao' });
+    console.error("Erro ao carregar localizacao", error);
+    res.status(500).json({ error: "Falha ao carregar localizacao" });
   }
 });
 
-app.get('/api/social-links', async (_req, res) => {
+app.get("/api/social-links", async (_req, res) => {
   try {
     const links = await getSocialLinks();
     res.json(links);
   } catch (error) {
-    console.error('Erro ao carregar redes sociais', error);
-    res.status(500).json({ error: 'Falha ao carregar redes sociais' });
+    console.error("Erro ao carregar redes sociais", error);
+    res.status(500).json({ error: "Falha ao carregar redes sociais" });
   }
 });
 
-app.get('/api/site-links', async (req, res) => {
+app.get("/api/site-links", async (req, res) => {
   try {
-    const placement = typeof req.query.placement === 'string' ? req.query.placement : null;
+    const placement =
+      typeof req.query.placement === "string" ? req.query.placement : null;
     const links = await getSiteLinks(placement);
     res.json(links);
   } catch (error) {
-    console.error('Erro ao carregar links do site', error);
-    res.status(500).json({ error: 'Falha ao carregar links do site' });
+    console.error("Erro ao carregar links do site", error);
+    res.status(500).json({ error: "Falha ao carregar links do site" });
   }
 });
 
-app.get('/api/reviews', async (_req, res) => {
+app.get("/api/reviews", async (_req, res) => {
   try {
     const reviews = await getReviews();
     res.json(reviews);
   } catch (error) {
-    console.error('Erro ao carregar avaliacoes', error);
-    res.status(500).json({ error: 'Falha ao carregar avaliacoes' });
+    console.error("Erro ao carregar avaliacoes", error);
+    res.status(500).json({ error: "Falha ao carregar avaliacoes" });
   }
 });
 
-const sanitize = (str) => String(str || '').replace(/<[^>]*>/g, '').trim();
+const sanitize = (str) =>
+  String(str || "")
+    .replace(/<[^>]*>/g, "")
+    .trim();
 
-app.post('/api/reviews', formLimiter, async (req, res) => {
+app.post("/api/reviews", formLimiter, async (req, res) => {
   const name = sanitize(req.body?.name);
   const comment = sanitize(req.body?.comment);
   const { rating } = req.body || {};
-  if (!name || !comment || typeof rating === 'undefined') {
-    return badRequest(res, 'Dados invalidos');
+  if (!name || !comment || typeof rating === "undefined") {
+    return badRequest(res, "Dados invalidos");
   }
   if (Number(rating) < 1 || Number(rating) > 5) {
-    return badRequest(res, 'Avaliacao invalida');
+    return badRequest(res, "Avaliacao invalida");
   }
 
   try {
     await createReview({ name, rating, comment });
     sendReviewEmail({ name, rating, comment }).catch((err) => {
-      console.error('Falha ao enviar email de avaliacao:', err.message);
+      console.error("Falha ao enviar email de avaliacao:", err.message);
     });
     res.status(201).json({ ok: true });
   } catch (error) {
-    console.error('Erro ao criar avaliacao', error);
-    res.status(500).json({ error: 'Falha ao criar avaliacao' });
+    console.error("Erro ao criar avaliacao", error);
+    res.status(500).json({ error: "Falha ao criar avaliacao" });
   }
 });
 
 // ─── Email helpers ────────────────────────────────────────────────────────────
 
-const ADMIN_EMAIL = process.env.CONTACT_EMAIL || 'studiostattoadmin@gmail.com';
+const ADMIN_EMAIL = process.env.CONTACT_EMAIL || "studiostattoadmin@gmail.com";
 
 const createMailTransporter = () => {
   const smtpUser = process.env.SMTP_USER;
   const smtpPass = process.env.SMTP_PASS;
   if (!smtpUser || !smtpPass) {
-    console.warn('Email não configurado: defina SMTP_USER e SMTP_PASS no .env');
+    console.warn("Email não configurado: defina SMTP_USER e SMTP_PASS no .env");
     return null;
   }
   const port = Number(process.env.SMTP_PORT || 465);
   return nodemailer.createTransport({
-    host: process.env.SMTP_HOST || 'smtp.gmail.com',
+    host: process.env.SMTP_HOST || "smtp.gmail.com",
     port,
     secure: port === 465, // SSL na 465, STARTTLS na 587
     auth: { user: smtpUser, pass: smtpPass },
@@ -913,10 +1062,17 @@ const createMailTransporter = () => {
 };
 
 const escapeHtml = (str) =>
-  String(str ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  String(str ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 
 const row = (label, value) =>
-  `<tr><td style="padding:6px 12px;color:#888;font-size:13px;white-space:nowrap">${label}</td><td style="padding:6px 12px;font-size:13px">${escapeHtml(value) || '—'}</td></tr>`;
+  `<tr><td style="padding:6px 12px;color:#888;font-size:13px;white-space:nowrap">${label}</td><td style="padding:6px 12px;font-size:13px">${
+    escapeHtml(value) || "—"
+  }</td></tr>`;
 
 const emailWrap = (title, badge, bodyHtml) => `
 <!DOCTYPE html><html><body style="margin:0;padding:0;background:#f4f4f4;font-family:Arial,sans-serif">
@@ -938,132 +1094,206 @@ const emailWrap = (title, badge, bodyHtml) => `
 const sendContactEmail = async ({ name, email, phone, message }) => {
   const transporter = createMailTransporter();
   if (!transporter) return;
-  const bodyHtml = row('Nome', name) + row('Email', email) + row('Telefone', phone) + row('Mensagem', escapeHtml(message).replace(/\n/g, '<br>'));
+  const bodyHtml =
+    row("Nome", name) +
+    row("Email", email) +
+    row("Telefone", phone) +
+    row("Mensagem", escapeHtml(message).replace(/\n/g, "<br>"));
   await transporter.sendMail({
     from: `"Studio Markin Tattoo" <${process.env.SMTP_USER}>`,
     to: ADMIN_EMAIL,
     replyTo: email,
     subject: `📩 Novo contato — ${name}`,
-    text: `Nome: ${name}\nEmail: ${email}\nTelefone: ${phone || '—'}\n\n${message}`,
-    html: emailWrap('Nova mensagem de contato', 'CONTATO', bodyHtml),
+    text: `Nome: ${name}\nEmail: ${email}\nTelefone: ${
+      phone || "—"
+    }\n\n${message}`,
+    html: emailWrap("Nova mensagem de contato", "CONTATO", bodyHtml),
   });
 };
 
-const sendCourseEnrollmentEmail = async ({ name, email, phone, cidade, experiencia }) => {
+const sendCourseEnrollmentEmail = async ({
+  name,
+  email,
+  phone,
+  cidade,
+  experiencia,
+}) => {
   const transporter = createMailTransporter();
   if (!transporter) return;
-  const nivelMap = { nenhuma: 'Nenhuma – iniciante', basica: 'Básica', intermediaria: 'Intermediária', avancada: 'Avançada' };
-  const nivel = nivelMap[experiencia] || experiencia || '—';
+  const nivelMap = {
+    nenhuma: "Nenhuma – iniciante",
+    basica: "Básica",
+    intermediaria: "Intermediária",
+    avancada: "Avançada",
+  };
+  const nivel = nivelMap[experiencia] || experiencia || "—";
   const bodyHtml =
-    row('Nome', name) + row('Email', email) + row('WhatsApp', phone) +
-    row('Cidade', cidade) + row('Experiência', nivel);
+    row("Nome", name) +
+    row("Email", email) +
+    row("WhatsApp", phone) +
+    row("Cidade", cidade) +
+    row("Experiência", nivel);
   await transporter.sendMail({
     from: `"Studio Markin Tattoo" <${process.env.SMTP_USER}>`,
     to: ADMIN_EMAIL,
     replyTo: email || undefined,
     subject: `🎓 Nova inscrição no curso — ${name}`,
-    text: `Nome: ${name}\nEmail: ${email}\nWhatsApp: ${phone || '—'}\nCidade: ${cidade || '—'}\nExperiência: ${nivel}`,
-    html: emailWrap('Nova inscrição no curso', 'CURSO', bodyHtml),
+    text: `Nome: ${name}\nEmail: ${email}\nWhatsApp: ${phone || "—"}\nCidade: ${
+      cidade || "—"
+    }\nExperiência: ${nivel}`,
+    html: emailWrap("Nova inscrição no curso", "CURSO", bodyHtml),
   });
 };
 
 const sendReviewEmail = async ({ name, rating, comment }) => {
   const transporter = createMailTransporter();
   if (!transporter) return;
-  const stars = '★'.repeat(Number(rating)) + '☆'.repeat(5 - Number(rating));
-  const bodyHtml = row('Nome', name) + row('Avaliação', `${stars} (${rating}/5)`) + row('Comentário', comment);
+  const stars = "★".repeat(Number(rating)) + "☆".repeat(5 - Number(rating));
+  const bodyHtml =
+    row("Nome", name) +
+    row("Avaliação", `${stars} (${rating}/5)`) +
+    row("Comentário", comment);
   await transporter.sendMail({
     from: `"Studio Markin Tattoo" <${process.env.SMTP_USER}>`,
     to: ADMIN_EMAIL,
     subject: `⭐ Nova avaliação pendente — ${name}`,
     text: `Nova avaliação aguardando aprovação.\n\nNome: ${name}\nNota: ${rating}/5\n\n${comment}`,
-    html: emailWrap('Nova avaliação (pendente de aprovação)', 'AVALIAÇÃO', bodyHtml),
+    html: emailWrap(
+      "Nova avaliação (pendente de aprovação)",
+      "AVALIAÇÃO",
+      bodyHtml
+    ),
   });
 };
 
-const sendJewelryOrderEmail = async ({ orderId, customerName, email, phone, deliveryMethod, addressLine1, city, state, postalCode, notes, items, paymentMethod }) => {
+const sendJewelryOrderEmail = async ({
+  orderId,
+  customerName,
+  email,
+  phone,
+  deliveryMethod,
+  addressLine1,
+  city,
+  state,
+  postalCode,
+  notes,
+  items,
+  paymentMethod,
+}) => {
   const transporter = createMailTransporter();
   if (!transporter) return;
-  const delivery = deliveryMethod === 'delivery' ? 'Entrega' : 'Retirada na loja';
-  const payment = { pix: 'PIX', cartao: 'Cartão', dinheiro: 'Dinheiro' }[paymentMethod] || paymentMethod || '—';
+  const delivery =
+    deliveryMethod === "delivery" ? "Entrega" : "Retirada na loja";
+  const payment =
+    { pix: "PIX", cartao: "Cartão", dinheiro: "Dinheiro" }[paymentMethod] ||
+    paymentMethod ||
+    "—";
   const total = Array.isArray(items)
-    ? items.reduce((s, i) => s + (Number(i.price) || 0) * (Number(i.quantity) || 1), 0)
+    ? items.reduce(
+        (s, i) => s + (Number(i.price) || 0) * (Number(i.quantity) || 1),
+        0
+      )
     : 0;
   const itemsHtml = Array.isArray(items)
-    ? items.map((i) => `<li style="font-size:13px;padding:2px 0">${escapeHtml(i.name)} × ${Number(i.quantity) || 1} — R$ ${Number(i.price).toFixed(2)}</li>`).join('')
-    : '';
-  const addressStr = [addressLine1, city, state, postalCode].filter(Boolean).join(', ');
+    ? items
+        .map(
+          (i) =>
+            `<li style="font-size:13px;padding:2px 0">${escapeHtml(i.name)} × ${
+              Number(i.quantity) || 1
+            } — R$ ${Number(i.price).toFixed(2)}</li>`
+        )
+        .join("")
+    : "";
+  const addressStr = [addressLine1, city, state, postalCode]
+    .filter(Boolean)
+    .join(", ");
   const bodyHtml =
-    row('Pedido nº', orderId) +
-    row('Cliente', customerName) +
-    row('Email', email) +
-    row('Telefone', phone) +
-    row('Entrega', delivery) +
-    (addressStr ? row('Endereço', addressStr) : '') +
-    row('Pagamento', payment) +
-    row('Total', `R$ ${total.toFixed(2)}`) +
-    (notes ? row('Observações', notes) : '') +
+    row("Pedido nº", orderId) +
+    row("Cliente", customerName) +
+    row("Email", email) +
+    row("Telefone", phone) +
+    row("Entrega", delivery) +
+    (addressStr ? row("Endereço", addressStr) : "") +
+    row("Pagamento", payment) +
+    row("Total", `R$ ${total.toFixed(2)}`) +
+    (notes ? row("Observações", notes) : "") +
     `<tr><td colspan="2" style="padding:10px 12px"><strong style="font-size:13px">Itens:</strong><ul style="margin:6px 0 0;padding-left:18px">${itemsHtml}</ul></td></tr>`;
   await transporter.sendMail({
     from: `"Studio Markin Tattoo" <${process.env.SMTP_USER}>`,
     to: ADMIN_EMAIL,
     replyTo: email || undefined,
     subject: `💍 Novo pedido de joia #${orderId} — ${customerName}`,
-    text: `Novo pedido #${orderId}\nCliente: ${customerName}\nEmail: ${email || '—'}\nTelefone: ${phone || '—'}\nEntrega: ${delivery}\nPagamento: ${payment}\nTotal: R$ ${total.toFixed(2)}\n\nItens:\n${Array.isArray(items) ? items.map((i) => `- ${i.name} x${i.quantity || 1}`).join('\n') : '—'}`,
-    html: emailWrap(`Novo pedido de joia #${orderId}`, 'JOALHERIA', bodyHtml),
+    text: `Novo pedido #${orderId}\nCliente: ${customerName}\nEmail: ${
+      email || "—"
+    }\nTelefone: ${
+      phone || "—"
+    }\nEntrega: ${delivery}\nPagamento: ${payment}\nTotal: R$ ${total.toFixed(
+      2
+    )}\n\nItens:\n${
+      Array.isArray(items)
+        ? items.map((i) => `- ${i.name} x${i.quantity || 1}`).join("\n")
+        : "—"
+    }`,
+    html: emailWrap(`Novo pedido de joia #${orderId}`, "JOALHERIA", bodyHtml),
   });
 };
 
 const sendNewCustomerEmail = async ({ name, email }) => {
   const transporter = createMailTransporter();
   if (!transporter) return;
-  const bodyHtml = row('Nome', name) + row('Email', email);
+  const bodyHtml = row("Nome", name) + row("Email", email);
   await transporter.sendMail({
     from: `"Studio Markin Tattoo" <${process.env.SMTP_USER}>`,
     to: ADMIN_EMAIL,
     subject: `👤 Novo cliente cadastrado — ${name}`,
     text: `Novo cliente registado na joalheria.\n\nNome: ${name}\nEmail: ${email}`,
-    html: emailWrap('Novo cliente cadastrado na joalheria', 'CLIENTE', bodyHtml),
+    html: emailWrap(
+      "Novo cliente cadastrado na joalheria",
+      "CLIENTE",
+      bodyHtml
+    ),
   });
 };
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-app.post('/api/contact-submissions', formLimiter, async (req, res) => {
+app.post("/api/contact-submissions", formLimiter, async (req, res) => {
   const name = sanitize(req.body?.name);
   const message = sanitize(req.body?.message);
   const { email, phone } = req.body || {};
   if (!name || !email || !phone || !message) {
-    return badRequest(res, 'Todos os campos são obrigatórios');
+    return badRequest(res, "Todos os campos são obrigatórios");
   }
   if (!emailRegex.test(String(email))) {
-    return badRequest(res, 'Email inválido');
+    return badRequest(res, "Email inválido");
   }
 
   try {
     await createContactSubmission({ name, email, phone, message });
     sendContactEmail({ name, email, phone, message }).catch((err) => {
-      console.error('Falha ao enviar email de contato:', err.message);
+      console.error("Falha ao enviar email de contato:", err.message);
     });
     res.status(201).json({ ok: true });
   } catch (error) {
-    console.error('Erro ao salvar contato', error);
-    res.status(500).json({ error: 'Falha ao salvar contato' });
+    console.error("Erro ao salvar contato", error);
+    res.status(500).json({ error: "Falha ao salvar contato" });
   }
 });
 
-app.post('/api/course-enrollments', formLimiter, async (req, res) => {
+app.post("/api/course-enrollments", formLimiter, async (req, res) => {
   const body = req.body || {};
   // Aceita formato do formulário (nome/whatsapp/cidade/experiencia) e formato legado (name/phone/message)
   const name = sanitize(body.nome || body.name);
-  const email = String(body.email || '').toLowerCase().trim();
+  const email = String(body.email || "")
+    .toLowerCase()
+    .trim();
   const phone = sanitize(body.whatsapp || body.phone);
-  const cidade = sanitize(body.cidade || '');
-  const experiencia = sanitize(body.experiencia || body.message || '');
+  const cidade = sanitize(body.cidade || "");
+  const experiencia = sanitize(body.experiencia || body.message || "");
   const message = experiencia || cidade;
 
   if (!name && !email) {
-    return badRequest(res, 'Nome e email são obrigatórios');
+    return badRequest(res, "Nome e email são obrigatórios");
   }
   if (!name) {
     return badRequest(res, 'O campo "Nome" é obrigatório');
@@ -1072,124 +1302,199 @@ app.post('/api/course-enrollments', formLimiter, async (req, res) => {
     return badRequest(res, 'O campo "Email" é obrigatório');
   }
   if (!emailRegex.test(email)) {
-    return badRequest(res, 'O email inserido não é válido — verifique o endereço');
+    return badRequest(
+      res,
+      "O email inserido não é válido — verifique o endereço"
+    );
   }
 
   try {
     await createCourseEnrollment({ name, email, phone, message });
-    sendCourseEnrollmentEmail({ name, email, phone, cidade, experiencia }).catch((err) => {
-      console.error('Falha ao enviar email de inscricao:', err.message);
+    sendCourseEnrollmentEmail({
+      name,
+      email,
+      phone,
+      cidade,
+      experiencia,
+    }).catch((err) => {
+      console.error("Falha ao enviar email de inscricao:", err.message);
     });
     res.status(201).json({ ok: true });
   } catch (error) {
-    console.error('Erro ao salvar inscricao', error);
-    const msg = String(error?.message || '');
-    if (msg === 'Curso nao configurado') {
-      return res.status(503).json({ error: 'Não há turmas abertas no momento. Entre em contato via WhatsApp.' });
+    console.error("Erro ao salvar inscricao", error);
+    const msg = String(error?.message || "");
+    if (msg === "Curso nao configurado") {
+      return res
+        .status(503)
+        .json({
+          error:
+            "Não há turmas abertas no momento. Entre em contato via WhatsApp.",
+        });
     }
-    res.status(500).json({ error: 'Não foi possível guardar a inscrição. Tente novamente.' });
+    res
+      .status(500)
+      .json({
+        error: "Não foi possível guardar a inscrição. Tente novamente.",
+      });
   }
 });
 
 // ============= SPECIALISTS ENDPOINTS =============
-app.get('/api/specialists', async (_req, res) => {
+app.get("/api/specialists", async (_req, res) => {
   try {
     const specialists = await getSpecialists();
     res.json(specialists);
   } catch (error) {
-    console.error('Erro ao carregar especialistas', error);
-    res.status(500).json({ error: 'Falha ao carregar especialistas' });
+    console.error("Erro ao carregar especialistas", error);
+    res.status(500).json({ error: "Falha ao carregar especialistas" });
   }
 });
 
-app.post('/api/specialists', requireAdmin, async (req, res) => {
-  const { name, specialty, description, imageUrl, experience, instagram, whatsapp } = req.body || {};
+app.post("/api/specialists", requireAdmin, async (req, res) => {
+  const {
+    name,
+    specialty,
+    description,
+    imageUrl,
+    experience,
+    instagram,
+    whatsapp,
+  } = req.body || {};
   if (!name || !specialty || !imageUrl) {
-    return badRequest(res, 'Nome, especialidade e imagem são obrigatórios');
+    return badRequest(res, "Nome, especialidade e imagem são obrigatórios");
   }
 
   try {
-    const id = await createSpecialist({ name, specialty, description, imageUrl, experience, instagram, whatsapp });
+    const id = await createSpecialist({
+      name,
+      specialty,
+      description,
+      imageUrl,
+      experience,
+      instagram,
+      whatsapp,
+    });
     res.status(201).json({ id, ok: true });
   } catch (error) {
-    console.error('Erro ao criar especialista', error);
-    res.status(500).json({ error: error.message || 'Falha ao criar especialista' });
+    console.error("Erro ao criar especialista", error);
+    res
+      .status(500)
+      .json({ error: error.message || "Falha ao criar especialista" });
   }
 });
 
-app.put('/api/specialists/:id', requireAdmin, async (req, res) => {
+app.put("/api/specialists/:id", requireAdmin, async (req, res) => {
   const { id } = req.params;
-  const { name, specialty, description, imageUrl, experience, instagram, whatsapp, sortOrder, isActive } = req.body || {};
+  const {
+    name,
+    specialty,
+    description,
+    imageUrl,
+    experience,
+    instagram,
+    whatsapp,
+    sortOrder,
+    isActive,
+  } = req.body || {};
 
   try {
-    await updateSpecialist(id, { name, specialty, description, imageUrl, experience, instagram, whatsapp, sortOrder, isActive });
+    await updateSpecialist(id, {
+      name,
+      specialty,
+      description,
+      imageUrl,
+      experience,
+      instagram,
+      whatsapp,
+      sortOrder,
+      isActive,
+    });
     res.json({ ok: true });
   } catch (error) {
-    console.error('Erro ao atualizar especialista', error);
-    res.status(500).json({ error: error.message || 'Falha ao atualizar especialista' });
+    console.error("Erro ao atualizar especialista", error);
+    res
+      .status(500)
+      .json({ error: error.message || "Falha ao atualizar especialista" });
   }
 });
 
-app.delete('/api/specialists/:id', requireAdmin, async (req, res) => {
+app.delete("/api/specialists/:id", requireAdmin, async (req, res) => {
   const { id } = req.params;
 
   try {
     await deleteSpecialist(id);
     res.json({ ok: true });
   } catch (error) {
-    console.error('Erro ao deletar especialista', error);
-    res.status(500).json({ error: 'Falha ao deletar especialista' });
+    console.error("Erro ao deletar especialista", error);
+    res.status(500).json({ error: "Falha ao deletar especialista" });
   }
 });
 
 // ============= PORTFOLIO ENDPOINTS =============
-app.get('/api/portfolio', async (_req, res) => {
+app.get("/api/portfolio", async (_req, res) => {
   try {
     const items = await getPortfolioItems();
     res.json(items);
   } catch (error) {
-    console.error('Erro ao carregar portfolio', error);
-    res.status(500).json({ error: 'Falha ao carregar portfolio' });
+    console.error("Erro ao carregar portfolio", error);
+    res.status(500).json({ error: "Falha ao carregar portfolio" });
   }
 });
 
-app.post('/api/portfolio', requireAdmin, async (req, res) => {
+app.post("/api/portfolio", requireAdmin, async (req, res) => {
   const { title, style, imageUrl, specialistId } = req.body || {};
   if (!title || !imageUrl) {
-    return badRequest(res, 'Título e imagem são obrigatórios');
+    return badRequest(res, "Título e imagem são obrigatórios");
   }
 
   try {
-    const id = await createPortfolioItem({ title, style, imageUrl, specialistId });
+    const id = await createPortfolioItem({
+      title,
+      style,
+      imageUrl,
+      specialistId,
+    });
     res.status(201).json({ id, ok: true });
   } catch (error) {
-    console.error('Erro ao criar portfolio item', error);
-    res.status(500).json({ error: error.message || 'Falha ao criar portfolio item' });
+    console.error("Erro ao criar portfolio item", error);
+    res
+      .status(500)
+      .json({ error: error.message || "Falha ao criar portfolio item" });
   }
 });
 
-app.put('/api/portfolio/:id', requireAdmin, async (req, res) => {
+app.put("/api/portfolio/:id", requireAdmin, async (req, res) => {
   const { id } = req.params;
-  const { title, style, imageUrl, sortOrder, isPublished, specialistId } = req.body || {};
+  const { title, style, imageUrl, sortOrder, isPublished, specialistId } =
+    req.body || {};
 
   try {
-    await updatePortfolioItem(id, { title, style, imageUrl, sortOrder, isPublished, specialistId });
+    await updatePortfolioItem(id, {
+      title,
+      style,
+      imageUrl,
+      sortOrder,
+      isPublished,
+      specialistId,
+    });
     res.json({ ok: true });
   } catch (error) {
-    console.error('Erro ao atualizar portfolio item', error);
-    res.status(500).json({ error: error.message || 'Falha ao atualizar portfolio item' });
+    console.error("Erro ao atualizar portfolio item", error);
+    res
+      .status(500)
+      .json({ error: error.message || "Falha ao atualizar portfolio item" });
   }
 });
 
-app.delete('/api/portfolio/:id', requireAdmin, async (req, res) => {
+app.delete("/api/portfolio/:id", requireAdmin, async (req, res) => {
   const { id } = req.params;
 
   try {
     await deletePortfolioItem(id);
     res.json({ ok: true });
   } catch (error) {
-    console.error('Erro ao deletar portfolio item', error);
-    res.status(500).json({ error: 'Falha ao deletar portfolio item' });
+    console.error("Erro ao deletar portfolio item", error);
+    res.status(500).json({ error: "Falha ao deletar portfolio item" });
   }
 });
 
@@ -1199,87 +1504,111 @@ app.delete('/api/portfolio/:id', requireAdmin, async (req, res) => {
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
-  console.error('FATAL: JWT_SECRET não definido no .env');
+  console.error("FATAL: JWT_SECRET não definido no .env");
   process.exit(1);
 }
-const JWT_EXPIRES = '7d';
-const SESSION_COOKIE = 'jewelry_session';
+const JWT_EXPIRES = "7d";
+const SESSION_COOKIE = "jewelry_session";
 const cookieOpts = {
   httpOnly: true,
-  sameSite: 'lax',
-  secure: process.env.NODE_ENV === 'production',
+  sameSite: "lax",
+  secure: process.env.NODE_ENV === "production",
   maxAge: 7 * 24 * 60 * 60 * 1000, // 7 dias
-  path: '/',
+  path: "/",
 };
 
 function signToken(user) {
-  return jwt.sign({ id: user.id, email: user.email, name: user.name }, JWT_SECRET, { expiresIn: JWT_EXPIRES });
+  return jwt.sign(
+    { id: user.id, email: user.email, name: user.name },
+    JWT_SECRET,
+    { expiresIn: JWT_EXPIRES }
+  );
 }
 
-app.post('/api/auth/register', authLimiter, async (req, res) => {
+app.post("/api/auth/register", authLimiter, async (req, res) => {
   try {
     const { name, email, password } = req.body || {};
-    if (!name || !email || !password) return res.status(400).json({ error: 'Preencha todos os campos' });
-    if (password.length < 8) return res.status(400).json({ error: 'Senha deve ter pelo menos 8 caracteres' });
-    if (!/[A-Z]/.test(password)) return res.status(400).json({ error: 'Senha deve conter pelo menos uma letra maiúscula' });
-    if (!/[0-9]/.test(password)) return res.status(400).json({ error: 'Senha deve conter pelo menos um número' });
-    const existing = await pool.query('SELECT id FROM app.jewelry_customer WHERE email = $1', [email.toLowerCase()]);
-    if (existing.rows.length > 0) return res.status(409).json({ error: 'Este email já está cadastrado' });
+    if (!name || !email || !password)
+      return res.status(400).json({ error: "Preencha todos os campos" });
+    if (password.length < 8)
+      return res
+        .status(400)
+        .json({ error: "Senha deve ter pelo menos 8 caracteres" });
+    if (!/[A-Z]/.test(password))
+      return res
+        .status(400)
+        .json({ error: "Senha deve conter pelo menos uma letra maiúscula" });
+    if (!/[0-9]/.test(password))
+      return res
+        .status(400)
+        .json({ error: "Senha deve conter pelo menos um número" });
+    const existing = await pool.query(
+      "SELECT id FROM app.jewelry_customer WHERE email = $1",
+      [email.toLowerCase()]
+    );
+    if (existing.rows.length > 0)
+      return res.status(409).json({ error: "Este email já está cadastrado" });
     const hash = await bcryptjs.hash(password, 12);
     const result = await pool.query(
-      'INSERT INTO app.jewelry_customer (name, email, password_hash) VALUES ($1, $2, $3) RETURNING id, name, email',
+      "INSERT INTO app.jewelry_customer (name, email, password_hash) VALUES ($1, $2, $3) RETURNING id, name, email",
       [name.trim(), email.toLowerCase().trim(), hash]
     );
     const user = result.rows[0];
     res.cookie(SESSION_COOKIE, signToken(user), cookieOpts);
-    sendNewCustomerEmail({ name: user.name, email: user.email }).catch((err) => {
-      console.error('Falha ao enviar email de novo cliente:', err.message);
-    });
+    sendNewCustomerEmail({ name: user.name, email: user.email }).catch(
+      (err) => {
+        console.error("Falha ao enviar email de novo cliente:", err.message);
+      }
+    );
     res.status(201).json({ user });
   } catch (err) {
-    console.error('Erro no cadastro:', err);
-    res.status(500).json({ error: 'Erro interno ao criar conta' });
+    console.error("Erro no cadastro:", err);
+    res.status(500).json({ error: "Erro interno ao criar conta" });
   }
 });
 
-app.post('/api/auth/login', authLimiter, async (req, res) => {
+app.post("/api/auth/login", authLimiter, async (req, res) => {
   try {
     const { email, password } = req.body || {};
-    if (!email || !password) return res.status(400).json({ error: 'Preencha email e senha' });
+    if (!email || !password)
+      return res.status(400).json({ error: "Preencha email e senha" });
     const result = await pool.query(
-      'SELECT id, name, email, password_hash FROM app.jewelry_customer WHERE email = $1',
+      "SELECT id, name, email, password_hash FROM app.jewelry_customer WHERE email = $1",
       [email.toLowerCase().trim()]
     );
-    if (result.rows.length === 0) return res.status(401).json({ error: 'Email ou senha inválidos' });
+    if (result.rows.length === 0)
+      return res.status(401).json({ error: "Email ou senha inválidos" });
     const user = result.rows[0];
     const valid = await bcryptjs.compare(password, user.password_hash);
-    if (!valid) return res.status(401).json({ error: 'Email ou senha inválidos' });
+    if (!valid)
+      return res.status(401).json({ error: "Email ou senha inválidos" });
     res.cookie(SESSION_COOKIE, signToken(user), cookieOpts);
     res.json({ user: { id: user.id, name: user.name, email: user.email } });
   } catch (err) {
-    console.error('Erro no login:', err);
-    res.status(500).json({ error: 'Erro interno ao autenticar' });
+    console.error("Erro no login:", err);
+    res.status(500).json({ error: "Erro interno ao autenticar" });
   }
 });
 
-app.get('/api/auth/me', async (req, res) => {
+app.get("/api/auth/me", async (req, res) => {
   try {
     const token = req.cookies?.[SESSION_COOKIE];
-    if (!token) return res.status(401).json({ error: 'Não autorizado' });
+    if (!token) return res.status(401).json({ error: "Não autorizado" });
     const payload = jwt.verify(token, JWT_SECRET);
     const result = await pool.query(
-      'SELECT id, name, email FROM app.jewelry_customer WHERE id = $1',
+      "SELECT id, name, email FROM app.jewelry_customer WHERE id = $1",
       [payload.id]
     );
-    if (result.rows.length === 0) return res.status(404).json({ error: 'Usuário não encontrado' });
+    if (result.rows.length === 0)
+      return res.status(404).json({ error: "Usuário não encontrado" });
     res.json(result.rows[0]);
   } catch {
-    res.status(401).json({ error: 'Sessão inválida ou expirada' });
+    res.status(401).json({ error: "Sessão inválida ou expirada" });
   }
 });
 
-app.post('/api/auth/logout', (req, res) => {
-  res.clearCookie(SESSION_COOKIE, { path: '/' });
+app.post("/api/auth/logout", (req, res) => {
+  res.clearCookie(SESSION_COOKIE, { path: "/" });
   res.json({ ok: true });
 });
 // ---- End Auth ----
@@ -1287,271 +1616,446 @@ app.post('/api/auth/logout', (req, res) => {
 // ============= ADMIN AUTH =============
 const ADMIN_JWT_SECRET = process.env.ADMIN_JWT_SECRET || process.env.JWT_SECRET;
 if (!ADMIN_JWT_SECRET) {
-  console.error('FATAL: ADMIN_JWT_SECRET não definido no .env');
+  console.error("FATAL: ADMIN_JWT_SECRET não definido no .env");
   process.exit(1);
 }
 
 function requireAdmin(req, res, next) {
   const authHeader = req.headers.authorization;
-  const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : req.headers['x-admin-token'];
-  if (!token) return res.status(401).json({ error: 'Não autorizado' });
+  const token = authHeader?.startsWith("Bearer ")
+    ? authHeader.slice(7)
+    : req.headers["x-admin-token"];
+  if (!token) return res.status(401).json({ error: "Não autorizado" });
   try {
     const payload = jwt.verify(token, ADMIN_JWT_SECRET);
     // Guard: only tokens issued by admin login (with role field) are accepted.
     // Prevents customer JWTs from being used as admin tokens if secrets happen to match.
-    if (!payload.role || !['admin', 'joalheria'].includes(payload.role)) {
-      return res.status(401).json({ error: 'Não autorizado' });
+    if (!payload.role || !["admin", "joalheria"].includes(payload.role)) {
+      return res.status(401).json({ error: "Não autorizado" });
     }
     req.adminPayload = payload;
     next();
   } catch {
-    res.status(401).json({ error: 'Token inválido ou expirado' });
+    res.status(401).json({ error: "Token inválido ou expirado" });
   }
 }
 
-app.post('/api/admin/login', authLimiter, (req, res) => {
+app.post("/api/admin/login", authLimiter, (req, res) => {
   const { password, role } = req.body || {};
-  const expectedPass = role === 'joalheria'
-    ? process.env.JOALHERIA_ADMIN_PASS
-    : process.env.ADMIN_PASS;
+  const expectedPass =
+    role === "joalheria"
+      ? process.env.JOALHERIA_ADMIN_PASS
+      : process.env.ADMIN_PASS;
   if (!expectedPass) {
-    console.error('FATAL: ADMIN_PASS ou JOALHERIA_ADMIN_PASS não definido no .env');
-    return res.status(500).json({ error: 'Configuração do servidor inválida' });
+    console.error(
+      "FATAL: ADMIN_PASS ou JOALHERIA_ADMIN_PASS não definido no .env"
+    );
+    return res.status(500).json({ error: "Configuração do servidor inválida" });
   }
   if (!password || password !== expectedPass) {
-    return res.status(401).json({ error: 'Senha incorreta' });
+    return res.status(401).json({ error: "Senha incorreta" });
   }
-  const token = jwt.sign({ role: role || 'admin' }, ADMIN_JWT_SECRET, { expiresIn: '8h' });
+  const token = jwt.sign({ role: role || "admin" }, ADMIN_JWT_SECRET, {
+    expiresIn: "8h",
+  });
   res.json({ token });
 });
 // ============= END ADMIN AUTH =============
 
-app.get('/api/admin/test-email', requireAdmin, async (_req, res) => {
-  res.set('Content-Type', 'text/html');
-  const user = process.env.SMTP_USER || '(não definido)';
+app.get("/api/admin/test-email", requireAdmin, async (_req, res) => {
+  res.set("Content-Type", "text/html");
+  const user = process.env.SMTP_USER || "(não definido)";
   const pass = process.env.SMTP_PASS;
-  const host = process.env.SMTP_HOST || 'smtp.gmail.com';
+  const host = process.env.SMTP_HOST || "smtp.gmail.com";
   const port = Number(process.env.SMTP_PORT || 465);
-  const to   = process.env.CONTACT_EMAIL || 'studiostattoadmin@gmail.com';
+  const to = process.env.CONTACT_EMAIL || "studiostattoadmin@gmail.com";
 
   if (!pass) {
-    return res.send(`<h2>❌ SMTP_PASS não definido</h2><p>Vai ao Hostinger → Variáveis de Ambiente e adiciona SMTP_PASS</p><p>User: ${user} | Host: ${host}:${port}</p>`);
+    return res.send(
+      `<h2>❌ SMTP_PASS não definido</h2><p>Vai ao Hostinger → Variáveis de Ambiente e adiciona SMTP_PASS</p><p>User: ${user} | Host: ${host}:${port}</p>`
+    );
   }
 
   const secure = port === 465;
-  const transporter = nodemailer.createTransport({ host, port, secure, auth: { user, pass } });
+  const transporter = nodemailer.createTransport({
+    host,
+    port,
+    secure,
+    auth: { user, pass },
+  });
   try {
     await transporter.verify();
-    await transporter.sendMail({ from: `"Studio" <${user}>`, to, subject: '✅ Teste SMTP', text: 'SMTP funciona!' });
-    return res.send(`<h2>✅ Email enviado para ${escapeHtml(to)}</h2><p>User: ${escapeHtml(user)} | Host: ${escapeHtml(host)}:${port} | SSL: ${secure}</p>`);
+    await transporter.sendMail({
+      from: `"Studio" <${user}>`,
+      to,
+      subject: "✅ Teste SMTP",
+      text: "SMTP funciona!",
+    });
+    return res.send(
+      `<h2>✅ Email enviado para ${escapeHtml(to)}</h2><p>User: ${escapeHtml(
+        user
+      )} | Host: ${escapeHtml(host)}:${port} | SSL: ${secure}</p>`
+    );
   } catch (err) {
-    return res.send(`<h2>❌ Erro: ${escapeHtml(err.message)}</h2><p>User: ${escapeHtml(user)} | Host: ${escapeHtml(host)}:${port} | SSL: ${secure}</p><p>Código: ${escapeHtml(err.code || '—')}</p>`);
+    return res.send(
+      `<h2>❌ Erro: ${escapeHtml(err.message)}</h2><p>User: ${escapeHtml(
+        user
+      )} | Host: ${escapeHtml(
+        host
+      )}:${port} | SSL: ${secure}</p><p>Código: ${escapeHtml(
+        err.code || "—"
+      )}</p>`
+    );
   }
 });
 
-app.post('/api/admin/test-email', requireAdmin, async (_req, res) => {
-  const user = process.env.SMTP_USER || '(não definido)';
+app.post("/api/admin/test-email", requireAdmin, async (_req, res) => {
+  const user = process.env.SMTP_USER || "(não definido)";
   const pass = process.env.SMTP_PASS;
-  const host = process.env.SMTP_HOST || 'smtp.gmail.com';
+  const host = process.env.SMTP_HOST || "smtp.gmail.com";
   const port = Number(process.env.SMTP_PORT || 465);
-  const to   = process.env.CONTACT_EMAIL || 'studiostattoadmin@gmail.com';
+  const to = process.env.CONTACT_EMAIL || "studiostattoadmin@gmail.com";
 
   if (!pass) {
-    return res.json({ ok: false, config: { user, host, port, to }, error: 'SMTP_PASS não definido nas variáveis de ambiente' });
+    return res.json({
+      ok: false,
+      config: { user, host, port, to },
+      error: "SMTP_PASS não definido nas variáveis de ambiente",
+    });
   }
 
-  const transporter = nodemailer.createTransport({ host, port, secure: port === 465, auth: { user, pass } });
+  const transporter = nodemailer.createTransport({
+    host,
+    port,
+    secure: port === 465,
+    auth: { user, pass },
+  });
   try {
     await transporter.verify();
     await transporter.sendMail({
       from: `"Teste Studio" <${user}>`,
       to,
-      subject: '✅ Teste de email — Studio Markin Tattoo',
-      text: 'Se recebeste este email, o SMTP está configurado corretamente!',
+      subject: "✅ Teste de email — Studio Markin Tattoo",
+      text: "Se recebeste este email, o SMTP está configurado corretamente!",
     });
-    res.json({ ok: true, config: { user, host, port, to }, message: 'Email enviado com sucesso!' });
+    res.json({
+      ok: true,
+      config: { user, host, port, to },
+      message: "Email enviado com sucesso!",
+    });
   } catch (err) {
-    res.json({ ok: false, config: { user, host, port, to }, error: err.message, code: err.code });
+    res.json({
+      ok: false,
+      config: { user, host, port, to },
+      error: err.message,
+      code: err.code,
+    });
   }
 });
 
-app.get('/api/jewelry', async (req, res) => {
+app.get("/api/jewelry", async (req, res) => {
   try {
-    const includeInactive = String(req.query.all || '') === '1';
-    const featuredOnly = String(req.query.featured || '') === '1';
+    const includeInactive = String(req.query.all || "") === "1";
+    const featuredOnly = String(req.query.featured || "") === "1";
     const category = req.query.category ? String(req.query.category) : null;
-    const items = await getJewelryItems({ includeInactive, featuredOnly, category });
+    const items = await getJewelryItems({
+      includeInactive,
+      featuredOnly,
+      category,
+    });
     res.json(items);
   } catch (error) {
-    console.error('Erro ao carregar joias', error);
-    res.status(500).json({ error: 'Falha ao carregar joias' });
+    console.error("Erro ao carregar joias", error);
+    res.status(500).json({ error: "Falha ao carregar joias" });
   }
 });
 
-app.post('/api/jewelry', requireAdmin, async (req, res) => {
-  const { name, description, price, imageUrls, isActive, stock, discountPercent, isFeatured, category } = req.body || {};
+app.post("/api/jewelry", requireAdmin, async (req, res) => {
+  const {
+    name,
+    description,
+    price,
+    imageUrls,
+    isActive,
+    stock,
+    discountPercent,
+    isFeatured,
+    category,
+  } = req.body || {};
   if (!name) {
-    return badRequest(res, 'Nome é obrigatório');
+    return badRequest(res, "Nome é obrigatório");
   }
 
   try {
-    const id = await createJewelryItem({ name, description, price, imageUrls, isActive, stock, discountPercent, isFeatured, category });
+    const id = await createJewelryItem({
+      name,
+      description,
+      price,
+      imageUrls,
+      isActive,
+      stock,
+      discountPercent,
+      isFeatured,
+      category,
+    });
     res.status(201).json({ id, ok: true });
   } catch (error) {
-    console.error('Erro ao criar joia', error);
-    res.status(500).json({ error: error.message || 'Falha ao criar joia' });
+    console.error("Erro ao criar joia", error);
+    res.status(500).json({ error: error.message || "Falha ao criar joia" });
   }
 });
 
-app.put('/api/jewelry/:id', requireAdmin, async (req, res) => {
+app.put("/api/jewelry/:id", requireAdmin, async (req, res) => {
   const { id } = req.params;
-  const { name, description, price, imageUrls, isActive, stock, discountPercent, isFeatured, category } = req.body || {};
+  const {
+    name,
+    description,
+    price,
+    imageUrls,
+    isActive,
+    stock,
+    discountPercent,
+    isFeatured,
+    category,
+  } = req.body || {};
 
   try {
-    await updateJewelryItem(id, { name, description, price, imageUrls, isActive, stock, discountPercent, isFeatured, category });
+    await updateJewelryItem(id, {
+      name,
+      description,
+      price,
+      imageUrls,
+      isActive,
+      stock,
+      discountPercent,
+      isFeatured,
+      category,
+    });
     res.json({ ok: true });
   } catch (error) {
-    console.error('Erro ao atualizar joia', error);
-    res.status(500).json({ error: error.message || 'Falha ao atualizar joia' });
+    console.error("Erro ao atualizar joia", error);
+    res.status(500).json({ error: error.message || "Falha ao atualizar joia" });
   }
 });
 
-app.delete('/api/jewelry/:id', requireAdmin, async (req, res) => {
+app.delete("/api/jewelry/:id", requireAdmin, async (req, res) => {
   const { id } = req.params;
   try {
     await deleteJewelryItem(id);
     res.json({ ok: true });
   } catch (error) {
-    console.error('Erro ao excluir joia', error);
-    res.status(500).json({ error: 'Falha ao excluir joia' });
+    console.error("Erro ao excluir joia", error);
+    res.status(500).json({ error: "Falha ao excluir joia" });
   }
 });
 
 // ============= JEWELRY ORDERS =============
-app.post('/api/jewelry-orders', async (req, res) => {
+app.post("/api/jewelry-orders", async (req, res) => {
   const {
-    customerName, email, phone, deliveryMethod,
-    addressLine1, addressLine2, city, state, postalCode,
-    notes, items, paymentMethod, pickupDate, initialStatus,
+    customerName,
+    email,
+    phone,
+    deliveryMethod,
+    addressLine1,
+    addressLine2,
+    city,
+    state,
+    postalCode,
+    notes,
+    items,
+    paymentMethod,
+    pickupDate,
+    initialStatus,
   } = req.body || {};
   if (!customerName || !customerName.trim()) {
-    return badRequest(res, 'Nome é obrigatório');
+    return badRequest(res, "Nome é obrigatório");
   }
   if (!Array.isArray(items) || items.length === 0) {
-    return badRequest(res, 'Pedido sem itens');
+    return badRequest(res, "Pedido sem itens");
   }
-  const safePayment = ['pix', 'cartao'].includes(paymentMethod) ? paymentMethod : 'dinheiro';
-  const allowedStatuses = ['nulo', 'pago', 'encomendado_pago', 'entregue', 'pegar_na_loja'];
-  const safeInitialStatus = allowedStatuses.includes(initialStatus) ? initialStatus : 'nulo';
+  const safePayment = ["pix", "cartao"].includes(paymentMethod)
+    ? paymentMethod
+    : "dinheiro";
+  const allowedStatuses = [
+    "nulo",
+    "pago",
+    "encomendado_pago",
+    "entregue",
+    "pegar_na_loja",
+  ];
+  const safeInitialStatus = allowedStatuses.includes(initialStatus)
+    ? initialStatus
+    : "nulo";
   try {
     // Validar preços e stock no servidor — nunca confiar nos preços enviados pelo cliente
     const ids = items.map((i) => i.id).filter(Boolean);
     const dbItems = await getJewelryItemsByIds(ids);
     const itemMap = new Map(dbItems.map((i) => [i.id, i]));
-    const validatedItems = items.map((item) => {
-      const dbItem = itemMap.get(item.id);
-      if (!dbItem) return null;
-      const discount = dbItem.discountPercent || 0;
-      const serverPrice = discount > 0
-        ? parseFloat((dbItem.price * (1 - discount / 100)).toFixed(2))
-        : Number(dbItem.price);
-      return { ...item, price: serverPrice, name: dbItem.name };
-    }).filter(Boolean);
+    const validatedItems = items
+      .map((item) => {
+        const dbItem = itemMap.get(item.id);
+        if (!dbItem) return null;
+        const discount = dbItem.discountPercent || 0;
+        const serverPrice =
+          discount > 0
+            ? parseFloat((dbItem.price * (1 - discount / 100)).toFixed(2))
+            : Number(dbItem.price);
+        return { ...item, price: serverPrice, name: dbItem.name };
+      })
+      .filter(Boolean);
     if (validatedItems.length === 0) {
-      return badRequest(res, 'Nenhum item válido no pedido');
+      return badRequest(res, "Nenhum item válido no pedido");
     }
     const orderId = await createJewelryOrder({
-      customerName, email, phone, deliveryMethod,
-      addressLine1, addressLine2, city, state, postalCode,
-      notes, items: validatedItems, paymentMethod: safePayment,
-      pickupDate, initialStatus: safeInitialStatus,
+      customerName,
+      email,
+      phone,
+      deliveryMethod,
+      addressLine1,
+      addressLine2,
+      city,
+      state,
+      postalCode,
+      notes,
+      items: validatedItems,
+      paymentMethod: safePayment,
+      pickupDate,
+      initialStatus: safeInitialStatus,
     });
     sendJewelryOrderEmail({
-      orderId, customerName, email, phone, deliveryMethod,
-      addressLine1, city, state, postalCode, notes,
-      items: validatedItems, paymentMethod: safePayment,
+      orderId,
+      customerName,
+      email,
+      phone,
+      deliveryMethod,
+      addressLine1,
+      city,
+      state,
+      postalCode,
+      notes,
+      items: validatedItems,
+      paymentMethod: safePayment,
     }).catch((err) => {
-      console.error('Falha ao enviar email de pedido:', err.message);
+      console.error("Falha ao enviar email de pedido:", err.message);
     });
     res.status(201).json({ ok: true, orderId });
   } catch (error) {
-    console.error('Erro ao criar pedido de joia', error);
-    res.status(500).json({ error: 'Falha ao criar pedido' });
+    console.error("Erro ao criar pedido de joia", error);
+    res.status(500).json({ error: "Falha ao criar pedido" });
   }
 });
 
 // ============= JEWELRY ORDERS ADMIN =============
-app.get('/api/jewelry-orders', requireAdmin, async (_req, res) => {
+app.get("/api/jewelry-orders", requireAdmin, async (_req, res) => {
   try {
     const orders = await getJewelryOrders();
     res.json(orders);
   } catch (error) {
-    console.error('Erro ao carregar pedidos de joias', error);
-    res.status(500).json({ error: 'Falha ao carregar pedidos' });
+    console.error("Erro ao carregar pedidos de joias", error);
+    res.status(500).json({ error: "Falha ao carregar pedidos" });
   }
 });
 
-app.put('/api/jewelry-orders/:id', requireAdmin, async (req, res) => {
+app.put("/api/jewelry-orders/:id", requireAdmin, async (req, res) => {
   const { id } = req.params;
   const { status } = req.body || {};
   if (!status) {
-    return badRequest(res, 'Status é obrigatório');
+    return badRequest(res, "Status é obrigatório");
   }
   try {
     await updateJewelryOrderStatus(id, { status });
     res.json({ ok: true });
   } catch (error) {
-    console.error('Erro ao atualizar pedido', error);
-    res.status(500).json({ error: error.message || 'Falha ao atualizar pedido' });
+    console.error("Erro ao atualizar pedido", error);
+    res
+      .status(500)
+      .json({ error: error.message || "Falha ao atualizar pedido" });
   }
 });
 
-app.delete('/api/jewelry-orders/:id', requireAdmin, async (req, res) => {
+app.delete("/api/jewelry-orders/:id", requireAdmin, async (req, res) => {
   const { id } = req.params;
   try {
     await deleteJewelryOrder(id);
     res.json({ ok: true });
   } catch (error) {
-    console.error('Erro ao excluir pedido', error);
-    res.status(500).json({ error: 'Falha ao excluir pedido' });
+    console.error("Erro ao excluir pedido", error);
+    res.status(500).json({ error: "Falha ao excluir pedido" });
   }
 });
 
 // ============= JEWELRY CHECKOUT (InfinitePay) =============
-app.post('/api/jewelry-checkout', async (req, res) => {
-  const { customerName, email, phone, deliveryMethod, addressLine1, city, state, notes, items } = req.body || {};
+app.post("/api/jewelry-checkout", async (req, res) => {
+  const {
+    customerName,
+    email,
+    phone,
+    deliveryMethod,
+    addressLine1,
+    city,
+    state,
+    notes,
+    items,
+  } = req.body || {};
   if (!customerName || !Array.isArray(items) || !items.length) {
-    return badRequest(res, 'Dados inválidos');
+    return badRequest(res, "Dados inválidos");
   }
   try {
     const ids = items.map((i) => i.id).filter(Boolean);
     const jewelryItems = await getJewelryItemsByIds(ids);
     const itemMap = new Map(jewelryItems.map((i) => [i.id, i]));
 
-    const cartWithPrices = items.map((item) => {
-      const ji = itemMap.get(item.id);
-      if (!ji) return null;
-      const discount = ji.discountPercent;
-      const price = discount > 0 ? parseFloat((ji.price * (1 - discount / 100)).toFixed(2)) : ji.price;
-      return { id: item.id, name: ji.name, price, quantity: Number(item.quantity) || 1 };
-    }).filter(Boolean);
+    const cartWithPrices = items
+      .map((item) => {
+        const ji = itemMap.get(item.id);
+        if (!ji) return null;
+        const discount = ji.discountPercent;
+        const price =
+          discount > 0
+            ? parseFloat((ji.price * (1 - discount / 100)).toFixed(2))
+            : ji.price;
+        return {
+          id: item.id,
+          name: ji.name,
+          price,
+          quantity: Number(item.quantity) || 1,
+        };
+      })
+      .filter(Boolean);
 
-    if (!cartWithPrices.length) return badRequest(res, 'Nenhum item válido');
+    if (!cartWithPrices.length) return badRequest(res, "Nenhum item válido");
 
-    const safeDelivery = deliveryMethod === 'delivery' ? 'delivery' : 'pickup';
+    const safeDelivery = deliveryMethod === "delivery" ? "delivery" : "pickup";
 
     const orderId = await createJewelryOrder({
-      customerName, email, phone,
+      customerName,
+      email,
+      phone,
       deliveryMethod: safeDelivery,
-      addressLine1, addressLine2: '', city, state, postalCode: '',
-      notes, items: cartWithPrices, paymentMethod: 'cartao',
+      addressLine1,
+      addressLine2: "",
+      city,
+      state,
+      postalCode: "",
+      notes,
+      items: cartWithPrices,
+      paymentMethod: "cartao",
     });
     sendJewelryOrderEmail({
-      orderId, customerName, email, phone,
-      deliveryMethod: safeDelivery, addressLine1, city, state,
-      postalCode: '', notes, items: cartWithPrices, paymentMethod: 'cartao',
+      orderId,
+      customerName,
+      email,
+      phone,
+      deliveryMethod: safeDelivery,
+      addressLine1,
+      city,
+      state,
+      postalCode: "",
+      notes,
+      items: cartWithPrices,
+      paymentMethod: "cartao",
     }).catch((err) => {
-      console.error('Falha ao enviar email de checkout:', err.message);
+      console.error("Falha ao enviar email de checkout:", err.message);
     });
 
     const clientId = process.env.INFINITEPAY_CLIENT_ID;
@@ -1559,31 +2063,39 @@ app.post('/api/jewelry-checkout', async (req, res) => {
 
     if (clientId && clientSecret) {
       try {
-        const tokenRes = await fetch('https://api.infinitepay.io/v2/oauth/token', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            grant_type: 'client_credentials',
-            client_id: clientId,
-            client_secret: clientSecret,
-            scope: 'checkout',
-          }),
-        });
-        if (!tokenRes.ok) throw new Error('InfinitePay auth failed');
+        const tokenRes = await fetch(
+          "https://api.infinitepay.io/v2/oauth/token",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              grant_type: "client_credentials",
+              client_id: clientId,
+              client_secret: clientSecret,
+              scope: "checkout",
+            }),
+          }
+        );
+        if (!tokenRes.ok) throw new Error("InfinitePay auth failed");
         const { access_token } = await tokenRes.json();
 
-        const ipRes = await fetch('https://api.checkout.infinitepay.io/links', {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${access_token}`, 'Content-Type': 'application/json' },
+        const ipRes = await fetch("https://api.checkout.infinitepay.io/links", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${access_token}`,
+            "Content-Type": "application/json",
+          },
           body: JSON.stringify({
-            handle: 'studiomarkintattoo',
+            handle: "studiomarkintattoo",
             order_nsu: orderId,
             items: cartWithPrices.map((i) => ({
               description: i.name,
               quantity: i.quantity,
               amount: Math.round(i.price * 100),
             })),
-            redirect_url: `${process.env.CORS_ORIGINS || 'http://localhost:5173'}/joalheria?pedido=${orderId}`,
+            redirect_url: `${
+              process.env.CORS_ORIGINS || "http://localhost:5173"
+            }/joalheria?pedido=${orderId}`,
           }),
         });
         if (ipRes.ok) {
@@ -1592,33 +2104,36 @@ app.post('/api/jewelry-checkout', async (req, res) => {
           if (paymentUrl) return res.json({ ok: true, orderId, paymentUrl });
         } else {
           const errBody = await ipRes.text();
-          console.error('InfinitePay response:', ipRes.status, errBody);
+          console.error("InfinitePay response:", ipRes.status, errBody);
         }
       } catch (ipErr) {
-        console.error('InfinitePay error:', ipErr.message);
+        console.error("InfinitePay error:", ipErr.message);
       }
     }
 
     res.json({ ok: true, orderId, fallback: true });
   } catch (error) {
-    console.error('Erro no checkout', error);
-    res.status(500).json({ error: 'Falha ao processar checkout' });
+    console.error("Erro no checkout", error);
+    res.status(500).json({ error: "Falha ao processar checkout" });
   }
 });
 
 // ============= SITE SETTINGS =============
-app.get('/api/site-settings', async (req, res) => {
+app.get("/api/site-settings", async (req, res) => {
   try {
-    const keysParam = typeof req.query.keys === 'string' ? req.query.keys.split(',').filter(Boolean) : [];
+    const keysParam =
+      typeof req.query.keys === "string"
+        ? req.query.keys.split(",").filter(Boolean)
+        : [];
     const settings = await getSiteSettings(keysParam);
     res.json(settings);
   } catch (error) {
-    console.error('Erro ao carregar configuracoes', error);
-    res.status(500).json({ error: 'Falha ao carregar configuracoes' });
+    console.error("Erro ao carregar configuracoes", error);
+    res.status(500).json({ error: "Falha ao carregar configuracoes" });
   }
 });
 
-app.put('/api/site-settings', requireAdmin, async (req, res) => {
+app.put("/api/site-settings", requireAdmin, async (req, res) => {
   const body = req.body || {};
   try {
     for (const [key, value] of Object.entries(body)) {
@@ -1627,37 +2142,46 @@ app.put('/api/site-settings', requireAdmin, async (req, res) => {
     const settings = await getSiteSettings();
     res.json(settings);
   } catch (error) {
-    console.error('Erro ao salvar configuracoes', error);
-    res.status(500).json({ error: error.message || 'Falha ao salvar configuracoes' });
+    console.error("Erro ao salvar configuracoes", error);
+    res
+      .status(500)
+      .json({ error: error.message || "Falha ao salvar configuracoes" });
   }
 });
 
 // ============= JEWELRY SALES / FATURAMENTO =============
-app.get('/api/jewelry-sales', requireAdmin, async (req, res) => {
+app.get("/api/jewelry-sales", requireAdmin, async (req, res) => {
   try {
-    const year = req.query.year ? Number(req.query.year) : new Date().getFullYear();
+    const year = req.query.year
+      ? Number(req.query.year)
+      : new Date().getFullYear();
     const data = await getJewelrySales({ year });
     res.json(data);
   } catch (error) {
-    console.error('Erro ao carregar faturamento', error);
-    res.status(500).json({ error: 'Falha ao carregar faturamento' });
+    console.error("Erro ao carregar faturamento", error);
+    res.status(500).json({ error: "Falha ao carregar faturamento" });
   }
 });
 
-app.post('/api/jewelry-sales/manual', requireAdmin, async (req, res) => {
+app.post("/api/jewelry-sales/manual", requireAdmin, async (req, res) => {
   const { customerName, description, total, paidAt } = req.body || {};
-  if (!total || isNaN(Number(total))) return badRequest(res, 'Valor inválido');
+  if (!total || isNaN(Number(total))) return badRequest(res, "Valor inválido");
   try {
-    const id = await createManualSale({ customerName, description, total: Number(total), paidAt });
+    const id = await createManualSale({
+      customerName,
+      description,
+      total: Number(total),
+      paidAt,
+    });
     res.status(201).json({ ok: true, id });
   } catch (error) {
-    console.error('Erro ao lançar venda manual', error);
-    res.status(500).json({ error: 'Falha ao lançar venda' });
+    console.error("Erro ao lançar venda manual", error);
+    res.status(500).json({ error: "Falha ao lançar venda" });
   }
 });
 
 // Deletar venda (order concluída ou manual)
-app.delete('/api/jewelry-sales/:id', requireAdmin, async (req, res) => {
+app.delete("/api/jewelry-sales/:id", requireAdmin, async (req, res) => {
   const { id } = req.params;
   try {
     // Tenta deletar da tabela de orders (vendas de pedidos)
@@ -1668,99 +2192,109 @@ app.delete('/api/jewelry-sales/:id', requireAdmin, async (req, res) => {
     if (orderDel.rowCount > 0) return res.json({ ok: true });
     // Tenta deletar da tabela de vendas manuais
     const manualDel = await pool.query(
-      'DELETE FROM app.jewelry_manual_sale WHERE id = $1 RETURNING id',
+      "DELETE FROM app.jewelry_manual_sale WHERE id = $1 RETURNING id",
       [id]
     );
     if (manualDel.rowCount > 0) return res.json({ ok: true });
-    res.status(404).json({ error: 'Venda não encontrada' });
+    res.status(404).json({ error: "Venda não encontrada" });
   } catch (error) {
-    console.error('Erro ao deletar venda', error);
-    res.status(500).json({ error: 'Falha ao deletar venda' });
+    console.error("Erro ao deletar venda", error);
+    res.status(500).json({ error: "Falha ao deletar venda" });
   }
 });
 
 // Editar status de pedido de joias
-app.put('/api/jewelry-sales/:id/status', requireAdmin, async (req, res) => {
+app.put("/api/jewelry-sales/:id/status", requireAdmin, async (req, res) => {
   const { id } = req.params;
   const { status } = req.body || {};
-  const validStatuses = ['pending', 'confirmed', 'done', 'cancelled'];
-  if (!validStatuses.includes(status)) return badRequest(res, 'Status inválido');
+  const validStatuses = ["pending", "confirmed", "done", "cancelled"];
+  if (!validStatuses.includes(status))
+    return badRequest(res, "Status inválido");
   try {
     const result = await pool.query(
-      'UPDATE app.jewelry_order SET status = $1, updated_at = now() WHERE id = $2 RETURNING id',
+      "UPDATE app.jewelry_order SET status = $1, updated_at = now() WHERE id = $2 RETURNING id",
       [status, id]
     );
-    if (result.rowCount === 0) return res.status(404).json({ error: 'Pedido não encontrado' });
+    if (result.rowCount === 0)
+      return res.status(404).json({ error: "Pedido não encontrado" });
     res.json({ ok: true });
   } catch (error) {
-    console.error('Erro ao atualizar status', error);
-    res.status(500).json({ error: 'Falha ao atualizar status' });
+    console.error("Erro ao atualizar status", error);
+    res.status(500).json({ error: "Falha ao atualizar status" });
   }
 });
 
-app.get('/api/course-enrollments', requireAdmin, async (_req, res) => {
+app.get("/api/course-enrollments", requireAdmin, async (_req, res) => {
   try {
     const result = await pool.query(
-      'SELECT id, name, email, phone, message, status, submitted_at AS created_at FROM app.course_enrollment ORDER BY submitted_at DESC'
+      "SELECT id, name, email, phone, message, status, submitted_at AS created_at FROM app.course_enrollment ORDER BY submitted_at DESC"
     );
     res.json(result.rows);
   } catch (error) {
-    console.error('Erro ao carregar inscrições', error);
-    res.status(500).json({ error: 'Falha ao carregar inscrições' });
+    console.error("Erro ao carregar inscrições", error);
+    res.status(500).json({ error: "Falha ao carregar inscrições" });
   }
 });
 
 // ============= COURSE ENDPOINTS =============
-app.get('/api/course', async (_req, res) => {
+app.get("/api/course", async (_req, res) => {
   try {
     const course = await getCourse();
     res.json(course || {});
   } catch (error) {
-    console.error('Erro ao carregar curso', error);
-    res.status(500).json({ error: 'Falha ao carregar curso' });
+    console.error("Erro ao carregar curso", error);
+    res.status(500).json({ error: "Falha ao carregar curso" });
   }
 });
 
-app.put('/api/course', requireAdmin, async (req, res) => {
+app.put("/api/course", requireAdmin, async (req, res) => {
   const { title, description, nextClass, price, priceNote } = req.body || {};
 
   try {
     const course = await getCourse();
     if (!course) {
-      return badRequest(res, 'Nenhum curso configurado');
+      return badRequest(res, "Nenhum curso configurado");
     }
 
-    await updateCourse(course.id, { title, description, nextClass, price, priceNote });
+    await updateCourse(course.id, {
+      title,
+      description,
+      nextClass,
+      price,
+      priceNote,
+    });
     const updated = await getCourse();
     res.json(updated);
   } catch (error) {
-    console.error('Erro ao atualizar curso', error);
-    res.status(500).json({ error: error.message || 'Falha ao atualizar curso' });
+    console.error("Erro ao atualizar curso", error);
+    res
+      .status(500)
+      .json({ error: error.message || "Falha ao atualizar curso" });
   }
 });
 
 // ============= COURSE FEATURES ENDPOINTS =============
-app.post('/api/course/features', requireAdmin, async (req, res) => {
+app.post("/api/course/features", requireAdmin, async (req, res) => {
   const { title, description } = req.body || {};
   if (!title || !description) {
-    return badRequest(res, 'Título e descrição são obrigatórios');
+    return badRequest(res, "Título e descrição são obrigatórios");
   }
 
   try {
     const course = await getCourse();
     if (!course) {
-      return badRequest(res, 'Nenhum curso configurado');
+      return badRequest(res, "Nenhum curso configurado");
     }
 
     const id = await createCourseFeature(course.id, { title, description });
     res.status(201).json({ id, ok: true });
   } catch (error) {
-    console.error('Erro ao criar feature', error);
-    res.status(500).json({ error: error.message || 'Falha ao criar feature' });
+    console.error("Erro ao criar feature", error);
+    res.status(500).json({ error: error.message || "Falha ao criar feature" });
   }
 });
 
-app.put('/api/course/features/:id', requireAdmin, async (req, res) => {
+app.put("/api/course/features/:id", requireAdmin, async (req, res) => {
   const { id } = req.params;
   const { title, description, sortOrder } = req.body || {};
 
@@ -1768,45 +2302,49 @@ app.put('/api/course/features/:id', requireAdmin, async (req, res) => {
     await updateCourseFeature(id, { title, description, sortOrder });
     res.json({ ok: true });
   } catch (error) {
-    console.error('Erro ao atualizar feature', error);
-    res.status(500).json({ error: error.message || 'Falha ao atualizar feature' });
+    console.error("Erro ao atualizar feature", error);
+    res
+      .status(500)
+      .json({ error: error.message || "Falha ao atualizar feature" });
   }
 });
 
-app.delete('/api/course/features/:id', requireAdmin, async (req, res) => {
+app.delete("/api/course/features/:id", requireAdmin, async (req, res) => {
   const { id } = req.params;
 
   try {
     await deleteCourseFeature(id);
     res.json({ ok: true });
   } catch (error) {
-    console.error('Erro ao deletar feature', error);
-    res.status(500).json({ error: 'Falha ao deletar feature' });
+    console.error("Erro ao deletar feature", error);
+    res.status(500).json({ error: "Falha ao deletar feature" });
   }
 });
 
 // ============= COURSE HIGHLIGHTS ENDPOINTS =============
-app.post('/api/course/highlights', requireAdmin, async (req, res) => {
+app.post("/api/course/highlights", requireAdmin, async (req, res) => {
   const { text } = req.body || {};
   if (!text) {
-    return badRequest(res, 'Texto é obrigatório');
+    return badRequest(res, "Texto é obrigatório");
   }
 
   try {
     const course = await getCourse();
     if (!course) {
-      return badRequest(res, 'Nenhum curso configurado');
+      return badRequest(res, "Nenhum curso configurado");
     }
 
     const id = await createCourseHighlight(course.id, { text });
     res.status(201).json({ id, ok: true });
   } catch (error) {
-    console.error('Erro ao criar highlight', error);
-    res.status(500).json({ error: error.message || 'Falha ao criar highlight' });
+    console.error("Erro ao criar highlight", error);
+    res
+      .status(500)
+      .json({ error: error.message || "Falha ao criar highlight" });
   }
 });
 
-app.put('/api/course/highlights/:id', requireAdmin, async (req, res) => {
+app.put("/api/course/highlights/:id", requireAdmin, async (req, res) => {
   const { id } = req.params;
   const { text, sortOrder } = req.body || {};
 
@@ -1814,45 +2352,49 @@ app.put('/api/course/highlights/:id', requireAdmin, async (req, res) => {
     await updateCourseHighlight(id, { text, sortOrder });
     res.json({ ok: true });
   } catch (error) {
-    console.error('Erro ao atualizar highlight', error);
-    res.status(500).json({ error: error.message || 'Falha ao atualizar highlight' });
+    console.error("Erro ao atualizar highlight", error);
+    res
+      .status(500)
+      .json({ error: error.message || "Falha ao atualizar highlight" });
   }
 });
 
-app.delete('/api/course/highlights/:id', requireAdmin, async (req, res) => {
+app.delete("/api/course/highlights/:id", requireAdmin, async (req, res) => {
   const { id } = req.params;
 
   try {
     await deleteCourseHighlight(id);
     res.json({ ok: true });
   } catch (error) {
-    console.error('Erro ao deletar highlight', error);
-    res.status(500).json({ error: 'Falha ao deletar highlight' });
+    console.error("Erro ao deletar highlight", error);
+    res.status(500).json({ error: "Falha ao deletar highlight" });
   }
 });
 
 // ============= COURSE EXTRA INFO ENDPOINTS =============
-app.post('/api/course/extra-info', requireAdmin, async (req, res) => {
+app.post("/api/course/extra-info", requireAdmin, async (req, res) => {
   const { text } = req.body || {};
   if (!text) {
-    return badRequest(res, 'Texto é obrigatório');
+    return badRequest(res, "Texto é obrigatório");
   }
 
   try {
     const course = await getCourse();
     if (!course) {
-      return badRequest(res, 'Nenhum curso configurado');
+      return badRequest(res, "Nenhum curso configurado");
     }
 
     const id = await createCourseExtraInfo(course.id, { text });
     res.status(201).json({ id, ok: true });
   } catch (error) {
-    console.error('Erro ao criar informação extra', error);
-    res.status(500).json({ error: error.message || 'Falha ao criar informação extra' });
+    console.error("Erro ao criar informação extra", error);
+    res
+      .status(500)
+      .json({ error: error.message || "Falha ao criar informação extra" });
   }
 });
 
-app.put('/api/course/extra-info/:id', requireAdmin, async (req, res) => {
+app.put("/api/course/extra-info/:id", requireAdmin, async (req, res) => {
   const { id } = req.params;
   const { text, sortOrder } = req.body || {};
 
@@ -1860,48 +2402,58 @@ app.put('/api/course/extra-info/:id', requireAdmin, async (req, res) => {
     await updateCourseExtraInfo(id, { text, sortOrder });
     res.json({ ok: true });
   } catch (error) {
-    console.error('Erro ao atualizar informação extra', error);
-    res.status(500).json({ error: error.message || 'Falha ao atualizar informação extra' });
+    console.error("Erro ao atualizar informação extra", error);
+    res
+      .status(500)
+      .json({ error: error.message || "Falha ao atualizar informação extra" });
   }
 });
 
-app.delete('/api/course/extra-info/:id', requireAdmin, async (req, res) => {
+app.delete("/api/course/extra-info/:id", requireAdmin, async (req, res) => {
   const { id } = req.params;
 
   try {
     await deleteCourseExtraInfo(id);
     res.json({ ok: true });
   } catch (error) {
-    console.error('Erro ao deletar informação extra', error);
-    res.status(500).json({ error: 'Falha ao deletar informação extra' });
+    console.error("Erro ao deletar informação extra", error);
+    res.status(500).json({ error: "Falha ao deletar informação extra" });
   }
 });
 
 // Serve frontend compilado
-const frontendDist = path.resolve(__dirname, '..', '..', 'frontend', 'dist');
+const frontendDist = path.resolve(__dirname, "..", "..", "frontend", "dist");
 // Hashed assets (JS/CSS/images inside /assets/) get long-lived cache; HTML must not be cached
-app.use('/assets', express.static(path.join(frontendDist, 'assets'), {
-  maxAge: '1y',
-  immutable: true,
-}));
-app.use(express.static(frontendDist, { extensions: ['html'] }));
+app.use(
+  "/assets",
+  express.static(path.join(frontendDist, "assets"), {
+    maxAge: "1y",
+    immutable: true,
+  })
+);
+app.use(express.static(frontendDist, { extensions: ["html"] }));
 
 // Rotas explícitas para as páginas multi-entry do Vite (sem extensão .html)
 const multiEntryPages = {
-  '/joalheria': 'joalheria.html',
-  '/joias': 'joias.html',
-  '/curso': 'curso.html',
+  // '/joalheria': 'joalheria.html',
+  // '/joias': 'joias.html',
+  "/curso": "curso.html",
 };
 for (const [route, file] of Object.entries(multiEntryPages)) {
   app.get(route, (_req, res) => res.sendFile(path.join(frontendDist, file)));
 }
 
 // Catch-all: devolve index.html para rotas SPA que não são /api nem /media
-app.get('*', (req, res, next) => {
-  if (req.path.startsWith('/api') || req.path.startsWith('/media') || req.path.startsWith('/admin-media') || req.path.startsWith('/uploads')) {
+app.get("*", (req, res, next) => {
+  if (
+    req.path.startsWith("/api") ||
+    req.path.startsWith("/media") ||
+    req.path.startsWith("/admin-media") ||
+    req.path.startsWith("/uploads")
+  ) {
     return next();
   }
-  const indexHtml = path.join(frontendDist, 'index.html');
+  const indexHtml = path.join(frontendDist, "index.html");
   res.sendFile(indexHtml, (err) => {
     if (err) next();
   });
@@ -1914,15 +2466,15 @@ const startServer = async () => {
       console.log(`✅ API rodando em http://localhost:${port}`);
     });
     bootstrapAdminMedia().catch((error) => {
-      console.error('Falha ao sincronizar midias do admin', error);
+      console.error("Falha ao sincronizar midias do admin", error);
     });
   } catch (error) {
-    console.error('Falha ao iniciar API', error);
+    console.error("Falha ao iniciar API", error);
     process.exit(1);
   }
 };
 
 startServer().catch((err) => {
-  console.error('Erro fatal ao iniciar servidor:', err);
+  console.error("Erro fatal ao iniciar servidor:", err);
   process.exit(1);
 });

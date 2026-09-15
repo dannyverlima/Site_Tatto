@@ -1,6 +1,6 @@
-import { motion, useScroll, useTransform } from 'framer-motion';
-const logoImg = '/media/Logo.png';
-import { HeroBackground } from './HeroBackground';
+import { motion, useScroll, useTransform } from "framer-motion";
+const logoImg = "/media/Logo.png";
+import { HeroBackground } from "./HeroBackground";
 
 export function Hero() {
   const { scrollY } = useScroll();
@@ -9,7 +9,7 @@ export function Hero() {
 
   const goToCoursePage = (event: React.MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault();
-    const targetHref = '/curso.html';
+    const targetHref = "/curso.html";
     window.setTimeout(() => {
       window.location.href = targetHref;
     }, 140);
@@ -17,14 +17,17 @@ export function Hero() {
 
   const goToLocationPage = (event: React.MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault();
-    const targetHref = '/localizacao';
+    const targetHref = "/localizacao";
     window.setTimeout(() => {
       window.location.href = targetHref;
     }, 140);
   };
 
   return (
-    <section id="home" className="relative h-screen w-full overflow-hidden flex items-center justify-center bg-black">
+    <section
+      id="home"
+      className="relative h-screen w-full overflow-hidden flex items-center justify-center bg-black"
+    >
       {/* Background Image com Opacidade Baixa */}
       <div className="absolute inset-0 z-0">
         <HeroBackground />
@@ -46,7 +49,7 @@ export function Hero() {
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.8, delay: 0.5 }}
           className="mx-auto mb-4 sm:mb-6 h-40 sm:h-52 md:h-60 lg:h-80 w-auto"
-          style={{ mixBlendMode: 'lighten' }}
+          style={{ mixBlendMode: "lighten" }}
         />
         <motion.p
           initial={{ opacity: 0 }}
@@ -54,7 +57,7 @@ export function Hero() {
           transition={{ duration: 0.8, delay: 0.8 }}
           className="text-base sm:text-xl md:text-2xl text-neutral-300 tracking-wide"
         >
-          A qualidade e elegância que seu corpo merece
+          Qualidade e elegância que seu corpo merece
         </motion.p>
 
         <motion.div
@@ -71,14 +74,14 @@ export function Hero() {
           >
             Especialistas
           </motion.a>
-          <motion.a
+          {/* <motion.a
             href="/joalheria"
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.98 }}
             className="px-5 py-2 rounded-full border border-neutral-800 text-neutral-200 text-xs tracking-wide uppercase hover:border-neutral-500 transition-colors"
           >
             Joalheria
-          </motion.a>
+          </motion.a> */}
           <motion.a
             href="/curso.html"
             onClick={goToCoursePage}
