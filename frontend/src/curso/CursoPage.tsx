@@ -1300,6 +1300,33 @@ export default function CursoPage() {
         </div>
       </Section>
 
+      <Section
+        id="beneficios"
+        className="py-20 md:py-28"
+        style={{ background: "#04100A" } as React.CSSProperties}
+      >
+        <motion.div
+          variants={stagger}
+          initial="hidden"
+          whileInView="visible"
+          viewport={inViewOpts}
+          className="text-center mt-14"
+        >
+          <motion.p
+            variants={fadeUp}
+            className="text-xs uppercase tracking-[0.4em] mb-3"
+            style={{ color: GOLD }}
+          >
+            Garanta sua vaga para
+          </motion.p>
+          <motion.h2
+            variants={fadeUp}
+            className="text-3xl sm:text-5xl md:text-6xl font-bold text-white"
+          >
+            Turma de <span style={{ color: GOLD }}>Novembro!</span>
+          </motion.h2>
+        </motion.div>
+      </Section>
       {/* ── 7. DO ZERO AO AVANÇADO ──────────────────────────────────────── */}
       <Section id="metodologia" className="py-20 md:py-28">
         <div className="max-w-5xl mx-auto grid md:grid-cols-2 gap-12 md:gap-16 items-center">
